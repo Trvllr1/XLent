@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 
-interface Props {
-  modelId: string;
-  modelName: string;
-}
+type Tab = 'overview' | 'inputs' | 'outputs' | 'graph' | 'compatibility' | 'provenance';
 
-type Tab = 'overview' | 'inputs' | 'outputs' | 'graph' | 'scenarios' | 'compatibility' | 'provenance';
-
-export function ModelView({ modelId, modelName }: Props) {
+export function ModelView() {
+  const { id: modelId } = useParams<{ id: string }>();
   const [tab, setTab] = useState<Tab>('overview');
   const [model, setModel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -27,14 +24,21 @@ export function ModelView({ modelId, modelName }: Props) {
     { key: 'inputs', label: 'Inputs' },
     { key: 'outputs', label: 'Outputs' },
     { key: 'graph', label: 'Graph' },
-    { key: 'scenarios', label: 'Scenarios' },
     { key: 'compatibility', label: 'Compatibility' },
     { key: 'provenance', label: 'Provenance' },
   ];
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold mb-4">{modelName}</h2>
+      <div className="flex items-center gap-4 mb-4">
+        <h2 className="text-2xl font-semibold">{model.name}</h2>
+        <Link
+          to={`/models/${modelId}/run`}
+          className="ml-auto bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg"
+        >
+          Run Model →
+        </Link>
+      </div>
 
       <nav className="flex gap-1 border-b border-slate-800 mb-6">
         {tabs.map((t) => (
@@ -55,8 +59,7 @@ export function ModelView({ modelId, modelName }: Props) {
       {tab === 'outputs' && <OutputsPanel outputs={model.outputs} />}
       {tab === 'graph' && <GraphPanel graph={model.graph} />}
       {tab === 'compatibility' && <CompatibilityPanel report={model.compatibility} />}
-      {tab === 'provenance' && <ProvenancePanel modelId={modelId} />}
-      {tab === 'scenarios' && <ScenariosPanel modelId={modelId} />}
+      {tab === 'provenance' && <ProvenancePanel modelId={modelId!} />}
     </div>
   );
 }
@@ -200,23 +203,6 @@ function ProvenancePanel({ modelId }: { modelId: string }) {
         ))}
       </tbody>
     </table>
-  );
-}
-
-function ScenariosPanel({ modelId }: { modelId: string }) {
-  return (
-    <div className="bg-slate-900 rounded-lg p-4">
-      <p className="text-sm text-slate-400">
-        Scenario creation UI coming in next iteration. Use the API directly:
-      </p>
-      <pre className="mt-2 text-xs text-slate-500 font-mono">
-{`POST /models/${modelId}/scenarios
-{
-  "name": "Downside",
-  "overrides": [{ "parameterId": "...", "value": 120 }]
-}`}
-      </pre>
-    </div>
   );
 }
 

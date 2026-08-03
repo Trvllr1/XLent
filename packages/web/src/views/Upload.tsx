@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 interface Props {
-  onImported: (id: string, name: string) => void;
+  onImported: (id: string) => void;
 }
 
 export function Upload({ onImported }: Props) {
@@ -28,7 +28,7 @@ export function Upload({ onImported }: Props) {
         throw new Error(data?.error || `Upload failed (${res.status})`);
       }
       const { model } = await res.json();
-      onImported(model.id, model.name);
+      onImported(model.id);
     } catch (err: any) {
       setError(err.message || 'Upload failed');
     } finally {

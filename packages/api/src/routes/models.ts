@@ -9,8 +9,9 @@ import {
   runScenario,
   compareScenarios,
 } from '@xlent/core';
-import type { Model, Parameter, Output, ScenarioOverride } from '@xlent/core';
+import type { Model, Parameter, Output, ScenarioOverride, Deliverable } from '@xlent/core';
 import { store } from '../store.js';
+import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema } from '../schemas.js';
 
 export const modelsRouter = new Hono();
 
@@ -167,9 +168,12 @@ modelsRouter.post('/:id/run', async (c) => {
   const workbook = store.getWorkbook(c.req.param('id'));
   if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
 
-  const body = await c.req.json<{ overrides?: ScenarioOverride[] }>().catch(() => ({ overrides: undefined }));
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = runModelSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
+
   const runtime = new ModelRuntime(model, workbook);
-  const results = runtime.run(body.overrides);
+  const results = runtime.run(parsed.data.overrides as ScenarioOverride[] | undefined);
 
   return c.json({ results });
 });
@@ -180,12 +184,11 @@ modelsRouter.post('/:id/scenarios', async (c) => {
   const workbook = store.getWorkbook(c.req.param('id'));
   if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
 
-  const body = await c.req.json<{ name: string; overrides: ScenarioOverride[] }>();
-  if (!body.name || !body.overrides) {
-    return c.json({ error: 'name and overrides required' }, 400);
-  }
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = createScenarioSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
 
-  const scenario = runScenario(model, workbook, body.name, body.overrides);
+  const scenario = runScenario(model, workbook, parsed.data.name, parsed.data.overrides as ScenarioOverride[]);
   return c.json({ scenario }, 201);
 });
 
@@ -195,21 +198,109 @@ modelsRouter.post('/:id/compare', async (c) => {
   const workbook = store.getWorkbook(c.req.param('id'));
   if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
 
-  const body = await c.req.json<{
-    baselineOverrides?: ScenarioOverride[];
-    scenarioOverrides: ScenarioOverride[];
-    scenarioId?: string;
-  }>();
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = compareSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
 
   const comparison = compareScenarios(
     model,
     workbook,
-    body.baselineOverrides || null,
-    body.scenarioOverrides,
-    body.scenarioId || 'ad-hoc',
+    (parsed.data.baselineOverrides as ScenarioOverride[]) || null,
+    parsed.data.scenarioOverrides as ScenarioOverride[],
+    parsed.data.scenarioId || 'ad-hoc',
   );
 
   return c.json({ comparison });
+});
+
+/** DELETE /models/:id — Remove a model */
+modelsRouter.delete('/:id', (c) => {
+  const deleted = store.deleteModel(c.req.param('id'));
+  if (!deleted) return c.json({ error: 'Model not found' }, 404);
+  return c.json({ deleted: true });
+});
+
+/** GET /models/:id/deliverable — Package model run as a deliverable for clients */
+modelsRouter.get('/:id/deliverable', async (c) => {
+  const model = store.getModel(c.req.param('id'));
+  const workbook = store.getWorkbook(c.req.param('id'));
+  if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
+
+  const runtime = new ModelRuntime(model, workbook);
+  const results = runtime.run();
+
+  const deliverable: Deliverable = {
+    id: crypto.randomUUID(),
+    modelId: model.id,
+    modelName: model.name,
+    modelVersion: model.version,
+    executedAt: new Date().toISOString(),
+    outputs: model.outputs.map((o) => ({
+      id: o.id,
+      name: o.name,
+      value: results[o.id],
+      sourceCell: `${o.sourceCell.sheet}!${o.sourceCell.ref}`,
+      confidence: o.confidence,
+    })),
+    parameters: model.parameters.map((p) => ({
+      id: p.id,
+      name: p.name,
+      value: p.currentValue,
+      sourceCell: `${p.sourceCell.sheet}!${p.sourceCell.ref}`,
+      confidence: p.confidence,
+    })),
+    overridesApplied: [],
+    compatibility: model.compatibility,
+  };
+
+  return c.json({ deliverable });
+});
+
+/** POST /models/:id/deliverable/push — Run model and POST deliverable to a callback URL */
+modelsRouter.post('/:id/deliverable/push', async (c) => {
+  const model = store.getModel(c.req.param('id'));
+  const workbook = store.getWorkbook(c.req.param('id'));
+  if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
+
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = deliverablePushSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
+
+  const runtime = new ModelRuntime(model, workbook);
+  const results = runtime.run(parsed.data.overrides as ScenarioOverride[] | undefined);
+
+  const deliverable: Deliverable = {
+    id: crypto.randomUUID(),
+    modelId: model.id,
+    modelName: model.name,
+    modelVersion: model.version,
+    executedAt: new Date().toISOString(),
+    outputs: model.outputs.map((o) => ({
+      id: o.id,
+      name: o.name,
+      value: results[o.id],
+      sourceCell: `${o.sourceCell.sheet}!${o.sourceCell.ref}`,
+      confidence: o.confidence,
+    })),
+    parameters: model.parameters.map((p) => ({
+      id: p.id,
+      name: p.name,
+      value: p.currentValue,
+      sourceCell: `${p.sourceCell.sheet}!${p.sourceCell.ref}`,
+      confidence: p.confidence,
+    })),
+    overridesApplied: parsed.data.overrides as ScenarioOverride[] || [],
+    compatibility: model.compatibility,
+  };
+
+  // Fire-and-forget push to client
+  fetch(parsed.data.callbackUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deliverable }),
+  }).catch(() => { /* best-effort */ });
+
+  return c.json({ deliverable, pushed: true }, 202);
 });
 
 /** GET /models/:id/graph — Get dependency graph */

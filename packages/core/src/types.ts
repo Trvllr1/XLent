@@ -146,3 +146,23 @@ export interface Provenance {
   modifiedBy?: string;
   modifiedAt?: string;
 }
+
+export interface DeliverableItem {
+  id: string;
+  name: string;
+  value: unknown;
+  sourceCell: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface Deliverable {
+  id: string;
+  modelId: string;
+  modelName: string;
+  modelVersion: number;
+  executedAt: string;
+  outputs: DeliverableItem[];
+  parameters: DeliverableItem[];
+  overridesApplied: ScenarioOverride[];
+  compatibility: CompatibilityReport;
+}
