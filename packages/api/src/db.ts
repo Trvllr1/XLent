@@ -27,6 +27,25 @@ db.exec(`
     model_id TEXT PRIMARY KEY REFERENCES models(id) ON DELETE CASCADE,
     data BLOB NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS clients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    webhook_url TEXT NOT NULL,
+    api_key TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS deliveries (
+    id TEXT PRIMARY KEY,
+    model_id TEXT NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+    client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    response_code INTEGER,
+    pushed_at TEXT NOT NULL,
+    delivered_at TEXT,
+    error TEXT
+  );
 `);
 
 export default db;

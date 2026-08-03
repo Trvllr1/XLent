@@ -9,6 +9,9 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="text-emerald-400">X</span>Lent
         </Link>
         <span className="text-sm text-slate-500">Spreadsheets → Software</span>
+        <Link to="/clients" className="ml-auto text-xs text-slate-400 hover:text-emerald-400 transition-colors">
+          Clients
+        </Link>
       </header>
       <main className="p-6">{children}</main>
     </div>

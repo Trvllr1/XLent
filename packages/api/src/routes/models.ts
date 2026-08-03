@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import crypto from 'crypto';
 import {
   parseWorkbook,
   discoverModel,
@@ -10,8 +11,8 @@ import {
   compareScenarios,
 } from '@xlent/core';
 import type { Model, Parameter, Output, ScenarioOverride, Deliverable } from '@xlent/core';
-import { store } from '../store.js';
-import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema } from '../schemas.js';
+import { store, clientStore } from '../store.js';
+import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema, deliverToClientSchema } from '../schemas.js';
 
 export const modelsRouter = new Hono();
 
@@ -301,6 +302,73 @@ modelsRouter.post('/:id/deliverable/push', async (c) => {
   }).catch(() => { /* best-effort */ });
 
   return c.json({ deliverable, pushed: true }, 202);
+});
+
+/** POST /models/:id/deliver — Run model and push to a registered client with retry + audit */
+modelsRouter.post('/:id/deliver', async (c) => {
+  const model = store.getModel(c.req.param('id'));
+  const workbook = store.getWorkbook(c.req.param('id'));
+  if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
+
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = deliverToClientSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
+
+  const client = clientStore.getClient(parsed.data.clientId);
+  if (!client) return c.json({ error: 'Client not found' }, 404);
+
+  const runtime = new ModelRuntime(model, workbook);
+  const results = runtime.run(parsed.data.overrides as ScenarioOverride[] | undefined);
+
+  const deliverable: Deliverable = {
+    id: crypto.randomUUID(),
+    modelId: model.id,
+    modelName: model.name,
+    modelVersion: model.version,
+    executedAt: new Date().toISOString(),
+    outputs: model.outputs.map((o) => ({
+      id: o.id, name: o.name, value: results[o.id],
+      sourceCell: `${o.sourceCell.sheet}!${o.sourceCell.ref}`, confidence: o.confidence,
+    })),
+    parameters: model.parameters.map((p) => ({
+      id: p.id, name: p.name, value: p.currentValue,
+      sourceCell: `${p.sourceCell.sheet}!${p.sourceCell.ref}`, confidence: p.confidence,
+    })),
+    overridesApplied: parsed.data.overrides as ScenarioOverride[] || [],
+    compatibility: model.compatibility,
+  };
+
+  const delivery = clientStore.createDelivery(model.id, client.id);
+
+  // Push with retry (up to 3 attempts)
+  const push = async () => {
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch(client.webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-XLent-Signature': client.apiKey,
+            'X-XLent-Delivery-Id': delivery.id,
+          },
+          body: JSON.stringify({ deliverable }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        clientStore.completeDelivery(delivery.id, res.status);
+        return;
+      } catch (err: any) {
+        if (attempt === MAX_RETRIES) {
+          clientStore.failDelivery(delivery.id, err.message);
+        }
+        // Back off before retry
+        await new Promise((r) => setTimeout(r, attempt * 1000));
+      }
+    }
+  };
+  push(); // fire async — don't await
+
+  return c.json({ deliverable, delivery: { id: delivery.id, clientId: client.id, clientName: client.name } }, 202);
 });
 
 /** GET /models/:id/graph — Get dependency graph */

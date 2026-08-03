@@ -8,6 +8,7 @@ export default defineConfig({
     port: 4200,
     proxy: {
       '/models': 'http://localhost:4100',
+      '/clients': 'http://localhost:4100',
       '/health': 'http://localhost:4100',
     },
   },

@@ -34,3 +34,11 @@ export const deliverablePushSchema = z.object({
     value: z.unknown(),
   })).optional(),
 });
+
+export const deliverToClientSchema = z.object({
+  clientId: z.string().uuid(),
+  overrides: z.array(z.object({
+    parameterId: z.string().uuid(),
+    value: z.unknown(),
+  })).optional(),
+});

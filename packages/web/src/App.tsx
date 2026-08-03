@@ -3,6 +3,7 @@ import { Shell } from './layouts/Shell.js';
 import { ModelListPage } from './views/ModelList.js';
 import { ModelView } from './views/ModelView.js';
 import { RunPanel } from './views/RunPanel.js';
+import { ClientsPage } from './views/ClientsPage.js';
 
 export function App() {
   return (
@@ -11,6 +12,7 @@ export function App() {
         <Route path="/" element={<ModelListPage />} />
         <Route path="/models/:id" element={<ModelView />} />
         <Route path="/models/:id/run" element={<RunPanel />} />
+        <Route path="/clients" element={<ClientsPage />} />
       </Routes>
     </Shell>
   );

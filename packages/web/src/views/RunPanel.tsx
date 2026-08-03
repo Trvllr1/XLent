@@ -25,6 +25,13 @@ interface ComparisonRow {
   percentDelta: number | null;
 }
 
+interface ClientSummary {
+  id: string;
+  name: string;
+  webhookUrl: string;
+  apiKeyPrefix: string;
+}
+
 export function RunPanel() {
   const { id: modelId } = useParams<{ id: string }>();
   const [model, setModel] = useState<any>(null);
@@ -34,12 +41,19 @@ export function RunPanel() {
   const [comparison, setComparison] = useState<ComparisonRow[] | null>(null);
   const [running, setRunning] = useState(false);
   const [deliverable, setDeliverable] = useState<any>(null);
+  const [clients, setClients] = useState<ClientSummary[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState<{ clientName: string; deliveryId: string } | null>(null);
 
   useEffect(() => {
     fetch(`/models/${modelId}`)
       .then((r) => r.json())
       .then((d) => setModel(d.model))
       .finally(() => setLoading(false));
+    fetch('/clients')
+      .then((r) => r.json())
+      .then((d) => setClients(d.clients));
   }, [modelId]);
 
   const handleRun = async () => {
@@ -84,6 +98,30 @@ export function RunPanel() {
     const res = await fetch(`/models/${modelId}/deliverable`);
     const data = await res.json();
     setDeliverable(data.deliverable);
+  };
+
+  const handlePushToClient = async () => {
+    if (!selectedClientId) return;
+    setPushing(true);
+    setPushResult(null);
+    try {
+      const body: any = { clientId: selectedClientId };
+      if (overrides.size > 0) {
+        body.overrides = Array.from(overrides.entries()).map(([parameterId, value]) => ({ parameterId, value }));
+      }
+      const res = await fetch(`/models/${modelId}/deliver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPushResult({ clientName: data.delivery.clientName, deliveryId: data.delivery.id });
+        setDeliverable(data.deliverable);
+      }
+    } finally {
+      setPushing(false);
+    }
   };
 
   if (loading) return <p className="text-slate-400">Loading…</p>;
@@ -153,13 +191,45 @@ export function RunPanel() {
         <section>
           <div className="flex items-center gap-4 mb-3">
             <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wide">Outputs</h3>
-            <button
-              onClick={handleDeliverable}
-              className="ml-auto text-xs border border-slate-600 text-slate-300 hover:border-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded"
-            >
-              Send to Client ↗
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={handleDeliverable}
+                className="text-xs border border-slate-600 text-slate-300 hover:border-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded"
+              >
+                Preview Deliverable
+              </button>
+              {clients.length > 0 ? (
+                <>
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => { setSelectedClientId(e.target.value); setPushResult(null); }}
+                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="">Select client…</option>
+                    {clients.map((cl) => (
+                      <option key={cl.id} value={cl.id}>{cl.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handlePushToClient}
+                    disabled={!selectedClientId || pushing}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs px-3 py-1.5 rounded"
+                  >
+                    {pushing ? 'Sending…' : 'Send to Client ↗'}
+                  </button>
+                </>
+              ) : (
+                <Link to="/clients" className="text-xs text-slate-500 hover:text-emerald-400">
+                  Register a client →
+                </Link>
+              )}
+            </div>
           </div>
+          {pushResult && (
+            <div className="mb-3 rounded bg-emerald-950/30 border border-emerald-800 px-4 py-2 text-xs text-emerald-300">
+              ✓ Delivered to <strong>{pushResult.clientName}</strong> · Delivery ID: <code className="text-emerald-400">{pushResult.deliveryId.slice(0, 8)}</code>
+            </div>
+          )}
           <div className="rounded-lg border border-slate-800 divide-y divide-slate-800 overflow-hidden">
             {outputs.map((o) => (
               <div key={o.id} className="flex items-center justify-between px-4 py-3">
