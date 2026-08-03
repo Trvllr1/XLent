@@ -137,7 +137,7 @@ modelsRouter.post('/:id/run', async (c) => {
   const workbook = store.getWorkbook(c.req.param('id'));
   if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
 
-  const body = await c.req.json<{ overrides?: ScenarioOverride[] }>().catch(() => ({}));
+  const body = await c.req.json<{ overrides?: ScenarioOverride[] }>().catch(() => ({ overrides: undefined }));
   const runtime = new ModelRuntime(model, workbook);
   const results = runtime.run(body.overrides);
 
@@ -201,7 +201,7 @@ modelsRouter.get('/:id/provenance', (c) => {
   const model = store.getModel(c.req.param('id'));
   if (!model) return c.json({ error: 'Model not found' }, 404);
 
-  const provenance = model.parameters.map((p) => ({
+  const provenance = model.parameters.map((p: Parameter) => ({
     parameterId: p.id,
     source: p.source,
     workbook: model.workbookName,

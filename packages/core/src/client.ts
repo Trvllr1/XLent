@@ -14,7 +14,7 @@ import type {
   Parameter,
   Output,
   Provenance,
-} from '@xlent/core';
+} from './types.js';
 
 export interface XLentClientOptions {
   baseUrl: string;
@@ -34,12 +34,12 @@ export class XLentClient {
     return this.get('/health');
   }
 
-  async importWorkbook(file: File | Buffer, filename?: string): Promise<{ model: Model; discovery: ModelDiscovery }> {
+  async importWorkbook(file: File | ArrayBuffer, filename?: string): Promise<{ model: Model; discovery: ModelDiscovery }> {
     const form = new FormData();
     if (file instanceof File) {
       form.append('file', file);
     } else {
-      form.append('file', new Blob([file]), filename || 'workbook.xlsx');
+      form.append('file', new Blob([new Uint8Array(file)]), filename || 'workbook.xlsx');
     }
     return this.post('/models/import', form, true);
   }

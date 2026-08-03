@@ -51,7 +51,7 @@ export function parseWorkbook(buffer: Buffer, filename: string): ParsedWorkbook 
           value: cell.v,
           type: cellType(cell),
           formula: cell.f || undefined,
-          format: cell.z || undefined,
+          format: cell.z != null ? String(cell.z) : undefined,
         });
       }
     }
