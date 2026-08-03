@@ -13,7 +13,7 @@ export interface Cell {
 }
 
 export type ParameterSource =
-  | 'CUSTOMER_MODEL'
+  | 'CLIENT_MODEL'
   | 'USER_OVERRIDE'
   | 'SYSTEM_DEFAULT'
   | 'EXTERNAL_DATA';

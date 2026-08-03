@@ -78,7 +78,7 @@ modelsRouter.post('/import', async (c) => {
           currentValue: cell.value,
           originalValue: cell.value,
           sourceCell: cell.address,
-          source: 'CUSTOMER_MODEL',
+          source: 'CLIENT_MODEL',
           confidence: label ? 'HIGH' : 'MEDIUM',
           confirmed: false,
         });
