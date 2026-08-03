@@ -6,3 +6,5 @@ dist/
 coverage/
 uploads/
 *.db
+*.db-wal
+*.db-shm
