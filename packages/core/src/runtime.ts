@@ -58,7 +58,8 @@ export class ModelRuntime {
     const results: Record<string, unknown> = {};
     for (const output of this.model.outputs) {
       const cellId = `${output.sourceCell.sheet}!${output.sourceCell.ref}`;
-      results[output.id] = this.cellValues.get(cellId);
+      const val = this.cellValues.get(cellId);
+      results[output.id] = typeof val === 'number' && !isFinite(val) ? null : val;
     }
 
     return results;
@@ -111,6 +112,41 @@ export class ModelRuntime {
   private safeEval(expr: string): unknown {
     // Handle common Excel functions
     let normalized = expr
+      // Math constants and zero-arg functions
+      .replace(/PI\(\)/gi, String(Math.PI))
+      .replace(/TRUE\(\)/gi, '1')
+      .replace(/FALSE\(\)/gi, '0')
+      // Single-arg math functions
+      .replace(/ABS\(([^)]+)\)/gi, (_, a: string) => String(Math.abs(parseFloat(a.trim()) || 0)))
+      .replace(/SQRT\(([^)]+)\)/gi, (_, a: string) => String(Math.sqrt(parseFloat(a.trim()) || 0)))
+      .replace(/LN\(([^)]+)\)/gi, (_, a: string) => String(Math.log(parseFloat(a.trim()) || 0)))
+      .replace(/LOG10\(([^)]+)\)/gi, (_, a: string) => String(Math.log10(parseFloat(a.trim()) || 0)))
+      .replace(/LOG\(([^,]+),([^)]+)\)/gi, (_, a: string, b: string) => {
+        const val = parseFloat(a.trim()) || 0;
+        const base = parseFloat(b.trim()) || 10;
+        return String(Math.log(val) / Math.log(base));
+      })
+      .replace(/EXP\(([^)]+)\)/gi, (_, a: string) => String(Math.exp(parseFloat(a.trim()) || 0)))
+      .replace(/FLOOR\(([^,]+),([^)]+)\)/gi, (_, a: string, sig: string) => {
+        const val = parseFloat(a.trim()) || 0;
+        const s = parseFloat(sig.trim()) || 1;
+        return String(Math.floor(val / s) * s);
+      })
+      .replace(/CEILING\(([^,]+),([^)]+)\)/gi, (_, a: string, sig: string) => {
+        const val = parseFloat(a.trim()) || 0;
+        const s = parseFloat(sig.trim()) || 1;
+        return String(Math.ceil(val / s) * s);
+      })
+      .replace(/INT\(([^)]+)\)/gi, (_, a: string) => String(Math.trunc(parseFloat(a.trim()) || 0)))
+      .replace(/MOD\(([^,]+),([^)]+)\)/gi, (_, a: string, b: string) => {
+        const num = parseFloat(a.trim()) || 0;
+        const div = parseFloat(b.trim()) || 1;
+        return String(num - div * Math.floor(num / div));
+      })
+      .replace(/POWER\(([^,]+),([^)]+)\)/gi, (_, a: string, b: string) => {
+        return String(Math.pow(parseFloat(a.trim()) || 0, parseFloat(b.trim()) || 0));
+      })
+      // Aggregate functions
       .replace(/SUM\(([^)]+)\)/gi, (_, args: string) => {
         const nums = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
         return String(nums.reduce((a: number, b: number) => a + b, 0));
@@ -127,6 +163,9 @@ export class ModelRuntime {
         const nums = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
         return String(Math.max(...nums));
       })
+      .replace(/COUNT\(([^)]+)\)/gi, (_, args: string) => {
+        return String(args.split(',').filter((s: string) => !isNaN(parseFloat(s.trim()))).length);
+      })
       .replace(/IF\(([^,]+),([^,]+),([^)]+)\)/gi, (_, cond: string, t: string, f: string) => {
         return this.evalCondition(cond) ? t.trim() : f.trim();
       })
@@ -137,9 +176,11 @@ export class ModelRuntime {
       });
 
     // Evaluate pure arithmetic (only numbers, operators, parens)
-    if (/^[\d\s+\-*/().,%]+$/.test(normalized)) {
+    if (/^[\d\s+\-*/().,%^]+$/.test(normalized)) {
       // Replace percentage notation
       normalized = normalized.replace(/([\d.]+)%/g, (_, n) => String(parseFloat(n) / 100));
+      // Replace ^ with ** for exponentiation
+      normalized = normalized.replace(/\^/g, '**');
       const fn = new Function(`return (${normalized})`);
       return fn();
     }
