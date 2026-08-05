@@ -1,0 +1,114 @@
+# 01 — Product Blueprint
+
+## Product Definition
+
+XLent is infrastructure for building, validating, operating, versioning, and deploying computational models originating from spreadsheets.
+
+It makes spreadsheet models behave like software — without requiring users to abandon the spreadsheet paradigm.
+
+---
+
+## Personas
+
+| Persona | Role | Uses XLent for |
+|---|---|---|
+| **Model Author** | Finance analyst, engineer, actuary | Continues authoring in Excel; benefits from verification feedback and version tracking |
+| **Model Consumer** | AI agent, application, decision-maker | Invokes model via API/SDK; receives structured results + evidence |
+| **Model Steward** | Risk officer, FP&A lead, audit | Reviews test results, approves publication, maintains registry |
+| **Platform Integrator** | Engineering team (e.g., Sil) | Builds on XLent API/SDK; receives deliverables via webhook |
+
+---
+
+## Capability Map
+
+18 capabilities organized by lifecycle stage. Status reflects verified implementation state as of 2026-08-04.
+
+### Import & Reconstruction
+
+| # | Capability | Status | Notes |
+|---|---|---|---|
+| 1 | XLSX Import | ✅ Done | `parser.ts` — xlsx lib, formula extraction, multi-sheet |
+| 2 | Model Discovery | ✅ Done | `discovery.ts` — auto-classifies inputs/outputs, compatibility scan |
+| 3 | Workbook Structure Extraction | ✅ Done | Sheets, cells, named ranges, cross-sheet refs, hidden elements (partial) |
+
+### Representation & Analysis
+
+| # | Capability | Status | Notes |
+|---|---|---|---|
+| 4 | Canonical Model (XMR) | ✅ Done | `types.ts` — Model, Parameter, Output, Calculation, Graph |
+| 5 | Dependency Graph | ✅ Done | `graph.ts` — DAG construction, root/terminal detection, cycle detection |
+| 6 | Formula AST | 🔴 Planned (E0) | Currently regex-based; needs proper AST for semantic diff + interpreter |
+| 7 | Model Explorer (UI) | ✅ Done | `@xlent/web` — upload, list, view, run, compare |
+
+### Assurance & Evidence
+
+| # | Capability | Status | Notes |
+|---|---|---|---|
+| 8 | Deterministic Execution | ✅ Done | `runtime.ts` — topological eval, ~30 functions, no eval() |
+| 9 | Scenario Execution | ✅ Done | `scenario.ts` — parameter overrides, comparison with deltas |
+| 10 | Model Tests | 🔴 Planned (E1) | Type defined conceptually; no test-suite runner or assertion framework |
+| 11 | Evidence Records | 🟡 Partial | Provenance type exists; full execution evidence record (inputs+outputs+tests+timestamp) needed |
+| 12 | Sensitivity Analysis | 🔴 Planned (E4) | One-at-a-time parameter sweep + impact ranking |
+
+### Model Operations
+
+| # | Capability | Status | Notes |
+|---|---|---|---|
+| 13 | Model Identity | 🟡 Partial | UUID exists; human-readable slug + semver needed |
+| 14 | Versioning & Snapshots | 🟡 Partial | `version` field increments on re-import; no snapshot persistence or diff |
+| 15 | Semantic Diff & Migration | 🔴 Planned (E2) | Requires AST (E0); diff formulas structurally, not textually |
+| 16 | Lifecycle States & Registry | 🔴 Planned (E3) | States: draft/sandbox/validated/approved/published/deprecated |
+
+### Integration & Deployment
+
+| # | Capability | Status | Notes |
+|---|---|---|---|
+| 17 | Model API | ✅ Done | Hono REST API, full CRUD + execution + deliverables |
+| 18 | SDK / Client | ✅ Done | `XLentClient` in `@xlent/core`; `xlentClient.ts` in Sil |
+| 19 | CLI | 🔴 Planned (E5) | `@xlent/cli` — import, run, test, diff, export, package |
+| 20 | Webhook Delivery | ✅ Done | Client registration, retry logic, delivery audit |
+| 21 | Prod API (versioned, rate-limited) | 🔴 Planned (E3) | `/v1` prefix, version-pinned execution, idempotency, auth scopes |
+
+### Deferred
+
+| # | Capability | Status | Notes |
+|---|---|---|---|
+| 22 | Model Branching | 📐 Designed | Branch = parent snapshot + delta set; implementation post-E5 |
+| 23 | Model CI | 📐 Designed | Automated test gates on model change; requires E1+E2+E3 |
+| 24 | Enterprise Connectors | ⏸️ Deferred | SharePoint, OneDrive, Google Drive, S3 |
+| 25 | Model Hosting / Multi-tenant | ⏸️ Deferred | Cloud execution service |
+| 26 | Model Monitoring | ⏸️ Deferred | Drift detection, execution anomalies |
+| 27 | Model Lineage | ⏸️ Deferred | Full source → assumption → output → decision tracing |
+
+---
+
+## What NOT to Build
+
+These are explicitly out of scope. They represent traps that dilute focus.
+
+| Anti-pattern | Why it's wrong for XLent |
+|---|---|
+| "ChatGPT for Excel" | Too generic. XLent is infrastructure, not a chatbot. |
+| "AI spreadsheet summarizer" | Too shallow. Summaries without verification are worthless. |
+| "Another BI platform" | Wrong category. BI asks "what happened?" — XLent asks "can I trust this model?" |
+| "Excel replacement" | Strategically dangerous and unnecessary. Excel is the authoring surface. |
+| "Database connector with spreadsheet support" | Wrong center of gravity. The model is primary, not the data source. |
+| "Spreadsheet visualization tool" | Insufficient differentiation. Model Explorer exists to support verification, not to compete with Tableau. |
+| "Generic ETL/data pipeline" | XLent transforms models, not data. |
+
+---
+
+## Product Principles
+
+Adopted from source docs, encoding as implementation constraints:
+
+1. **The model is the product.** Not the workbook file.
+2. **Excel remains a first-class authoring surface.** Never force paradigm abandonment.
+3. **XMR is the abstraction layer.** Source formats become model representations.
+4. **Every model should be testable.** "Looks right" is not sufficient for production.
+5. **Every published model should be identifiable.** Filenames are not identity.
+6. **Every deployed model should be reproducible.** Model + inputs + scenario → same result, always.
+7. **Every important output should be traceable.** Result → calculation → assumption → source.
+8. **AI should not be the execution engine.** AI reasons; XLent deterministically executes and verifies.
+9. **Access should be scoped.** Prefer targeted model acquisition over unrestricted org data access.
+10. **Sil is an integration, not a dependency.** XLent must stand independently.

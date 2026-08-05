@@ -1,0 +1,1131 @@
+# XLent: Lessons from Supabase
+
+**Strategic Product & Architecture Guide**
+**Purpose:** Guide continued Agent SWE implementation of XLent
+**Relationship:** XLent is standalone infrastructure. Sil is its first customer and flagship integration.
+
+---
+
+## 1. Executive Thesis
+
+XLent should not be built as an "AI spreadsheet analyzer."
+
+That framing is too narrow.
+
+The deeper opportunity is to do for **spreadsheet-based computational models** what Supabase did for **PostgreSQL**:
+
+> Take a powerful but difficult primitive, make it accessible, operational, programmable, testable, and deployable, while preserving the underlying paradigm.
+
+Supabase did not invent PostgreSQL.
+
+XLent does not need to replace Excel.
+
+Instead:
+
+> **XLent should champion the spreadsheet-model paradigm by turning the spreadsheet from a file into a first-class computational artifact.**
+
+The spreadsheet is the world's most successful end-user programming environment. It combines:
+
+* data
+* formulas
+* business logic
+* assumptions
+* calculations
+* scenarios
+* outputs
+* presentation
+
+But its infrastructure is primitive.
+
+XLent supplies the missing infrastructure.
+
+---
+
+# 2. The Paradigm Shift
+
+### Current world
+
+```text
+.xlsx file
+   ↓
+Human opens workbook
+   ↓
+Human interprets formulas
+   ↓
+Human checks assumptions
+   ↓
+Human changes cells
+   ↓
+Human decides whether results are trustworthy
+```
+
+The spreadsheet is treated primarily as a **document**.
+
+### XLent world
+
+```text
+Spreadsheet
+     ↓
+XLent Importer
+     ↓
+Canonical Model
+     ↓
+Model Graph
+     ↓
+Tests / Scenarios / Verification
+     ↓
+Evidence
+     ↓
+Versioned Model
+     ↓
+API / SDK / Sil / Agents
+```
+
+The spreadsheet becomes a **model artifact**.
+
+The fundamental conceptual distinction is:
+
+```text
+.xlsx ≠ Model
+
+.xlsx = one representation / serialization of a Model
+```
+
+This is the core idea behind XLent.
+
+---
+
+# 3. The Supabase Analogy
+
+| Supabase            | XLent                          |
+| ------------------- | ------------------------------ |
+| PostgreSQL          | Spreadsheet model              |
+| Supabase Project    | XLent Model                    |
+| Database schema     | Model schema                   |
+| Tables              | Model entities / ranges        |
+| SQL                 | Spreadsheet formulas           |
+| Foreign keys        | Cell/range dependencies        |
+| Database migrations | Model migrations               |
+| Database branching  | Model branching                |
+| Row-level security  | Model-level access controls    |
+| Database backups    | Model snapshots                |
+| SQL Editor          | Model Explorer                 |
+| Database logs       | Model execution/evidence logs  |
+| pg_dump             | Model export                   |
+| Extensions          | Model extensions               |
+| Supabase Studio     | XLent Studio                   |
+| DB API              | Model API                      |
+| Database hosting    | Model hosting / model registry |
+
+This analogy is directional, not literal.
+
+XLent must not blindly copy Supabase.
+
+The lesson is:
+
+> **Make the underlying computational primitive dramatically more useful without requiring users to abandon the paradigm they already understand.**
+
+---
+
+# 4. XLent's Core Product Definition
+
+XLent is:
+
+> **Infrastructure for building, validating, operating, versioning, and deploying computational models originating from spreadsheets.**
+
+XLent should eventually provide:
+
+1. Model Import
+2. Model Reconstruction
+3. Canonical Model Representation
+4. Dependency Graph
+5. Formula Analysis
+6. Model Testing
+7. Scenario Execution
+8. Reconciliation
+9. Model Evidence
+10. Model Versioning
+11. Model Branching
+12. Model Migration
+13. Model Registry
+14. Model APIs
+15. Model SDK
+16. Model Governance
+17. Model Lineage
+18. Enterprise Connectors
+
+These capabilities should be developed progressively.
+
+Do not attempt to build all of them simultaneously.
+
+---
+
+# 5. The Canonical Model: XMR
+
+The most important architectural asset should be a canonical representation of the model.
+
+Working name:
+
+**XMR — XLent Model Representation**
+
+The importer should transform source workbooks into XMR.
+
+Conceptually:
+
+```text
+Excel
+Google Sheets
+CSV
+ODS
+Future sources
+     │
+     ▼
+XLent Importers
+     │
+     ▼
+XMR
+│
+├── Entities
+├── Variables
+├── Constants
+├── Inputs
+├── Assumptions
+├── Formulas
+├── Dependencies
+├── Constraints
+├── Units
+├── Time dimensions
+├── Scenarios
+├── Outputs
+└── Metadata
+```
+
+The XMR layer should be treated as a major long-term strategic asset.
+
+It allows XLent to become source-format independent.
+
+Excel is the first important input format, not the permanent boundary of the product.
+
+---
+
+# 6. XLent Importer
+
+The Importer is not simply an XLSX file uploader.
+
+Its responsibility is to convert an opaque workbook into an inspectable model.
+
+Initial ingestion should identify, where possible:
+
+* workbook structure
+* worksheets
+* tables
+* ranges
+* formulas
+* constants
+* hard-coded values
+* named ranges
+* hidden sheets
+* hidden rows/columns
+* cross-sheet references
+* dependencies
+* inputs
+* assumptions
+* outputs
+* units
+* time periods
+* formula inconsistencies
+* external references
+* potential circularity
+* model metadata
+
+The goal is:
+
+```text
+Workbook
+   ↓
+Understand
+   ↓
+Reconstruct
+   ↓
+Represent
+   ↓
+Test
+```
+
+Not:
+
+```text
+Workbook
+   ↓
+Read cells
+   ↓
+Summarize
+```
+
+---
+
+# 7. Model Explorer
+
+XLent should eventually provide a model-native interface.
+
+Instead of forcing users to navigate tabs:
+
+```text
+Revenue Forecast
+Balance Sheet
+Cash Flow
+Assumptions
+Debt
+Returns
+```
+
+XLent presents the computational structure.
+
+Example:
+
+```text
+Revenue Model
+│
+├── Assumptions
+│   ├── Pricing
+│   ├── Volume
+│   ├── Churn
+│   └── Growth
+│
+├── Calculations
+│   ├── Revenue
+│   ├── COGS
+│   ├── Gross Profit
+│   └── EBITDA
+│
+└── Outputs
+    ├── ARR
+    ├── EBITDA
+    ├── NPV
+    └── IRR
+```
+
+Users should be able to trace:
+
+**Output → Formula → Dependencies → Inputs → Source**
+
+This is model-native navigation.
+
+---
+
+# 8. Model Verification
+
+XLent's fundamental differentiation is not visualization.
+
+It is **model interrogation and verification**.
+
+Software engineering has:
+
+```text
+Code
+ ↓
+Tests
+ ↓
+CI
+ ↓
+Release
+```
+
+Spreadsheet modeling generally has:
+
+```text
+Spreadsheet
+ ↓
+"Looks right"
+ ↓
+Email
+ ↓
+Meeting
+```
+
+XLent should introduce:
+
+```text
+Model
+ ↓
+Tests
+ ↓
+Verification
+ ↓
+Evidence
+ ↓
+Release
+```
+
+Examples:
+
+```text
+TEST: Balance Sheet Balances
+Expected: Assets = Liabilities + Equity
+Result: PASS
+
+TEST: Revenue Rollforward
+Result: PASS
+
+TEST: Debt Balance ≥ 0
+Result: FAIL
+```
+
+The product should make **model testing a normal behavior**, not a specialist activity.
+
+---
+
+# 9. Model CI
+
+A future XLent capability:
+
+```text
+Model change
+     ↓
+Commit
+     ↓
+XLent tests
+     ↓
+PASS → merge / publish
+FAIL → block
+```
+
+This creates the possibility of **Model CI/CD**.
+
+A spreadsheet model can therefore evolve from:
+
+> "A file someone edited"
+
+into:
+
+> "A computational artifact with a controlled release lifecycle."
+
+---
+
+# 10. Model Versioning
+
+Traditional spreadsheet versioning:
+
+```text
+forecast.xlsx
+forecast_v2.xlsx
+forecast_FINAL.xlsx
+forecast_FINAL2.xlsx
+forecast_FINAL_FINAL.xlsx
+```
+
+XLent:
+
+```text
+FY27 Forecast
+
+v1.0
+ ↓
+v1.1
+ ↓
+v1.2
+ ↓
+v2.0
+```
+
+XLent should be able to explain changes.
+
+Example:
+
+```text
+MODEL MIGRATION
+
+Added:
+  + Churn assumption
+
+Modified:
+  Revenue formula
+  COGS calculation
+
+Removed:
+  Manual adjustment
+
+Impact:
+  EBITDA ↓ 8.4%
+  IRR ↓ 3.1 percentage points
+```
+
+Model changes should be treated as **migrations**, not merely file replacements.
+
+---
+
+# 11. Model Branching
+
+Users routinely create separate spreadsheets for:
+
+* Base Case
+* Downside
+* Upside
+* Investor Case
+* Management Case
+* Board Case
+
+XLent should eventually represent these as branches.
+
+```text
+main
+│
+├── downside
+├── upside
+├── management_case
+└── investor_case
+```
+
+Users should be able to compare branches.
+
+Example:
+
+```text
+Assumptions changed: 7
+Formulas changed: 3
+Outputs changed: 18
+
+IRR
+main:             28.4%
+investor_case:    34.7%
+
+Primary driver:
+Revenue growth assumption
+```
+
+This is **model branching**.
+
+---
+
+# 12. Model APIs
+
+A major long-term objective is to make models programmable.
+
+A hosted XLent model should be callable by software without requiring the caller to manipulate an XLSX file.
+
+Conceptually:
+
+```text
+GET /models/{id}/outputs
+
+POST /models/{id}/scenarios
+
+GET /models/{id}/graph
+
+GET /models/{id}/findings
+
+GET /models/{id}/evidence
+```
+
+An application or AI agent should be able to say:
+
+> Run this model with growth = 25%, churn = 4%, pricing = $125.
+
+XLent executes the model and returns:
+
+```text
+ARR
+EBITDA
+Cash Flow
+NPV
+IRR
+Evidence
+```
+
+The spreadsheet model becomes an **application service**.
+
+---
+
+# 13. Model Registry
+
+Organizations should eventually have an XLent Model Registry.
+
+Example:
+
+```text
+XLent Model Registry
+
+Revenue Forecast       v4.2
+Pricing Model           v2.8
+Headcount Plan          v3.1
+Acquisition Model       v7.0
+CapEx Model             v1.4
+Debt Model              v2.3
+```
+
+Each model should have:
+
+* owner
+* version
+* status
+* last validated date
+* dependencies
+* tests
+* source
+* consumers
+* lineage
+* permissions
+
+This gives an organization an inventory of its **decision models**.
+
+---
+
+# 14. Model Governance
+
+Models should have a lifecycle.
+
+```text
+Draft
+ ↓
+Test
+ ↓
+Validate
+ ↓
+Approve
+ ↓
+Publish
+ ↓
+Monitor
+ ↓
+Retire
+```
+
+Possible statuses:
+
+**Draft**
+Model is being developed.
+
+**Validated**
+Required tests pass.
+
+**Approved**
+Authorized reviewer has signed off.
+
+**Published**
+Model is available for consumption.
+
+**Deprecated**
+Model should no longer be used.
+
+This is another major difference between XLent and traditional spreadsheets.
+
+---
+
+# 15. Model Lineage
+
+Eventually XLent should understand:
+
+```text
+Source Data
+    ↓
+Assumption
+    ↓
+Formula
+    ↓
+Calculation
+    ↓
+Output
+    ↓
+Decision
+```
+
+XLent should answer:
+
+> "Where did this number come from?"
+
+And ideally:
+
+> "What source data and assumptions ultimately determine this output?"
+
+This creates **model provenance**.
+
+---
+
+# 16. Connectors and Model Acquisition
+
+XLent should support multiple acquisition paths.
+
+### Level 1 — Upload
+
+User directly uploads XLSX.
+
+Zero integration.
+
+Best for:
+
+* individual users
+* demos
+* one-off analysis
+* sensitive artifacts
+
+### Level 2 — Scoped repository connection
+
+User authorizes XLent to retrieve a specific artifact from:
+
+* SharePoint
+* OneDrive
+* Google Drive
+* Box
+* S3
+* enterprise document repositories
+
+The principle:
+
+> **Give XLent the smallest possible access necessary to perform the requested analysis.**
+
+### Level 3 — Governed enterprise data connections
+
+Future capability for continuously validated models.
+
+Do not begin with unrestricted database crawling.
+
+XLent is not a BI platform.
+
+It should not ask:
+
+> "Give me access to your entire database."
+
+It should ask:
+
+> **"Give me access to the model artifact or governed source required for this analysis."**
+
+---
+
+# 17. Do Not Become Tableau or Power BI
+
+BI platforms ask:
+
+> What is happening in our data?
+
+XLent asks:
+
+> **Can I trust the computational model we're using to make decisions about that data?**
+
+These are different categories.
+
+XLent should not compete with BI.
+
+It should complement BI where the organization relies on spreadsheet-based models and decision logic.
+
+---
+
+# 18. Sil: First Customer and Flagship Integration
+
+XLent should be built as a standalone product/platform.
+
+**Sil is its first customer.**
+
+Do not bury XLent inside Sil.
+
+Instead:
+
+```text
+                         XLENT
+                  Model Infrastructure
+                         │
+                         │ API / SDK
+                         ▼
+                        SIL
+              Reasoning & Decision Layer
+```
+
+The product boundary should be clear.
+
+### XLent asks:
+
+> What is this model?
+> How does it work?
+> Is it internally coherent?
+> What happens when we test it?
+> What evidence supports the conclusion?
+
+### Sil asks:
+
+> So what?
+> What does this mean?
+> How does it compare to our reference model?
+> What should we do?
+
+This separation is intentional.
+
+---
+
+# 19. Sil BYOA Integration
+
+The preferred integration architecture is:
+
+```text
+Sil
+ │
+ └── BYOA
+      │
+      └── "Analyze with XLent"
+                    │
+                    ▼
+                  XLent
+                    │
+             Native Importer
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+      Parse      Verify      Scenario
+        │           │           │
+        └───────────┼───────────┘
+                    ▼
+             XLent Model Package
+                    │
+                    ▼
+                   Sil
+                    │
+             Reason / Compare
+                    │
+                    ▼
+                 Decision
+```
+
+Sil should not become an Excel parser.
+
+XLent should own model ingestion and computational analysis.
+
+---
+
+# 20. XLent Model Package
+
+XLent should return structured deliverables to Sil.
+
+Conceptually:
+
+```text
+XLent Model Package
+│
+├── model_manifest
+├── canonical_model
+├── workbook_map
+├── dependency_graph
+├── assumptions
+├── formulas
+├── outputs
+├── findings
+├── test_results
+├── scenarios
+├── sensitivities
+├── reconciliations
+├── evidence
+└── assurance_summary
+```
+
+Sil can then reason over this package.
+
+This is substantially more powerful than returning only a PDF report.
+
+---
+
+# 21. Reverse Integration
+
+The relationship should also work in reverse.
+
+A user may discover XLent first:
+
+```text
+XLent
+ ↓
+Import Model
+ ↓
+Analyze
+ ↓
+"Continue analysis in Sil"
+ ↓
+Sil
+```
+
+Therefore:
+
+**Sil → XLent**
+
+and
+
+**XLent → Sil**
+
+should both eventually be supported.
+
+Neither product should become technically dependent on the other.
+
+---
+
+# 22. The XLent / Sil Flywheel
+
+Sil is an excellent first customer because it will expose XLent to increasingly difficult models.
+
+```text
+Sil encounters model
+        ↓
+XLent interrogates model
+        ↓
+XLent discovers limitations
+        ↓
+XLent improves
+        ↓
+Sil becomes more capable
+        ↓
+Sil encounters more complex models
+        ↓
+XLent improves again
+```
+
+Sil therefore serves as:
+
+* first customer
+* first integration
+* first major use case
+* product stress test
+* flagship showcase
+* feedback engine
+
+But XLent remains independently valuable.
+
+---
+
+# 23. What NOT to Build
+
+Avoid these traps.
+
+### Do not build:
+
+**"ChatGPT for Excel."**
+
+Too generic.
+
+**"AI spreadsheet summarizer."**
+
+Too shallow.
+
+**"Another BI platform."**
+
+Wrong category.
+
+**"Excel replacement."**
+
+Unnecessary and strategically dangerous.
+
+**"Database connector with spreadsheet support."**
+
+Wrong center of gravity.
+
+**"Spreadsheet visualization tool."**
+
+Not enough differentiation.
+
+The product should remain centered on:
+
+> **model infrastructure**
+
+---
+
+# 24. What XLent Should Become
+
+The long-term architecture:
+
+```text
+                         XLENT
+       ┌─────────────────────────────────┐
+       │                                 │
+       │         MODEL PLATFORM          │
+       │                                 │
+       │  Importers     Connectors       │
+       │       │             │            │
+       │       └──────┬──────┘            │
+       │              ↓                   │
+       │       Canonical Model / XMR      │
+       │              ↓                   │
+       │       Model Graph / Engine       │
+       │              ↓                   │
+       │    ┌─────────┼──────────┐        │
+       │    ↓         ↓          ↓        │
+       │   Test    Scenario   Evidence    │
+       │    └─────────┼──────────┘        │
+       │              ↓                   │
+       │   Versioning / Branching / CI    │
+       │              ↓                   │
+       │         Model Registry           │
+       │              ↓                   │
+       │        Model API / SDK           │
+       └──────────────┬──────────────────┘
+                      │
+          ┌───────────┼────────────┐
+          ↓           ↓            ↓
+         Sil        Agents     Enterprise
+```
+
+---
+
+# 25. Product North Star
+
+The north-star statement for Agent SWE:
+
+> **XLent makes spreadsheet models behave more like software.**
+
+Not by forcing users to abandon spreadsheets.
+
+By giving spreadsheet models the infrastructure they have been missing:
+
+* structured representation
+* model identity
+* dependency graphs
+* tests
+* verification
+* versioning
+* branching
+* migration
+* provenance
+* governance
+* APIs
+* deployment
+* evidence
+
+---
+
+# 26. Development Priority
+
+Agent SWE should prioritize foundational capability over surface features.
+
+### Phase 1 — Model Foundation
+
+Build:
+
+1. XLSX importer
+2. Workbook parser
+3. Formula/dependency extraction
+4. Canonical XMR representation
+5. Model graph
+6. Model manifest
+7. Basic model explorer
+
+### Phase 2 — Assurance
+
+Build:
+
+8. Formula consistency checks
+9. Structural checks
+10. Mathematical reconciliation
+11. Model tests
+12. Scenario engine
+13. Sensitivity analysis
+14. Evidence generation
+
+### Phase 3 — Model Operations
+
+Build:
+
+15. Model identity
+16. Versioning
+17. Snapshots
+18. Branching
+19. Migration/diff engine
+20. Model Registry
+21. Governance states
+
+### Phase 4 — Integration
+
+Build:
+
+22. XLent API
+23. SDK
+24. Sil integration
+25. XLent → Sil handoff
+26. Sil → XLent invocation
+27. Agent integration
+
+### Phase 5 — Enterprise Acquisition
+
+Build:
+
+28. SharePoint connector
+29. OneDrive connector
+30. Google Drive connector
+31. S3 connector
+32. Enterprise repository integrations
+33. Governed data-source integrations
+
+### Phase 6 — Model Infrastructure
+
+Eventually:
+
+34. Model hosting
+35. Model execution service
+36. Model CI
+37. Model deployment
+38. Continuous model assurance
+39. Model lineage
+40. External developer ecosystem
+
+---
+
+# 27. Architectural Principle
+
+At every iteration, ask:
+
+> **Does this make the model itself more first-class?**
+
+If yes, it probably belongs in XLent.
+
+If it is primarily:
+
+* generic AI chat
+* generic visualization
+* generic BI
+* generic document management
+* generic database management
+
+it probably belongs elsewhere.
+
+---
+
+# 28. Final Strategic Position
+
+Supabase's lesson is not:
+
+> "Build something like Supabase for spreadsheets."
+
+The lesson is deeper:
+
+> **Find an enormously useful primitive that people already depend on, then build the missing infrastructure that lets them use that primitive like a modern software platform.**
+
+For XLent, that primitive is the **spreadsheet model**.
+
+The opportunity is to move organizations from:
+
+```text
+Files
+ ↓
+Spreadsheets
+ ↓
+Human interpretation
+```
+
+to:
+
+```text
+Models
+ ↓
+Model Infrastructure
+ ↓
+Verification
+ ↓
+APIs / Agents / Applications
+ ↓
+Decisions
+```
+
+**XLent does not kill the spreadsheet paradigm.**
+
+**XLent industrializes it.**
+
+---
+
+## Guiding Sentence for Agent SWE
+
+> **Build XLent so that a spreadsheet can remain a spreadsheet to its author, while becoming a structured, testable, versioned, governable, API-accessible computational model to everything else.**
+
+That is the product.
+
+Sil is simply the first system that demonstrates why it matters.

@@ -59,3 +59,9 @@ const { results } = await xlent.runModel(model.id, overrides);
 - **Immutable originals** — uploaded workbooks are never modified
 - **AI boundary** — AI assists discovery, never replaces calculation
 - **Independence** — XLent operates standalone; Siliconomics is its first customer
+
+## Blueprint
+
+Full product blueprint, architecture spec, and agent-executable roadmap:
+
+→ **[docs/README.md](docs/README.md)**

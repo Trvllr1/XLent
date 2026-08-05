@@ -1,0 +1,1164 @@
+# XLent: ModelOps
+
+**Strategic Product & Architecture Guide**
+**Purpose:** Define the ModelOps layer of XLent for continued Agent SWE implementation
+**Relationship:** XLent is standalone infrastructure. Sil is XLent's first customer and flagship integration.
+
+---
+
+# 1. The Core Idea
+
+XLent should make spreadsheet models behave more like software.
+
+The foundational thesis is:
+
+> **Take a powerful but difficult computational primitive, make it accessible, operational, programmable, testable, versionable, and deployable — while preserving the underlying spreadsheet paradigm.**
+
+The missing concept is **ModelOps**.
+
+Today, organizations operate software through DevOps and data through DataOps.
+
+But many of their most consequential decisions are still powered by spreadsheet models with almost none of that infrastructure.
+
+XLent should provide it.
+
+> **ModelOps = the lifecycle infrastructure for computational models.**
+
+---
+
+# 2. What "Deployable" Means in XLent
+
+Deployment does **not** mean merely storing an XLSX online.
+
+It means:
+
+> **Taking a validated model and making it executable as a controlled, versioned artifact that people, applications, and AI agents can invoke without opening Excel.**
+
+Traditional workflow:
+
+```text
+Excel
+  ↓
+Human opens workbook
+  ↓
+Changes inputs
+  ↓
+Excel recalculates
+  ↓
+Human reads outputs
+```
+
+XLent ModelOps:
+
+```text
+Model
+  ↓
+Import
+  ↓
+Reconstruct
+  ↓
+Test
+  ↓
+Validate
+  ↓
+Publish
+  ↓
+Deploy
+  ↓
+Execute through API / SDK / Agent
+```
+
+The model moves from:
+
+> **something a person opens**
+
+to:
+
+> **something a system can reliably invoke.**
+
+---
+
+# 3. Two Lives of an XLent Model
+
+XLent should preserve the spreadsheet as an authoring environment.
+
+### Authoring representation
+
+```text
+Excel
+Google Sheets
+etc.
+```
+
+Humans can continue to:
+
+* edit cells
+* change formulas
+* create assumptions
+* format outputs
+* work naturally
+
+### Runtime representation
+
+```text
+XMR
+ ↓
+XLent Runtime
+```
+
+Machines can:
+
+* execute
+* test
+* version
+* audit
+* compare
+* integrate
+* automate
+
+Therefore:
+
+```text
+.xlsx ≠ Model
+
+.xlsx = one representation of a Model
+```
+
+This distinction should remain fundamental to the architecture.
+
+---
+
+# 4. ModelOps Lifecycle
+
+XLent should eventually establish a complete model lifecycle:
+
+```text
+             ┌─────────────┐
+             │   IMPORT    │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │  RECONSTRUCT│
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │    TEST     │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │  VALIDATE   │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │   APPROVE   │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │   PUBLISH   │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │   DEPLOY    │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │   EXECUTE   │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │   MONITOR   │
+             └──────┬──────┘
+                    ↓
+             ┌─────────────┐
+             │   RETIRE    │
+             └─────────────┘
+```
+
+This is **ModelOps**.
+
+---
+
+# 5. Model Identity
+
+Every managed model should have a durable identity independent of its filename.
+
+Instead of:
+
+```text
+FY27_Model_FINAL_v3.xlsx
+```
+
+XLent should have:
+
+```text
+Model:
+  acme-fy27-operating-model
+
+Version:
+  3.2.0
+
+Status:
+  Published
+
+Tests:
+  47/47 PASS
+
+Last validated:
+  2026-08-03
+
+Owner:
+  Finance
+
+Consumers:
+  Sil
+  Planning API
+  Board Dashboard
+```
+
+The filename becomes secondary.
+
+The **model identity** becomes primary.
+
+---
+
+# 6. Model Versioning
+
+Spreadsheet versioning is currently primitive:
+
+```text
+forecast.xlsx
+forecast_v2.xlsx
+forecast_FINAL.xlsx
+forecast_FINAL2.xlsx
+forecast_FINAL_FINAL.xlsx
+```
+
+XLent should provide:
+
+```text
+Acme FY27 Model
+
+v1.0
+ ↓
+v1.1
+ ↓
+v1.2
+ ↓
+v2.0
+```
+
+Every version should retain:
+
+* source
+* formulas
+* assumptions
+* dependencies
+* tests
+* findings
+* evidence
+* execution history
+
+Users should be able to ask:
+
+> What changed between v2.1 and v2.2?
+
+XLent should answer.
+
+---
+
+# 7. Model Migrations
+
+Model changes should be treated as **migrations**.
+
+Example:
+
+```text
+MODEL MIGRATION
+v3.1 → v3.2
+
+Added:
+  + Churn assumption
+
+Modified:
+  Revenue formula
+  COGS calculation
+
+Removed:
+  Manual adjustment
+
+Impact:
+  EBITDA ↓ 8.4%
+  IRR ↓ 3.1 percentage points
+```
+
+The migration engine should distinguish:
+
+* structural changes
+* formula changes
+* assumption changes
+* dependency changes
+* output changes
+* semantic changes
+
+This is the model equivalent of database schema migration.
+
+---
+
+# 8. Model Branching
+
+Scenario work should eventually become native branching.
+
+Instead of:
+
+```text
+Base Case.xlsx
+Downside.xlsx
+Upside.xlsx
+Investor Case.xlsx
+Board Case.xlsx
+```
+
+XLent:
+
+```text
+main
+│
+├── downside
+├── upside
+├── investor_case
+└── board_case
+```
+
+A branch inherits the parent model and records only its differences.
+
+XLent should be able to compare:
+
+```text
+main
+vs.
+investor_case
+```
+
+and report:
+
+```text
+Assumptions changed: 7
+Formulas changed: 3
+Outputs changed: 18
+
+Primary driver:
+Revenue growth
+
+IRR:
+main            28.4%
+investor_case   34.7%
+```
+
+This turns spreadsheet scenarios into a **model version-control problem** rather than a file-management problem.
+
+---
+
+# 9. Model Testing
+
+ModelOps requires model tests.
+
+Software:
+
+```text
+Code → Tests → CI → Release
+```
+
+XLent:
+
+```text
+Model → Tests → Validation → Publish
+```
+
+Tests may include:
+
+### Structural
+
+* broken references
+* missing formulas
+* hard-coded values
+* formula inconsistencies
+* circularity
+* hidden dependencies
+* cross-sheet integrity
+
+### Mathematical
+
+* balance checks
+* roll-forwards
+* reconciliation
+* constraint checks
+* unit consistency
+* range validation
+
+### Business
+
+* margin constraints
+* debt constraints
+* minimum cash
+* pricing bounds
+* capacity limits
+* policy rules
+
+A model should have a test suite just as software has a test suite.
+
+---
+
+# 10. Model CI
+
+XLent should eventually support:
+
+```text
+Model change
+     ↓
+Commit
+     ↓
+Run model tests
+     ↓
+PASS → merge / publish
+FAIL → block
+```
+
+This is **Model CI**.
+
+A model modification should not automatically become the new production model merely because someone saved an XLSX.
+
+---
+
+# 11. Model Publishing
+
+Publishing creates an approved immutable or controlled version.
+
+Example:
+
+```text
+Acme Underwriting Model
+v3.2
+
+STATUS: PUBLISHED
+
+Tests:
+47 / 47 PASS
+
+Approved:
+2026-08-03
+
+Checksum:
+<model identity>
+```
+
+Published models should be distinguishable from:
+
+* drafts
+* branches
+* experiments
+* archived versions
+
+---
+
+# 12. Model Deployment
+
+Once published, the model can be deployed to an XLent runtime.
+
+```text
+Published Model
+      ↓
+XLent Runtime
+      ↓
+Deployment
+      ↓
+Model Endpoint
+```
+
+The runtime should execute the model against supplied inputs.
+
+For example:
+
+```text
+Revenue       $12M
+Growth       18%
+Churn         4.2%
+Debt          $3M
+```
+
+returns:
+
+```text
+Projected EBITDA
+DSCR
+Cash Flow
+NPV
+IRR
+```
+
+The caller should not need Excel.
+
+---
+
+# 13. Model API
+
+A deployed model becomes programmable.
+
+Conceptual API:
+
+```text
+GET  /models/{id}
+GET  /models/{id}/versions
+GET  /models/{id}/graph
+GET  /models/{id}/tests
+GET  /models/{id}/evidence
+
+POST /models/{id}/execute
+POST /models/{id}/scenario
+POST /models/{id}/validate
+```
+
+The exact API should be determined during implementation.
+
+The principle is what matters:
+
+> **A model should be callable like software.**
+
+---
+
+# 14. Model SDK
+
+Eventually developers should be able to integrate XLent models into applications.
+
+Conceptually:
+
+```text
+Application
+    ↓
+XLent SDK
+    ↓
+Model
+    ↓
+Execution
+    ↓
+Structured Result
+```
+
+This enables models to become application components.
+
+For example:
+
+```text
+CRM
+ ↓
+XLent Pricing Model
+ ↓
+Recommended Price
+ ↓
+CRM
+```
+
+Or:
+
+```text
+Sil
+ ↓
+XLent Customer Model
+ ↓
+Scenario Results + Evidence
+ ↓
+Sil Agent
+```
+
+---
+
+# 15. Model Execution Must Preserve Evidence
+
+This is critical.
+
+A model execution should not return only:
+
+```text
+IRR = 28.4%
+```
+
+It should be possible to associate the result with:
+
+```text
+Model:
+Acme Forecast v3.2
+
+Inputs:
+...
+
+Scenario:
+Base
+
+Execution:
+...
+
+Output:
+IRR = 28.4%
+
+Dependencies:
+...
+
+Tests:
+47/47 PASS
+
+Evidence:
+...
+```
+
+Every execution should be traceable to:
+
+**model identity + version + input set + scenario + execution result.**
+
+This gives XLent a much stronger enterprise posture.
+
+---
+
+# 16. Model Lineage
+
+ModelOps should eventually provide:
+
+```text
+Source Data
+     ↓
+Assumption
+     ↓
+Formula
+     ↓
+Calculation
+     ↓
+Output
+     ↓
+Decision
+```
+
+XLent should be able to answer:
+
+> Where did this number come from?
+
+And:
+
+> What assumptions ultimately drive this output?
+
+This becomes **model provenance**.
+
+---
+
+# 17. Model Registry
+
+XLent should eventually provide a Model Registry.
+
+Example:
+
+```text
+XLent Model Registry
+
+Revenue Forecast        v4.2
+Pricing Model           v2.8
+Headcount Plan          v3.1
+Acquisition Model       v7.0
+CapEx Model             v1.4
+Debt Model              v2.3
+```
+
+Each model should expose:
+
+* identity
+* owner
+* versions
+* status
+* source
+* tests
+* lineage
+* dependencies
+* permissions
+* consumers
+* deployment status
+
+The organization gains an inventory of its **decision models**.
+
+---
+
+# 18. Model Governance
+
+Models should have lifecycle states:
+
+```text
+DRAFT
+  ↓
+TESTED
+  ↓
+VALIDATED
+  ↓
+APPROVED
+  ↓
+PUBLISHED
+  ↓
+DEPLOYED
+  ↓
+MONITORED
+  ↓
+DEPRECATED
+```
+
+Permissions should eventually operate at the model/version/environment level.
+
+For example:
+
+```text
+Development
+Staging
+Production
+```
+
+This brings software-like operational discipline to spreadsheet models.
+
+---
+
+# 19. Model Monitoring
+
+A mature ModelOps platform should not stop at deployment.
+
+XLent should eventually monitor:
+
+* execution frequency
+* execution failures
+* input anomalies
+* output anomalies
+* model drift
+* dependency changes
+* source changes
+* test failures
+* version adoption
+
+For example:
+
+```text
+MODEL HEALTH
+
+Acme Underwriting v3.2
+
+Executions:          18,420
+Successful:          18,401
+Failed:                  19
+
+Tests:               47/47 PASS
+
+Input anomaly:
+⚠ Growth assumption outside historical range
+
+Source change:
+⚠ External dependency changed
+
+Status:
+CONDITIONAL
+```
+
+---
+
+# 20. ModelOps + AI Agents
+
+This is particularly important for Sil.
+
+An AI agent should not have to manipulate an XLSX manually.
+
+Instead:
+
+```text
+Agent
+  ↓
+"Run Acme model at 15% growth."
+  ↓
+XLent API
+  ↓
+Model v3.2
+  ↓
+Execution
+  ↓
+Results + Evidence
+  ↓
+Agent
+```
+
+The agent receives structured, deterministic model results rather than relying on an LLM to "read" a spreadsheet and perform calculations itself.
+
+This creates a critical architectural principle:
+
+> **AI reasons over models; XLent executes and verifies models.**
+
+---
+
+# 21. Sil's Role
+
+Sil is XLent's first customer and flagship integration.
+
+The separation should remain clear.
+
+### XLent
+
+Answers:
+
+> What is this model?
+> How does it work?
+> Is it internally coherent?
+> What happens when we execute it?
+> What evidence supports the result?
+
+### Sil
+
+Answers:
+
+> So what?
+> What does it mean?
+> How does it compare to our Reference Models?
+> What should we do?
+
+Architecture:
+
+```text
+                         SIL
+                Reasoning / Decision
+                         │
+                    API / SDK
+                         │
+                         ▼
+                       XLENT
+                   ModelOps Layer
+                         │
+        ┌────────────────┼────────────────┐
+        ↓                ↓                ↓
+     Import           Verify           Execute
+        ↓                ↓                ↓
+       XMR          Evidence         Results
+```
+
+---
+
+# 22. Sil BYOA Flow
+
+The preferred workflow:
+
+```text
+Sil
+ ↓
+BYOA
+ ↓
+"Analyze with XLent"
+ ↓
+XLent Importer
+ ↓
+Reconstruct Model
+ ↓
+Test / Verify / Scenario
+ ↓
+XLent Model Package
+ ↓
+Sil
+ ↓
+Reference Model comparison
+ ↓
+Agent reasoning
+ ↓
+Decision
+```
+
+Sil should not become responsible for Excel parsing.
+
+XLent owns the model.
+
+Sil consumes the model.
+
+---
+
+# 23. XLent Model Package
+
+The handoff to Sil should be structured.
+
+```text
+XLent Model Package
+│
+├── model_manifest
+├── canonical_model
+├── workbook_map
+├── dependency_graph
+├── assumptions
+├── formulas
+├── outputs
+├── findings
+├── test_results
+├── scenarios
+├── sensitivities
+├── reconciliations
+├── evidence
+└── assurance_summary
+```
+
+A PDF can be generated for humans.
+
+But the **machine-readable package is the primary artifact**.
+
+---
+
+# 24. XLent as a Standalone Platform
+
+XLent must remain independent of Sil.
+
+The long-term topology:
+
+```text
+                   XLENT
+                ModelOps Core
+                     │
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+         Sil       Agents    Enterprise
+```
+
+Sil is:
+
+* first customer
+* first major integration
+* first flagship use case
+* first stress test
+
+It is not XLent's architectural boundary.
+
+---
+
+# 25. ModelOps Architecture
+
+Long-term:
+
+```text
+                           XLENT
+        ┌────────────────────────────────────┐
+        │                                    │
+        │             MODELOPS               │
+        │                                    │
+        │ Importers ─────┐                  │
+        │ Connectors ────┼──→ XMR            │
+        │                 │       ↓          │
+        │                 │   Model Graph    │
+        │                 │       ↓          │
+        │                 │ ┌─────┼─────┐    │
+        │                 │ ↓     ↓     ↓    │
+        │                 │ Test Scenario   │
+        │                 │ Verify Evidence │
+        │                 │ └─────┼─────┘    │
+        │                 │       ↓          │
+        │                 │ Version/Branch   │
+        │                 │       ↓          │
+        │                 │     Registry     │
+        │                 │       ↓          │
+        │                 │    Publish       │
+        │                 │       ↓          │
+        │                 │    Deploy        │
+        │                 │       ↓          │
+        │                 │    Runtime       │
+        │                 │       ↓          │
+        │                 │ API / SDK        │
+        │                 │       ↓          │
+        │                 │    Monitor       │
+        └────────────────────────────────────┘
+```
+
+---
+
+# 26. Product Principles
+
+Agent SWE should use these principles when deciding whether a capability belongs in XLent.
+
+### Principle 1 — The model is the product.
+
+Not the workbook.
+
+### Principle 2 — Excel remains a first-class authoring surface.
+
+Do not force users to abandon the paradigm.
+
+### Principle 3 — XMR is the abstraction layer.
+
+Source formats should ultimately become model representations.
+
+### Principle 4 — Every model should be testable.
+
+"Looks right" is not sufficient.
+
+### Principle 5 — Every published model should be identifiable.
+
+Files are not model identity.
+
+### Principle 6 — Every deployed model should be reproducible.
+
+Model version + inputs + scenario should reproduce the result.
+
+### Principle 7 — Every important output should be traceable.
+
+Result → calculation → assumption → source.
+
+### Principle 8 — AI should not be the execution engine.
+
+AI can reason; XLent should deterministically execute and verify the model.
+
+### Principle 9 — Access should be scoped.
+
+Prefer targeted model acquisition over unrestricted organizational data access.
+
+### Principle 10 — Sil is an integration, not a dependency.
+
+XLent must stand independently.
+
+---
+
+# 27. Development Roadmap
+
+## Phase 1 — Model Foundation
+
+Build:
+
+1. XLSX importer
+2. Workbook parser
+3. Formula extraction
+4. Dependency extraction
+5. XMR
+6. Model graph
+7. Model manifest
+8. Model explorer
+
+## Phase 2 — Model Assurance
+
+Build:
+
+9. Structural tests
+10. Formula consistency tests
+11. Mathematical reconciliation
+12. Scenario execution
+13. Sensitivity analysis
+14. Evidence generation
+
+## Phase 3 — ModelOps Foundation
+
+Build:
+
+15. Model identity
+16. Versioning
+17. Snapshots
+18. Model diff
+19. Branching
+20. Migration engine
+21. Model Registry
+22. Lifecycle states
+
+## Phase 4 — Deployment
+
+Build:
+
+23. Model publishing
+24. Execution runtime
+25. Model API
+26. SDK
+27. Execution records
+28. Reproducibility
+29. Permissions
+
+## Phase 5 — Sil Integration
+
+Build:
+
+30. Sil → XLent invocation
+31. Native XLent Importer
+32. XLent Model Package
+33. XLent → Sil handoff
+34. Reference Model comparison
+35. Agent access
+
+## Phase 6 — Enterprise ModelOps
+
+Build:
+
+36. SharePoint
+37. OneDrive
+38. Google Drive
+39. S3
+40. Enterprise repositories
+41. Governed source connections
+42. Model lineage
+43. Model monitoring
+44. Continuous validation
+
+---
+
+# 28. What Not to Build
+
+XLent should not become:
+
+* ChatGPT for Excel
+* a generic spreadsheet chatbot
+* Tableau/Power BI
+* a generic ETL platform
+* a database-management platform
+* an Excel replacement
+* a generic document-management system
+
+Those are distractions from the ModelOps thesis.
+
+---
+
+# 29. The North Star
+
+The strongest concise definition is:
+
+> **XLent is the ModelOps infrastructure that makes spreadsheet models accessible, operational, programmable, testable, versionable, governable, and deployable without requiring users to abandon the spreadsheet paradigm.**
+
+Or even more simply:
+
+> **XLent makes spreadsheet models behave like software.**
+
+The user can still author the model in Excel.
+
+XLent gives everything around that model the infrastructure of modern software.
+
+---
+
+# 30. Agent SWE Guiding Sentence
+
+When making future XLent implementation decisions, use this test:
+
+> **Can a spreadsheet model move from authoring → testing → validation → versioning → publication → deployment → execution → monitoring without losing its spreadsheet-native semantics?**
+
+If yes, that capability is likely part of XLent ModelOps.
+
+If no, reconsider the architecture.
+
+---
+
+## Final Thesis
+
+Excel succeeded because it made programming accessible.
+
+The problem isn't the spreadsheet paradigm.
+
+The problem is that the **infrastructure around the paradigm never matured.**
+
+XLent's opportunity is therefore not to kill Excel.
+
+It is to **industrialize the spreadsheet model.**
+
+```text
+Spreadsheet
+     ↓
+     XLent
+     ↓
+    Model
+     ↓
+ ModelOps
+     ↓
+Software-like lifecycle
+     ↓
+Applications / Agents / Sil
+```
+
+**XLent is where the spreadsheet model grows up.**
