@@ -4,6 +4,14 @@ export { discoverModel } from './discovery.js';
 export { buildGraph, findTerminalNodes, findRootNodes, traceUpstream, detectCycles } from './graph.js';
 export { ModelRuntime } from './runtime.js';
 export { runScenario, compareScenarios } from './scenario.js';
+export { runModelTests } from './testRunner.js';
+export { generateStructuralTests, resolveMetaValue } from './autoTests.js';
+export { diffModels, bumpSemver } from './diff.js';
+export { runSensitivity } from './sensitivity.js';
+export type { SensitivityConfig, SensitivityResult, ParameterImpact } from './sensitivity.js';
+export { buildModelPackage } from './package.js';
+export * from './functions/index.js';
 export { XLentClient } from './client.js';
 export type { XLentClientOptions } from './client.js';
+// @deprecated — use @xlent/sdk instead of importing XLentClient from @xlent/core
 export * from './types.js';

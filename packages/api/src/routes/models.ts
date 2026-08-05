@@ -9,12 +9,25 @@ import {
   ModelRuntime,
   runScenario,
   compareScenarios,
+  diffModels,
+  bumpSemver,
+  runModelTests,
+  buildModelPackage,
 } from '@xlent/core';
-import type { Model, Parameter, Output, ScenarioOverride, Deliverable } from '@xlent/core';
-import { store, clientStore } from '../store.js';
-import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema, deliverToClientSchema } from '../schemas.js';
+import type { Model, ModelStatus, ModelTestDefinition, Parameter, Output, ScenarioOverride, Deliverable, Snapshot, EvidenceRecord } from '@xlent/core';
+import { store, clientStore, snapshotStore, testStore, evidenceStore } from '../store.js';
+import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema, deliverToClientSchema, statusTransitionSchema } from '../schemas.js';
 
 export const modelsRouter = new Hono();
+
+function generateSlug(filename: string): string {
+  return filename
+    .replace(/\.[^.]+$/, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
 
 /** POST /models/import — Upload and parse a workbook */
 modelsRouter.post('/import', async (c) => {
@@ -101,10 +114,20 @@ modelsRouter.post('/import', async (c) => {
     }
   }
 
+  const baseSlug = generateSlug(filename);
+  let slug = baseSlug;
+  let suffix = 1;
+  while (store.slugExists(slug)) {
+    slug = `${baseSlug}-${++suffix}`;
+  }
+
   const model: Model = {
     id: crypto.randomUUID(),
     name: filename.replace(/\.[^.]+$/, ''),
+    slug,
+    semver: '1.0.0',
     version: 1,
+    status: 'draft',
     createdAt: new Date().toISOString(),
     workbookName: filename,
     parameters,
@@ -124,6 +147,19 @@ modelsRouter.post('/import', async (c) => {
   store.setWorkbook(model.id, workbook);
   store.setOriginal(model.id, buffer);
 
+  // Auto-create initial snapshot
+  const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
+  const snapshot: Snapshot = {
+    id: crypto.randomUUID(),
+    modelId: model.id,
+    semver: model.semver,
+    message: 'Initial import',
+    checksum,
+    createdAt: model.createdAt,
+    data: model,
+  };
+  snapshotStore.create(snapshot);
+
   return c.json({ model, discovery }, 201);
 });
 
@@ -135,6 +171,130 @@ modelsRouter.post('/:id/analyze', (c) => {
 
   const discovery = discoverModel(workbook);
   return c.json({ discovery });
+});
+
+/** POST /models/:id/reimport — Re-import xlsx, bump version, generate diff */
+modelsRouter.post('/:id/reimport', async (c) => {
+  const existingModel = store.getModel(c.req.param('id'));
+  if (!existingModel) return c.json({ error: 'Model not found' }, 404);
+
+  const body = await c.req.parseBody();
+  const file = body['file'];
+  if (!file || !(file instanceof File)) {
+    return c.json({ error: 'File upload required (field: "file")' }, 400);
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const filename = file.name || existingModel.workbookName;
+
+  const workbook = parseWorkbook(buffer, filename);
+  const discovery = discoverModel(workbook);
+  const graph = buildGraph(workbook);
+  const rootNodes = findRootNodes(graph);
+  const terminalNodes = findTerminalNodes(graph);
+
+  const cellLabelMap = new Map<string, string>();
+  for (const sheet of workbook.sheets) {
+    for (const cell of sheet.cells) {
+      if (cell.type === 'string' && typeof cell.value === 'string') {
+        cellLabelMap.set(`${cell.address.sheet}!${cell.address.ref}`, cell.value);
+      }
+    }
+  }
+
+  function resolveLabel(sheet: string, ref: string): string | null {
+    const col = ref.replace(/\d+/g, '');
+    const row = ref.replace(/[A-Z]+/g, '');
+    if (col > 'A') {
+      const prevCol = String.fromCharCode(col.charCodeAt(0) - 1);
+      const leftLabel = cellLabelMap.get(`${sheet}!${prevCol}${row}`);
+      if (leftLabel) return leftLabel;
+    }
+    const rowNum = parseInt(row);
+    if (rowNum > 1) {
+      const aboveLabel = cellLabelMap.get(`${sheet}!${col}${rowNum - 1}`);
+      if (aboveLabel) return aboveLabel;
+    }
+    return null;
+  }
+
+  const parameters: Parameter[] = [];
+  const outputs: Output[] = [];
+
+  for (const sheet of workbook.sheets) {
+    for (const cell of sheet.cells) {
+      const cellId = `${cell.address.sheet}!${cell.address.ref}`;
+      if (!cell.formula && cell.type === 'number' && rootNodes.includes(cellId)) {
+        const label = resolveLabel(cell.address.sheet, cell.address.ref);
+        parameters.push({
+          id: crypto.randomUUID(),
+          name: label || cellId,
+          type: cell.type,
+          currentValue: cell.value,
+          originalValue: cell.value,
+          sourceCell: cell.address,
+          source: 'CLIENT_MODEL',
+          confidence: label ? 'HIGH' : 'MEDIUM',
+          confirmed: false,
+        });
+      }
+      if (cell.formula && terminalNodes.includes(cellId)) {
+        const label = resolveLabel(cell.address.sheet, cell.address.ref);
+        outputs.push({
+          id: crypto.randomUUID(),
+          name: label || cellId,
+          value: cell.value,
+          sourceCell: cell.address,
+          dependsOn: [],
+          confidence: label ? 'HIGH' : 'MEDIUM',
+          confirmed: false,
+        });
+      }
+    }
+  }
+
+  // Generate diff against current model to determine version bump
+  const newModelDraft: Model = {
+    ...existingModel,
+    version: existingModel.version + 1,
+    status: 'draft',
+    workbookName: filename,
+    parameters,
+    calculations: [],
+    outputs,
+    graph,
+    compatibility: {
+      status: discovery.compatibility,
+      supportedFormulas: discovery.formulaCells - discovery.unsupportedFunctions,
+      totalFormulas: discovery.formulaCells,
+      issues: [],
+    },
+    discovery,
+  };
+
+  const diff = diffModels(existingModel, newModelDraft);
+  const newSemver = bumpSemver(existingModel.semver, diff.suggestedBump);
+
+  const updatedModel: Model = { ...newModelDraft, semver: newSemver };
+
+  store.setModel(updatedModel);
+  store.setWorkbook(updatedModel.id, workbook);
+  store.setOriginal(updatedModel.id, buffer);
+
+  // Create snapshot for new version
+  const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
+  const snapshot: Snapshot = {
+    id: crypto.randomUUID(),
+    modelId: updatedModel.id,
+    semver: newSemver,
+    message: `Re-import: ${diff.summary}`,
+    checksum,
+    createdAt: new Date().toISOString(),
+    data: updatedModel,
+  };
+  snapshotStore.create(snapshot);
+
+  return c.json({ model: updatedModel, diff, snapshot: { id: snapshot.id, semver: newSemver, checksum } }, 200);
 });
 
 /** GET /models — List all models */
@@ -214,11 +374,118 @@ modelsRouter.post('/:id/compare', async (c) => {
   return c.json({ comparison });
 });
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  draft: ['sandbox'],
+  sandbox: ['validated', 'draft'],
+  validated: ['approved', 'draft'],
+  approved: ['published', 'draft'],
+  published: ['deprecated'],
+  deprecated: [],
+};
+
+/** PATCH /models/:id/status — Transition model lifecycle state */
+modelsRouter.patch('/:id/status', async (c) => {
+  const model = store.getModel(c.req.param('id'));
+  if (!model) return c.json({ error: 'Model not found' }, 404);
+
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = statusTransitionSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
+
+  const target = parsed.data.status as ModelStatus;
+  const allowed = VALID_TRANSITIONS[model.status] || [];
+  if (!allowed.includes(target)) {
+    return c.json({ error: `Invalid transition: ${model.status} → ${target}. Allowed: [${allowed.join(', ')}]` }, 409);
+  }
+
+  // Validated gate: all tests must pass
+  if (target === 'validated') {
+    const tests = testStore.listTests(model.id);
+    if (tests.length === 0) return c.json({ error: 'Cannot validate: no tests defined' }, 409);
+
+    const workbook = store.getWorkbook(model.id);
+    if (!workbook) return c.json({ error: 'Workbook not found' }, 500);
+
+    const { runModelTests } = await import('@xlent/core');
+    const results = runModelTests(model, workbook, tests.map((t: any) => ({ id: t.id, modelId: t.modelId, name: t.name, category: t.category, assertion: t.assertion, autoGenerated: t.autoGenerated })));
+    const allPass = results.every((r) => r.status === 'pass' || r.status === 'skip');
+    if (!allPass) {
+      const failures = results.filter((r) => r.status === 'fail' || r.status === 'error');
+      return c.json({ error: 'Cannot validate: tests failing', failures: failures.map((f) => ({ name: f.name, status: f.status, message: f.message })) }, 409);
+    }
+  }
+
+  // Publish gate: create immutable snapshot + evidence
+  if (target === 'published') {
+    const original = store.getOriginal(model.id);
+    const checksum = original
+      ? crypto.createHash('sha256').update(original).digest('hex')
+      : crypto.createHash('sha256').update(JSON.stringify(model)).digest('hex');
+
+    const snapshot: Snapshot = {
+      id: crypto.randomUUID(),
+      modelId: model.id,
+      semver: model.semver,
+      message: `Published v${model.semver}`,
+      checksum,
+      createdAt: new Date().toISOString(),
+      data: { ...model, status: 'published' },
+    };
+    snapshotStore.create(snapshot);
+
+    // Create publish evidence record
+    const tests = testStore.listTests(model.id);
+    if (tests.length > 0) {
+      const workbook = store.getWorkbook(model.id);
+      if (workbook) {
+        const { runModelTests } = await import('@xlent/core');
+        const results = runModelTests(model, workbook, tests.map((t: any) => ({ id: t.id, modelId: t.modelId, name: t.name, category: t.category, assertion: t.assertion, autoGenerated: t.autoGenerated })));
+        const evidenceRecord: EvidenceRecord = {
+          id: crypto.randomUUID(),
+          modelId: model.id,
+          modelVersion: model.version,
+          executedAt: new Date().toISOString(),
+          inputs: {},
+          overrides: [],
+          outputs: {},
+          tests: results,
+          allTestsPass: results.every((r) => r.status === 'pass' || r.status === 'skip'),
+          checksum,
+          reproducible: true,
+          purpose: 'publish_gate',
+        };
+        evidenceStore.store(evidenceRecord);
+      }
+    }
+  }
+
+  const updated: Model = { ...model, status: target };
+  store.setModel(updated);
+  return c.json({ model: updated });
+});
+
 /** DELETE /models/:id — Remove a model */
 modelsRouter.delete('/:id', (c) => {
   const deleted = store.deleteModel(c.req.param('id'));
   if (!deleted) return c.json({ error: 'Model not found' }, 404);
   return c.json({ deleted: true });
+});
+
+/** GET /models/:id/package — Full model package with assurance summary */
+modelsRouter.get('/:id/package', (c) => {
+  const modelId = c.req.param('id');
+  const model = store.getModel(modelId);
+  const workbook = store.getWorkbook(modelId);
+  if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
+
+  const tests = testStore.listTests(modelId);
+  const defs: ModelTestDefinition[] = tests.map((t: any) => ({ id: t.id, modelId: t.modelId, name: t.name, category: t.category, assertion: t.assertion, description: t.description, autoGenerated: t.autoGenerated }));
+  const testResults = defs.length > 0 ? runModelTests(model, workbook, defs) : [];
+  const latestEvidence = evidenceStore.list(modelId, 1);
+  const evidence = latestEvidence.length > 0 ? latestEvidence[0] : undefined;
+
+  const pkg = buildModelPackage(model, workbook, testResults, evidence);
+  return c.json(pkg);
 });
 
 /** GET /models/:id/deliverable — Package model run as a deliverable for clients */

@@ -1,6 +1,7 @@
 import type { ParsedWorkbook } from './parser.js';
 import type { Model, Parameter, Calculation, Output, ScenarioOverride } from './types.js';
 import { buildGraph, traceUpstream } from './graph.js';
+import * as fin from './functions/financial.js';
 
 /**
  * Deterministic model runtime.
@@ -173,7 +174,40 @@ export class ModelRuntime {
         const n = parseFloat(num.trim()) || 0;
         const d = parseInt(digits.trim()) || 0;
         return String(Math.round(n * 10 ** d) / 10 ** d);
-      });
+      })
+      // Financial functions
+      .replace(/NPV\(([^,]+),([^)]+)\)/gi, (_, rate: string, args: string) => {
+        const r = parseFloat(rate.trim()) || 0;
+        const cfs = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
+        return String(fin.NPV(r, ...cfs));
+      })
+      .replace(/IRR\(([^)]+)\)/gi, (_, args: string) => {
+        const cfs = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
+        const result = fin.IRR(cfs);
+        return typeof result === 'number' ? String(result) : result;
+      })
+      .replace(/PMT\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
+        (_, rate: string, nper: string, pv: string, fvStr?: string, typeStr?: string) => {
+          return String(fin.PMT(parseFloat(rate.trim()) || 0, parseFloat(nper.trim()) || 0, parseFloat(pv.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0')));
+        })
+      .replace(/PV\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
+        (_, rate: string, nper: string, pmt: string, fvStr?: string, typeStr?: string) => {
+          return String(fin.PV(parseFloat(rate.trim()) || 0, parseFloat(nper.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0')));
+        })
+      .replace(/FV\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
+        (_, rate: string, nper: string, pmt: string, pvStr?: string, typeStr?: string) => {
+          return String(fin.FV(parseFloat(rate.trim()) || 0, parseFloat(nper.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(pvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0')));
+        })
+      .replace(/NPER\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
+        (_, rate: string, pmt: string, pv: string, fvStr?: string, typeStr?: string) => {
+          const result = fin.NPER(parseFloat(rate.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(pv.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0'));
+          return typeof result === 'number' ? String(result) : result;
+        })
+      .replace(/RATE\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
+        (_, nper: string, pmt: string, pv: string, fvStr?: string, typeStr?: string) => {
+          const result = fin.RATE(parseFloat(nper.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(pv.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0'));
+          return typeof result === 'number' ? String(result) : result;
+        });
 
     // Evaluate pure arithmetic (only numbers, operators, parens)
     if (/^[\d\s+\-*/().,%^]+$/.test(normalized)) {

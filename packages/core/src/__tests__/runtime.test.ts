@@ -51,6 +51,9 @@ function buildTestModel(sheetData: any[][], sheetName = 'Sheet1'): { model: Mode
   const model: Model = {
     id: 'test-model',
     name: 'Test',
+    slug: 'test',
+    semver: '1.0.0',
+    status: 'draft',
     version: 1,
     createdAt: new Date().toISOString(),
     workbookName: 'test.xlsx',

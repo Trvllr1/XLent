@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "paths": {
+      "@xlent/sdk": ["../sdk/src/index.ts"],
+      "@xlent/core": ["../core/src/index.ts"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "../sdk" }, { "path": "../core" }]
+}
