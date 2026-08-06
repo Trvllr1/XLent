@@ -1,7 +1,8 @@
 import type { ParsedWorkbook } from './parser.js';
 import type { Model, Parameter, Calculation, Output, ScenarioOverride } from './types.js';
 import { buildGraph, traceUpstream } from './graph.js';
-import * as fin from './functions/financial.js';
+import { parseFormula, FormulaInterpreter, type CellValue, type InterpreterContext } from './ast/index.js';
+import type { ASTNode } from './ast/index.js';
 
 /**
  * Deterministic model runtime.
@@ -9,8 +10,9 @@ import * as fin from './functions/financial.js';
  * AI must NOT be used for calculation — this is the authoritative engine.
  */
 export class ModelRuntime {
-  private cellValues: Map<string, unknown>;
+  private cellValues: Map<string, CellValue>;
   private formulas: Map<string, string>;
+  private parsedFormulas: Map<string, ASTNode>;
   private model: Model;
   private topoOrder: string[];
 
@@ -18,14 +20,20 @@ export class ModelRuntime {
     this.model = model;
     this.cellValues = new Map();
     this.formulas = new Map();
+    this.parsedFormulas = new Map();
 
     // Initialize cell values from workbook
     for (const sheet of workbook.sheets) {
       for (const cell of sheet.cells) {
         const id = `${cell.address.sheet}!${cell.address.ref}`;
-        this.cellValues.set(id, cell.value);
+        this.cellValues.set(id, cell.value as CellValue);
         if (cell.formula) {
           this.formulas.set(id, cell.formula);
+          try {
+            this.parsedFormulas.set(id, parseFormula(cell.formula));
+          } catch {
+            // If parsing fails, formula will return #CALC! at eval time
+          }
         }
       }
     }
@@ -41,16 +49,24 @@ export class ModelRuntime {
         const param = this.model.parameters.find((p) => p.id === override.parameterId);
         if (param) {
           const cellId = `${param.sourceCell.sheet}!${param.sourceCell.ref}`;
-          this.cellValues.set(cellId, override.value);
+          this.cellValues.set(cellId, override.value as CellValue);
         }
       }
     }
 
-    // Evaluate in topological order
+    // Evaluate in topological order using AST interpreter
     for (const cellId of this.topoOrder) {
-      const formula = this.formulas.get(cellId);
-      if (formula) {
-        const value = this.evaluateFormula(formula, cellId);
+      const ast = this.parsedFormulas.get(cellId);
+      if (ast) {
+        const sheet = cellId.split('!')[0];
+        const ctx: InterpreterContext = {
+          currentSheet: sheet,
+          resolve: (s, col, row) => this.cellValues.get(`${s}!${col}${row}`) ?? null,
+          resolveRange: (s, startCol, startRow, endCol, endRow) => this.expandRange(s, startCol, startRow, endCol, endRow),
+          stepLimit: 50000,
+        };
+        const interp = new FormulaInterpreter(ctx);
+        const value = interp.evaluate(ast);
         this.cellValues.set(cellId, value);
       }
     }
@@ -87,159 +103,17 @@ export class ModelRuntime {
     return { output, dependencies: deps, values };
   }
 
-  private evaluateFormula(formula: string, contextCell: string): unknown {
-    // Resolve cell references to their current values
-    const sheet = contextCell.split('!')[0];
-    const resolved = formula.replace(
-      /(?:([A-Za-z0-9_ ]+)!)?\$?([A-Z]+)\$?(\d+)/g,
-      (_, refSheet, col, row) => {
-        const targetSheet = refSheet || sheet;
-        const val = this.cellValues.get(`${targetSheet}!${col}${row}`);
-        if (val === undefined || val === null) return '0';
-        if (typeof val === 'string') return `"${val}"`;
-        return String(val);
-      },
-    );
-
-    try {
-      // Safe numeric evaluation for arithmetic formulas
-      return this.safeEval(resolved);
-    } catch {
-      return '#CALC!';
+  private expandRange(sheet: string, startCol: string, startRow: number, endCol: string, endRow: number): CellValue[] {
+    const values: CellValue[] = [];
+    const sc = colToIndex(startCol);
+    const ec = colToIndex(endCol);
+    for (let row = startRow; row <= endRow; row++) {
+      for (let c = sc; c <= ec; c++) {
+        const col = indexToCol(c);
+        values.push(this.cellValues.get(`${sheet}!${col}${row}`) ?? null);
+      }
     }
-  }
-
-  /** Evaluate simple arithmetic expressions without full eval(). */
-  private safeEval(expr: string): unknown {
-    // Handle common Excel functions
-    let normalized = expr
-      // Math constants and zero-arg functions
-      .replace(/PI\(\)/gi, String(Math.PI))
-      .replace(/TRUE\(\)/gi, '1')
-      .replace(/FALSE\(\)/gi, '0')
-      // Single-arg math functions
-      .replace(/ABS\(([^)]+)\)/gi, (_, a: string) => String(Math.abs(parseFloat(a.trim()) || 0)))
-      .replace(/SQRT\(([^)]+)\)/gi, (_, a: string) => String(Math.sqrt(parseFloat(a.trim()) || 0)))
-      .replace(/LN\(([^)]+)\)/gi, (_, a: string) => String(Math.log(parseFloat(a.trim()) || 0)))
-      .replace(/LOG10\(([^)]+)\)/gi, (_, a: string) => String(Math.log10(parseFloat(a.trim()) || 0)))
-      .replace(/LOG\(([^,]+),([^)]+)\)/gi, (_, a: string, b: string) => {
-        const val = parseFloat(a.trim()) || 0;
-        const base = parseFloat(b.trim()) || 10;
-        return String(Math.log(val) / Math.log(base));
-      })
-      .replace(/EXP\(([^)]+)\)/gi, (_, a: string) => String(Math.exp(parseFloat(a.trim()) || 0)))
-      .replace(/FLOOR\(([^,]+),([^)]+)\)/gi, (_, a: string, sig: string) => {
-        const val = parseFloat(a.trim()) || 0;
-        const s = parseFloat(sig.trim()) || 1;
-        return String(Math.floor(val / s) * s);
-      })
-      .replace(/CEILING\(([^,]+),([^)]+)\)/gi, (_, a: string, sig: string) => {
-        const val = parseFloat(a.trim()) || 0;
-        const s = parseFloat(sig.trim()) || 1;
-        return String(Math.ceil(val / s) * s);
-      })
-      .replace(/INT\(([^)]+)\)/gi, (_, a: string) => String(Math.trunc(parseFloat(a.trim()) || 0)))
-      .replace(/MOD\(([^,]+),([^)]+)\)/gi, (_, a: string, b: string) => {
-        const num = parseFloat(a.trim()) || 0;
-        const div = parseFloat(b.trim()) || 1;
-        return String(num - div * Math.floor(num / div));
-      })
-      .replace(/POWER\(([^,]+),([^)]+)\)/gi, (_, a: string, b: string) => {
-        return String(Math.pow(parseFloat(a.trim()) || 0, parseFloat(b.trim()) || 0));
-      })
-      // Aggregate functions
-      .replace(/SUM\(([^)]+)\)/gi, (_, args: string) => {
-        const nums = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
-        return String(nums.reduce((a: number, b: number) => a + b, 0));
-      })
-      .replace(/AVERAGE\(([^)]+)\)/gi, (_, args: string) => {
-        const nums = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
-        return String(nums.reduce((a: number, b: number) => a + b, 0) / nums.length);
-      })
-      .replace(/MIN\(([^)]+)\)/gi, (_, args: string) => {
-        const nums = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
-        return String(Math.min(...nums));
-      })
-      .replace(/MAX\(([^)]+)\)/gi, (_, args: string) => {
-        const nums = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
-        return String(Math.max(...nums));
-      })
-      .replace(/COUNT\(([^)]+)\)/gi, (_, args: string) => {
-        return String(args.split(',').filter((s: string) => !isNaN(parseFloat(s.trim()))).length);
-      })
-      .replace(/IF\(([^,]+),([^,]+),([^)]+)\)/gi, (_, cond: string, t: string, f: string) => {
-        return this.evalCondition(cond) ? t.trim() : f.trim();
-      })
-      .replace(/ROUND\(([^,]+),([^)]+)\)/gi, (_, num: string, digits: string) => {
-        const n = parseFloat(num.trim()) || 0;
-        const d = parseInt(digits.trim()) || 0;
-        return String(Math.round(n * 10 ** d) / 10 ** d);
-      })
-      // Financial functions
-      .replace(/NPV\(([^,]+),([^)]+)\)/gi, (_, rate: string, args: string) => {
-        const r = parseFloat(rate.trim()) || 0;
-        const cfs = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
-        return String(fin.NPV(r, ...cfs));
-      })
-      .replace(/IRR\(([^)]+)\)/gi, (_, args: string) => {
-        const cfs = args.split(',').map((s: string) => parseFloat(s.trim()) || 0);
-        const result = fin.IRR(cfs);
-        return typeof result === 'number' ? String(result) : result;
-      })
-      .replace(/PMT\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
-        (_, rate: string, nper: string, pv: string, fvStr?: string, typeStr?: string) => {
-          return String(fin.PMT(parseFloat(rate.trim()) || 0, parseFloat(nper.trim()) || 0, parseFloat(pv.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0')));
-        })
-      .replace(/PV\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
-        (_, rate: string, nper: string, pmt: string, fvStr?: string, typeStr?: string) => {
-          return String(fin.PV(parseFloat(rate.trim()) || 0, parseFloat(nper.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0')));
-        })
-      .replace(/FV\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
-        (_, rate: string, nper: string, pmt: string, pvStr?: string, typeStr?: string) => {
-          return String(fin.FV(parseFloat(rate.trim()) || 0, parseFloat(nper.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(pvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0')));
-        })
-      .replace(/NPER\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
-        (_, rate: string, pmt: string, pv: string, fvStr?: string, typeStr?: string) => {
-          const result = fin.NPER(parseFloat(rate.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(pv.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0'));
-          return typeof result === 'number' ? String(result) : result;
-        })
-      .replace(/RATE\(([^,]+),([^,]+),([^,)]+)(?:,([^,)]+))?(?:,([^)]+))?\)/gi,
-        (_, nper: string, pmt: string, pv: string, fvStr?: string, typeStr?: string) => {
-          const result = fin.RATE(parseFloat(nper.trim()) || 0, parseFloat(pmt.trim()) || 0, parseFloat(pv.trim()) || 0, parseFloat(fvStr?.trim() || '0'), parseInt(typeStr?.trim() || '0'));
-          return typeof result === 'number' ? String(result) : result;
-        });
-
-    // Evaluate pure arithmetic (only numbers, operators, parens)
-    if (/^[\d\s+\-*/().,%^]+$/.test(normalized)) {
-      // Replace percentage notation
-      normalized = normalized.replace(/([\d.]+)%/g, (_, n) => String(parseFloat(n) / 100));
-      // Replace ^ with ** for exponentiation
-      normalized = normalized.replace(/\^/g, '**');
-      const fn = new Function(`return (${normalized})`);
-      return fn();
-    }
-
-    // If it's a pure number
-    const num = parseFloat(normalized);
-    if (!isNaN(num)) return num;
-
-    return normalized;
-  }
-
-  private evalCondition(cond: string): boolean {
-    const match = cond.match(/(.+?)\s*(>=|<=|<>|>|<|=)\s*(.+)/);
-    if (!match) return false;
-    const left = parseFloat(match[1].trim()) || 0;
-    const right = parseFloat(match[3].trim()) || 0;
-    switch (match[2]) {
-      case '>': return left > right;
-      case '<': return left < right;
-      case '>=': return left >= right;
-      case '<=': return left <= right;
-      case '=': return left === right;
-      case '<>': return left !== right;
-      default: return false;
-    }
+    return values;
   }
 
   private topologicalSort(): string[] {
@@ -271,4 +145,22 @@ export class ModelRuntime {
 
     return order;
   }
+}
+
+function colToIndex(col: string): number {
+  let idx = 0;
+  for (let i = 0; i < col.length; i++) {
+    idx = idx * 26 + (col.charCodeAt(i) - 64);
+  }
+  return idx;
+}
+
+function indexToCol(idx: number): string {
+  let col = '';
+  while (idx > 0) {
+    const r = (idx - 1) % 26;
+    col = String.fromCharCode(65 + r) + col;
+    idx = Math.floor((idx - 1) / 26);
+  }
+  return col;
 }
