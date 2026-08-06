@@ -44,7 +44,7 @@ export const deliverToClientSchema = z.object({
 });
 
 export const testAssertionSchema = z.object({
-  type: z.enum(['equals', 'gt', 'lt', 'gte', 'lte', 'between', 'balance', 'non_negative', 'custom']),
+  type: z.enum(['equals', 'gt', 'lt', 'gte', 'lte', 'between', 'balance', 'non_negative', 'is_numeric', 'custom']),
   left: z.string().min(1),
   right: z.unknown().optional(),
   rightB: z.unknown().optional(),

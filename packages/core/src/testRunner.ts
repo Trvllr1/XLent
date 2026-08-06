@@ -70,6 +70,11 @@ function runSingleTest(
         expected = '>= 0';
         break;
       }
+      case 'is_numeric': {
+        status = typeof actual === 'number' && isFinite(actual) ? 'pass' : 'fail';
+        expected = 'finite number';
+        break;
+      }
       case 'custom': {
         status = 'skip';
         break;

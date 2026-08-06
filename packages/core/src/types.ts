@@ -218,6 +218,7 @@ export type AssertionType =
   | 'between'
   | 'balance'
   | 'non_negative'
+  | 'is_numeric'
   | 'custom';
 
 export interface TestAssertion {
