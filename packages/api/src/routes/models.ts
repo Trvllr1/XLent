@@ -6,6 +6,7 @@ import {
   buildGraph,
   findRootNodes,
   findTerminalNodes,
+  resolveLabels,
   ModelRuntime,
   runScenario,
   compareScenarios,
@@ -48,34 +49,7 @@ modelsRouter.post('/import', async (c) => {
   // Auto-classify inputs and outputs (user can refine later)
   const rootNodes = findRootNodes(graph);
   const terminalNodes = findTerminalNodes(graph);
-
-  // Build a lookup for resolving human-readable labels from adjacent cells
-  const cellLabelMap = new Map<string, string>();
-  for (const sheet of workbook.sheets) {
-    for (const cell of sheet.cells) {
-      if (cell.type === 'string' && typeof cell.value === 'string') {
-        cellLabelMap.set(`${cell.address.sheet}!${cell.address.ref}`, cell.value);
-      }
-    }
-  }
-
-  function resolveLabel(sheet: string, ref: string): string | null {
-    // Try cell to the left (same row, previous column)
-    const col = ref.replace(/\d+/g, '');
-    const row = ref.replace(/[A-Z]+/g, '');
-    if (col > 'A') {
-      const prevCol = String.fromCharCode(col.charCodeAt(0) - 1);
-      const leftLabel = cellLabelMap.get(`${sheet}!${prevCol}${row}`);
-      if (leftLabel) return leftLabel;
-    }
-    // Try cell above (same column, previous row)
-    const rowNum = parseInt(row);
-    if (rowNum > 1) {
-      const aboveLabel = cellLabelMap.get(`${sheet}!${col}${rowNum - 1}`);
-      if (aboveLabel) return aboveLabel;
-    }
-    return null;
-  }
+  const labels = resolveLabels(workbook, graph);
 
   const parameters: Parameter[] = [];
   const outputs: Output[] = [];
@@ -85,7 +59,7 @@ modelsRouter.post('/import', async (c) => {
       const cellId = `${cell.address.sheet}!${cell.address.ref}`;
 
       if (!cell.formula && cell.type === 'number' && rootNodes.includes(cellId)) {
-        const label = resolveLabel(cell.address.sheet, cell.address.ref);
+        const label = labels.get(cellId) || null;
         parameters.push({
           id: crypto.randomUUID(),
           name: label || cellId,
@@ -100,7 +74,7 @@ modelsRouter.post('/import', async (c) => {
       }
 
       if (cell.formula && terminalNodes.includes(cellId)) {
-        const label = resolveLabel(cell.address.sheet, cell.address.ref);
+        const label = labels.get(cellId) || null;
         outputs.push({
           id: crypto.randomUUID(),
           name: label || cellId,
@@ -192,31 +166,7 @@ modelsRouter.post('/:id/reimport', async (c) => {
   const graph = buildGraph(workbook);
   const rootNodes = findRootNodes(graph);
   const terminalNodes = findTerminalNodes(graph);
-
-  const cellLabelMap = new Map<string, string>();
-  for (const sheet of workbook.sheets) {
-    for (const cell of sheet.cells) {
-      if (cell.type === 'string' && typeof cell.value === 'string') {
-        cellLabelMap.set(`${cell.address.sheet}!${cell.address.ref}`, cell.value);
-      }
-    }
-  }
-
-  function resolveLabel(sheet: string, ref: string): string | null {
-    const col = ref.replace(/\d+/g, '');
-    const row = ref.replace(/[A-Z]+/g, '');
-    if (col > 'A') {
-      const prevCol = String.fromCharCode(col.charCodeAt(0) - 1);
-      const leftLabel = cellLabelMap.get(`${sheet}!${prevCol}${row}`);
-      if (leftLabel) return leftLabel;
-    }
-    const rowNum = parseInt(row);
-    if (rowNum > 1) {
-      const aboveLabel = cellLabelMap.get(`${sheet}!${col}${rowNum - 1}`);
-      if (aboveLabel) return aboveLabel;
-    }
-    return null;
-  }
+  const labels = resolveLabels(workbook, graph);
 
   const parameters: Parameter[] = [];
   const outputs: Output[] = [];
@@ -225,7 +175,7 @@ modelsRouter.post('/:id/reimport', async (c) => {
     for (const cell of sheet.cells) {
       const cellId = `${cell.address.sheet}!${cell.address.ref}`;
       if (!cell.formula && cell.type === 'number' && rootNodes.includes(cellId)) {
-        const label = resolveLabel(cell.address.sheet, cell.address.ref);
+        const label = labels.get(cellId) || null;
         parameters.push({
           id: crypto.randomUUID(),
           name: label || cellId,
@@ -239,7 +189,7 @@ modelsRouter.post('/:id/reimport', async (c) => {
         });
       }
       if (cell.formula && terminalNodes.includes(cellId)) {
-        const label = resolveLabel(cell.address.sheet, cell.address.ref);
+        const label = labels.get(cellId) || null;
         outputs.push({
           id: crypto.randomUUID(),
           name: label || cellId,

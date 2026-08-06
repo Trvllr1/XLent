@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { UnderstandPanel } from './UnderstandPanel.js';
 
-type Tab = 'overview' | 'inputs' | 'outputs' | 'graph' | 'compatibility' | 'provenance';
+type Tab = 'overview' | 'inputs' | 'outputs' | 'understand' | 'graph' | 'compatibility' | 'provenance';
 
 export function ModelView() {
   const { id: modelId } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ export function ModelView() {
     { key: 'overview', label: 'Overview' },
     { key: 'inputs', label: 'Inputs' },
     { key: 'outputs', label: 'Outputs' },
+    { key: 'understand', label: 'Understand' },
     { key: 'graph', label: 'Graph' },
     { key: 'compatibility', label: 'Compatibility' },
     { key: 'provenance', label: 'Provenance' },
@@ -57,6 +59,7 @@ export function ModelView() {
       {tab === 'overview' && <OverviewPanel model={model} />}
       {tab === 'inputs' && <InputsPanel parameters={model.parameters} />}
       {tab === 'outputs' && <OutputsPanel outputs={model.outputs} />}
+      {tab === 'understand' && <UnderstandPanel modelId={modelId!} />}
       {tab === 'graph' && <GraphPanel graph={model.graph} />}
       {tab === 'compatibility' && <CompatibilityPanel report={model.compatibility} />}
       {tab === 'provenance' && <ProvenancePanel modelId={modelId!} />}

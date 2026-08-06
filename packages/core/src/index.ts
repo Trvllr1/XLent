@@ -9,6 +9,8 @@ export { generateStructuralTests, resolveMetaValue } from './autoTests.js';
 export { diffModels, bumpSemver } from './diff.js';
 export { runSensitivity } from './sensitivity.js';
 export type { SensitivityConfig, SensitivityResult, ParameterImpact } from './sensitivity.js';
+export { resolveLabels, findSignificantIntermediates, understandModel } from './understand.js';
+export type { LabeledCell, ModelUnderstanding, ModelSection } from './understand.js';
 export { buildModelPackage } from './package.js';
 export * from './functions/index.js';
 export { XLentClient } from './client.js';

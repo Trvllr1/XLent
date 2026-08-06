@@ -512,6 +512,50 @@ function packagingComparison() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 11. PROJECT CASH FLOWS — NO NPV/IRR (Derived-metric test case)
+// Demonstrates: workbook has raw data but NOT the derived metric.
+// XLent should compute NPV/IRR on request using computeDerived().
+// ─────────────────────────────────────────────────────────────────────────────
+function projectCashFlows() {
+  const wb = XLSX.utils.book_new();
+
+  const assumptions = buildSheet(['Parameter', 'Value', 'Unit'], [
+    ['Discount Rate', 0.10, ''],
+    ['Initial Investment', 2500000, 'USD'],
+    ['Project Duration', 5, 'years'],
+    ['Revenue Growth Rate', 0.08, ''],
+    ['Operating Margin', 0.35, ''],
+    ['Terminal Multiple', 4.5, 'x'],
+    ['Tax Rate', 0.21, ''],
+    ['CapEx Year 2', 400000, 'USD'],
+  ]);
+  XLSX.utils.book_append_sheet(wb, assumptions, 'Assumptions');
+
+  // Cash flows sheet has yearly projections — formulas compute cash flows
+  // but there is NO NPV, IRR, or payback formula anywhere
+  const flows = buildSheet(['Year', 'Revenue', 'COGS', 'EBITDA', 'Tax', 'Net CF'], [
+    [0, 0, 0, { f: '-Assumptions!B3' }, 0, { f: '-Assumptions!B3' }],
+    [1, 800000, { f: 'CashFlows!B3*(1-Assumptions!B6)' }, { f: 'CashFlows!B3-CashFlows!C3' }, { f: 'CashFlows!D3*Assumptions!B8' }, { f: 'CashFlows!D3-CashFlows!E3' }],
+    [2, { f: 'CashFlows!B3*(1+Assumptions!B5)' }, { f: 'CashFlows!B4*(1-Assumptions!B6)' }, { f: 'CashFlows!B4-CashFlows!C4-Assumptions!B9' }, { f: 'MAX(CashFlows!D4,0)*Assumptions!B8' }, { f: 'CashFlows!D4-CashFlows!E4' }],
+    [3, { f: 'CashFlows!B4*(1+Assumptions!B5)' }, { f: 'CashFlows!B5*(1-Assumptions!B6)' }, { f: 'CashFlows!B5-CashFlows!C5' }, { f: 'CashFlows!D5*Assumptions!B8' }, { f: 'CashFlows!D5-CashFlows!E5' }],
+    [4, { f: 'CashFlows!B5*(1+Assumptions!B5)' }, { f: 'CashFlows!B6*(1-Assumptions!B6)' }, { f: 'CashFlows!B6-CashFlows!C6' }, { f: 'CashFlows!D6*Assumptions!B8' }, { f: 'CashFlows!D6-CashFlows!E6' }],
+    [5, { f: 'CashFlows!B6*(1+Assumptions!B5)' }, { f: 'CashFlows!B7*(1-Assumptions!B6)' }, { f: 'CashFlows!B7-CashFlows!C7' }, { f: 'CashFlows!D7*Assumptions!B8' }, { f: 'CashFlows!D7-CashFlows!E7+CashFlows!D7*Assumptions!B7' }],
+  ]);
+  XLSX.utils.book_append_sheet(wb, flows, 'CashFlows');
+
+  // Summary has totals but still no NPV/IRR
+  const summary = buildSheet(['Metric', 'Value'], [
+    ['Total Revenue', { f: 'SUM(CashFlows!B2:CashFlows!B7)' }],
+    ['Total Net CF', { f: 'SUM(CashFlows!F2:CashFlows!F7)' }],
+    ['Peak Negative CF', { f: 'MIN(CashFlows!F2:CashFlows!F7)' }],
+    ['Final Year CF', { f: 'CashFlows!F7' }],
+  ]);
+  XLSX.utils.book_append_sheet(wb, summary, 'Summary');
+
+  return { wb, name: 'project-cashflows-no-npv.xlsx' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Generate all workbooks
 // ─────────────────────────────────────────────────────────────────────────────
 const generators = [
@@ -521,6 +565,7 @@ const generators = [
   chipShortage,          // Sil
   yieldRamp,             // Sil
   packagingComparison,   // Sil
+  projectCashFlows,      // Derived-metric test case
   saasUnitEconomics,     // Non-Sil
   realEstateDev,         // Non-Sil
   fundraiseModel,        // Non-Sil

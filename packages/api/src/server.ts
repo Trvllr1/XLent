@@ -8,6 +8,7 @@ import { snapshotsRouter } from './routes/snapshots.js';
 import { diffRouter } from './routes/diff.js';
 import { registryRouter } from './routes/registry.js';
 import { sensitivityRouter } from './routes/sensitivity.js';
+import { understandRouter } from './routes/understand.js';
 import { v1Router } from './routes/v1/models.js';
 import { authMiddleware } from './middleware/auth.js';
 
@@ -25,6 +26,7 @@ app.route('/snapshots', snapshotsRouter);
 app.route('/diff', diffRouter);
 app.route('/registry', registryRouter);
 app.route('/sensitivity', sensitivityRouter);
+app.route('/understand', understandRouter);
 app.route('/v1', v1Router);
 
 const port = parseInt(process.env.PORT || '4100', 10);

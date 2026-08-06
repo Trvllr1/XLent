@@ -76,7 +76,8 @@ export class ModelRuntime {
     for (const output of this.model.outputs) {
       const cellId = `${output.sourceCell.sheet}!${output.sourceCell.ref}`;
       const val = this.cellValues.get(cellId);
-      results[output.id] = typeof val === 'number' && !isFinite(val) ? null : val;
+      const isError = (typeof val === 'number' && !isFinite(val)) || (typeof val === 'string' && val.startsWith('#'));
+      results[output.id] = isError ? null : val;
     }
 
     return results;
@@ -85,6 +86,24 @@ export class ModelRuntime {
   /** Get the current value of any cell. */
   getCellValue(sheet: string, ref: string): unknown {
     return this.cellValues.get(`${sheet}!${ref}`);
+  }
+
+  /**
+   * Compute a derived metric that doesn't exist in the workbook.
+   * Evaluates an arbitrary formula against the current cell state.
+   * Use case: workbook has cash flows but no NPV — compute it on request.
+   */
+  computeDerived(formula: string, contextSheet?: string): unknown {
+    const ast = parseFormula(formula);
+    const sheet = contextSheet || this.model.workbookName.replace(/\.xlsx$/i, '') || 'Sheet1';
+    const ctx: InterpreterContext = {
+      currentSheet: sheet,
+      resolve: (s, col, row) => this.cellValues.get(`${s}!${col}${row}`) ?? null,
+      resolveRange: (s, startCol, startRow, endCol, endRow) => this.expandRange(s, startCol, startRow, endCol, endRow),
+      stepLimit: 50000,
+    };
+    const interp = new FormulaInterpreter(ctx);
+    return interp.evaluate(ast);
   }
 
   /** Explain how an output is calculated — trace its dependency path. */

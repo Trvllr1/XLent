@@ -17,6 +17,7 @@ Master documentation suite for XLent — ModelOps infrastructure for spreadsheet
 | 08 | [Roadmap](08-Roadmap.md) | Epics E0–E6 with agent-executable work items |
 | 09 | [Glossary](09-Glossary.md) | Term definitions |
 | 10 | [Market Validation](10-Market-Validation.md) | Pain-point evidence, competitive map, target workflows, falsifiable milestones |
+| 11 | [GTM Strategy](11-GTM-Strategy.md) | GTM wedge, positioning, ICP, pricing, PMF definition, commercialization flywheel |
 
 ## Source Documents
 
@@ -25,6 +26,7 @@ The `source/` directory contains the original strategy and governance documents 
 - `XLent-Lessons-from-Supabase.txt` — product strategy and positioning
 - `XLent-ModelOps.txt` — ModelOps vision and platform design
 - `XLent-Engineering-Constitution.txt` — binding engineering doctrine, assurance semantics, and agent-development rules
+- `XLent-GTM-PMF-Commercialization.txt` — GTM, PMF, and commercialization strategy
 
 The blueprint is the source of truth for product capabilities. The constitution is the source of truth for engineering invariants. Source documents are retained for reference only.
 
