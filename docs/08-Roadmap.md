@@ -11,9 +11,9 @@ OUTSTANDING DEBT:
             E0 (Formula AST) — blocks semantic diff upgrade and extended function coverage
 
 NEXT (Constitutional Epics):
-            E7 ──▶ E8 ──▶ E9 ──▶ E10 ──▶ E11
-            Debug   Contract Assurance  CI     Corpus
-            Core    Intent   Ladder     Gates  Monitor
+            E7 ──▶ E8 ──▶ E9 ──▶ E10 ──▶ E11 ──▶ E12
+            Debug   Contract Assurance  CI     Corpus  Model
+            Core    Intent   Ladder     Gates  Monitor IDE
 
 DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 ```
@@ -36,6 +36,7 @@ DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 | E9 | 📐 Next | Assurance Ladder (V&V semantics) |
 | E10 | 📐 Next | Behavioral Testing & Model CI |
 | E11 | 📐 Next | Test Corpus & Monitoring |
+| E12 | 📐 Next | Model IDE (Explorer → Editor → IDE) |
 
 ---
 
@@ -511,6 +512,62 @@ These items have design notes in the blueprint but no scheduled implementation. 
 
 ---
 
+## E12 — Model IDE
+
+**Goal:** Evolve `@xlent/web` from read-only Model Explorer into a full Model Editor — a second authoring surface alongside Excel. Users can create, edit, test, and export models without ever opening a spreadsheet. Agents can make changes via the same editing API.
+
+**Source:** North Star thesis completion (".xlsx ≠ Model" → models can originate in XLent); Product Principle 2 (amended: two authoring surfaces).
+
+**Dependencies:** E0 (AST — required for formula editing), E7 (findings feed inline diagnostics), E8 (contracts govern intent editing), E9 (assurance status visible during authoring).
+
+### E12.1 — Structure Editor
+
+| Field | Value |
+|---|---|
+| **Scope** | Add/remove/rename parameters and outputs in the web UI. Set type, constraints, allowedRange, description. Reorder via drag. Changes write to XMR directly (no xlsx round-trip). |
+| **Files** | Modify: `packages/web/src/` (new editor components). Modify: API to accept PATCH operations on model structure. |
+| **Acceptance criteria** | (1) Add parameter → model gains a new root node in the graph. (2) Remove output → model loses a terminal node; downstream consumers warned. (3) Rename parameter → all formula references auto-updated (AST rewrite). (4) Changes versioned: every edit creates a new draft version. (5) Undo/redo stack (local, session-scoped). |
+| **Dependencies** | E0 (AST for ref renaming) |
+
+### E12.2 — Formula Editor
+
+| Field | Value |
+|---|---|
+| **Scope** | In-place formula editing with syntax highlighting, function autocomplete, live dependency preview, and error detection. Edit at the XMR/AST level, not the cell-grid level. |
+| **Files** | New: `packages/web/src/components/FormulaEditor.tsx`. Modify: API to accept formula updates per cell. |
+| **Acceptance criteria** | (1) Syntax highlighting for functions, refs, operators, numbers, strings. (2) Autocomplete for supported functions (with signature hints). (3) Live dependency arrows: as you type a ref, show what it connects to. (4) Immediate error feedback: unsupported function, broken ref, circular dep introduced. (5) Tests re-run on save (background, non-blocking). |
+| **Dependencies** | E0 (AST parsing for live feedback), E7 (findings for inline diagnostics) |
+
+### E12.3 — Agent-Mediated Editing
+
+| Field | Value |
+|---|---|
+| **Scope** | API endpoint for programmatic model edits. An agent (or CLI) can POST structural and formula changes. Same validation as UI editor. |
+| **Files** | New: `packages/api/src/routes/edit.ts`. Modify: `packages/core/` to support apply-edit operations on XMR. |
+| **Acceptance criteria** | (1) `POST /models/:id/edit` accepts `{ operations: EditOperation[] }`. (2) Operations: `addParameter`, `removeParameter`, `setFormula`, `renameCell`, `addOutput`, `removeOutput`. (3) Every edit produces a diff (reuses E2 diff engine). (4) Tests auto-run after edit batch (returns pass/fail inline). (5) Agent can chain: edit → test → if fail → undo → try alternative. |
+| **Dependencies** | E12.1, E12.2, E2 (diff) |
+
+### E12.4 — xlsx Export (Round-Trip)
+
+| Field | Value |
+|---|---|
+| **Scope** | Generate a well-formed .xlsx from XMR. Users can export a model they edited in XLent back to Excel for stakeholders who prefer spreadsheets. |
+| **Files** | New: `packages/core/src/xlsxWriter.ts`. New: API endpoint `GET /models/:id/export.xlsx`. |
+| **Acceptance criteria** | (1) Exported xlsx opens in Excel without errors. (2) Formulas are written as Excel formulas (not values). (3) Sheet structure, cell positions, and naming preserved from original import (if imported). (4) Models created in XLent (never imported) get a sensible default layout. (5) Round-trip: import xlsx → export xlsx → re-import → diff shows zero semantic changes. |
+| **Dependencies** | E0 (AST → formula text serialization) |
+
+### E12.5 — Live Sync (Deferred — Phase C)
+
+| Field | Value |
+|---|---|
+| **Scope** | File-system watcher or Excel Add-in that detects changes in either direction and auto-reconciles via the diff engine. |
+| **Files** | TBD — depends on delivery mechanism (Add-in vs. local agent vs. file watcher). |
+| **Acceptance criteria** | (1) Edit in Excel → change detected within 5s → re-import triggered → diff shown in XLent. (2) Edit in XLent → export triggered → xlsx updated → Excel refreshes. (3) Conflict: both sides edited same cell → user shown merge UI with both versions. |
+| **Dependencies** | E12.4, file-system or Office.js infrastructure |
+| **Trigger** | First user requests bidirectional workflow; or enterprise customer requires Excel ↔ XLent parity. |
+
+---
+
 ## Sequencing Rationale
 
 | Decision | Rationale |
@@ -521,4 +578,5 @@ These items have design notes in the blueprint but no scheduled implementation. 
 | E8 before E9 | Assurance Ladder's VALIDATED gate requires a contract. Define contracts before defining the gate. |
 | E9 before E10 | CI gates enforce assurance levels. Define the levels before automating enforcement. |
 | E10 before E11 | Behavioral tests validate corpus fixtures. Build the test types before building the corpus. |
+| E12 after E0+E7+E8+E9 | IDE requires AST (formula editing), findings (inline diagnostics), contracts (intent editing), and assurance (authoring feedback). It's the capstone that turns infrastructure into product surface. |
 | E3 deferred | Lifecycle/registry is governance infrastructure needed when multiple users/models exist. Not blocking single-tenant + Sil integration. |

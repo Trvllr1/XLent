@@ -82,6 +82,10 @@ It makes spreadsheet models behave like software — without requiring users to 
 | 28 | Debugging Core | 📐 Designed → E7 | Graph tracing, structured findings, impact quantification |
 | 29 | Model Contract & Intent Authority | 📐 Designed → E8 | ModelContract type, explicit intent, inference ≠ authority boundary |
 | 30 | Assurance Ladder | 📐 Designed → E9 | Validity semantics: UNASSESSED → TESTED → VERIFIED → VALIDATED |
+| 31 | Model Editor (Structure) | 📐 Designed → E12 | Add/remove/rename params+outputs in web UI; XMR-native editing |
+| 32 | Model Editor (Formulas) | 📐 Designed → E12 | Syntax-aware formula editing with live dependency preview and inline diagnostics |
+| 33 | Agent-Mediated Editing | 📐 Designed → E12 | Programmatic edit API; agents propose changes, engine validates |
+| 34 | xlsx Export (Round-Trip) | 📐 Designed → E12 | Generate .xlsx from XMR; models can live entirely in XLent |
 
 ---
 
@@ -94,7 +98,7 @@ These are explicitly out of scope. They represent traps that dilute focus.
 | "ChatGPT for Excel" | Too generic. XLent is infrastructure, not a chatbot. |
 | "AI spreadsheet summarizer" | Too shallow. Summaries without verification are worthless. |
 | "Another BI platform" | Wrong category. BI asks "what happened?" — XLent asks "can I trust this model?" |
-| "Excel replacement" | Strategically dangerous and unnecessary. Excel is the authoring surface. |
+| "Excel replacement" | Strategically dangerous. Excel is one authoring surface. XLent's Model Editor is an alternative, not a substitute — users choose based on workflow, not mandate. |
 | "Database connector with spreadsheet support" | Wrong center of gravity. The model is primary, not the data source. |
 | "Spreadsheet visualization tool" | Insufficient differentiation. Model Explorer exists to support verification, not to compete with Tableau. |
 | "Generic ETL/data pipeline" | XLent transforms models, not data. |
@@ -106,7 +110,7 @@ These are explicitly out of scope. They represent traps that dilute focus.
 Adopted from source docs, encoding as implementation constraints:
 
 1. **The model is the product.** Not the workbook file.
-2. **Excel remains a first-class authoring surface.** Never force paradigm abandonment.
+2. **Excel remains a first-class authoring surface.** Never force paradigm abandonment. XLent's Model Editor is a second authoring surface — models can originate in either. XLent never silently mutates an external xlsx the user didn't ask to change.
 3. **XMR is the abstraction layer.** Source formats become model representations.
 4. **Every model should be testable.** "Looks right" is not sufficient for production.
 5. **Every published model should be identifiable.** Filenames are not identity.

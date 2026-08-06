@@ -6,9 +6,9 @@ XLent is ModelOps infrastructure for spreadsheet models.
 
 The spreadsheet is the world's most successful end-user programming environment. It combines data, formulas, business logic, assumptions, calculations, scenarios, outputs, and presentation in a single artifact. But the infrastructure around it never matured.
 
-XLent does not replace the spreadsheet paradigm. It industrializes it.
+XLent does not replace the spreadsheet paradigm. It industrializes it — and, over time, offers a native authoring alternative alongside Excel.
 
-> **Build XLent so that a spreadsheet can remain a spreadsheet to its author, while becoming a structured, testable, versioned, governable, API-accessible computational model to everything else.**
+> **Build XLent so that a model can be authored in Excel or in XLent's own editor, while always being a structured, testable, versioned, governable, API-accessible computational artifact.**
 
 ---
 
@@ -22,7 +22,7 @@ For any implementation decision, apply these tests:
 
 3. **AI reasons; XLent executes.** The runtime produces deterministic, reproducible results with evidence. AI systems (Sil, agents) consume and interpret those results. XLent never hallucinates arithmetic.
 
-4. **.xlsx ≠ Model.** An xlsx is one serialization. The XMR canonical representation is the model. Source formats are acquisition paths, not architectural boundaries.
+4. **.xlsx ≠ Model.** An xlsx is one serialization. The XMR canonical representation is the model. Source formats are acquisition paths, not architectural boundaries. XLent can also produce xlsx as an export of the model.
 
 5. **Sil is the first customer, not a dependency.** XLent must stand alone. Neither product should be technically coupled to the other.
 
@@ -100,7 +100,7 @@ The Engineering Constitution (`source/XLent-Engineering-Constitution.txt`) defin
 | # | Rule | Status | Evidence |
 |---|---|---|---|
 | 1 | The model is the product | ✅ | XMR types, slug identity, Model ≠ xlsx separation throughout |
-| 2 | Excel remains a first-class authoring surface | ✅ | Import-only acquisition; never require non-Excel authoring |
+| 2 | Excel remains a first-class authoring surface | ✅ (amended) | Import acquisition; Model Editor planned as second surface (E12). Xlsx never silently mutated. |
 | 3 | XMR is the abstraction layer | ✅ | `types.ts` Model/Parameter/Output/Calculation, parser produces XMR |
 | 4 | Treat spreadsheets as applications | ✅ | Graph, runtime, tests, scenarios, versioning |
 | 5 | Debug before beautifying | 🔲 E7 | Debugging Core epic; graph tracing exists, structured findings needed |
