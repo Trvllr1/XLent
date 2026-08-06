@@ -20,12 +20,25 @@ Master documentation suite for XLent — ModelOps infrastructure for spreadsheet
 
 ## Source Documents
 
-The `source/` directory contains the original strategy documents for provenance:
+The `source/` directory contains the original strategy and governance documents for provenance:
 
-- `XLent-Lessons-from-Supabase.txt`
-- `XLent-ModelOps.txt`
+- `XLent-Lessons-from-Supabase.txt` — product strategy and positioning
+- `XLent-ModelOps.txt` — ModelOps vision and platform design
+- `XLent-Engineering-Constitution.txt` — binding engineering doctrine, assurance semantics, and agent-development rules
 
-The blueprint is the source of truth. Source documents are retained for reference only.
+The blueprint is the source of truth for product capabilities. The constitution is the source of truth for engineering invariants. Source documents are retained for reference only.
+
+## Document Authority Model
+
+Three sibling documents govern XLent:
+
+| Document | Governs | Precedence |
+|---|---|---|
+| **Engineering Constitution** | Binding invariants, assurance vocabulary, V&V semantics, agent rules, non-negotiable distinctions | Engineering correctness — cannot be overridden by product or sequencing convenience |
+| **Product Blueprint** (docs 01–07) | Capabilities, architecture, API contracts, integration design | Product/architecture truth — determines *what* to build and *how* |
+| **Roadmap** (doc 08) | Execution order, status, dependencies, acceptance criteria | Sequencing truth — determines *when* and whether work is complete |
+
+**Conflict rule:** Preserve implemented behavior unless it violates a constitutional invariant. Resolve future ambiguity by recording a decision in the Blueprint and scheduling implementation in the Roadmap.
 
 ## For Agentic SWE
 

@@ -21,7 +21,7 @@ It makes spreadsheet models behave like software — without requiring users to 
 
 ## Capability Map
 
-18 capabilities organized by lifecycle stage. Status reflects verified implementation state as of 2026-08-04.
+18 capabilities organized by lifecycle stage. Status reflects verified implementation state as of 2026-08-06.
 
 ### Import & Reconstruction
 
@@ -46,17 +46,17 @@ It makes spreadsheet models behave like software — without requiring users to 
 |---|---|---|---|
 | 8 | Deterministic Execution | ✅ Done | `runtime.ts` — topological eval, ~30 functions, no eval() |
 | 9 | Scenario Execution | ✅ Done | `scenario.ts` — parameter overrides, comparison with deltas |
-| 10 | Model Tests | 🔴 Planned (E1) | Type defined conceptually; no test-suite runner or assertion framework |
-| 11 | Evidence Records | 🟡 Partial | Provenance type exists; full execution evidence record (inputs+outputs+tests+timestamp) needed |
-| 12 | Sensitivity Analysis | 🔴 Planned (E4) | One-at-a-time parameter sweep + impact ranking |
+| 10 | Model Tests | ✅ Done | `testRunner.ts` — structural + assertion tests, auto-generated suites |
+| 11 | Evidence Records | ✅ Done | Full execution evidence: inputs, outputs, tests, timestamp, checksums |
+| 12 | Sensitivity Analysis | ✅ Done | `sensitivity.ts` — one-at-a-time sweep + impact ranking |
 
 ### Model Operations
 
 | # | Capability | Status | Notes |
 |---|---|---|---|
-| 13 | Model Identity | 🟡 Partial | UUID exists; human-readable slug + semver needed |
-| 14 | Versioning & Snapshots | 🟡 Partial | `version` field increments on re-import; no snapshot persistence or diff |
-| 15 | Semantic Diff & Migration | 🔴 Planned (E2) | Requires AST (E0); diff formulas structurally, not textually |
+| 13 | Model Identity | ✅ Done | UUID + human-readable slug + semver (slug-based routing in API) |
+| 14 | Versioning & Snapshots | ✅ Done | Semantic versioning, snapshot persistence, re-import reconciliation |
+| 15 | Semantic Diff | ✅ Done | `diff.ts` — interim normalization-based diff; AST-based upgrade → E0 |
 | 16 | Lifecycle States & Registry | 🔴 Planned (E3) | States: draft/sandbox/validated/approved/published/deprecated |
 
 ### Integration & Deployment
@@ -69,16 +69,19 @@ It makes spreadsheet models behave like software — without requiring users to 
 | 20 | Webhook Delivery | ✅ Done | Client registration, retry logic, delivery audit |
 | 21 | Prod API (versioned, rate-limited) | 🔴 Planned (E3) | `/v1` prefix, version-pinned execution, idempotency, auth scopes |
 
-### Deferred
+### Deferred → Constitutional Epics
 
 | # | Capability | Status | Notes |
 |---|---|---|---|
 | 22 | Model Branching | 📐 Designed | Branch = parent snapshot + delta set; implementation post-E5 |
-| 23 | Model CI | 📐 Designed | Automated test gates on model change; requires E1+E2+E3 |
+| 23 | Model CI | 📐 Designed → E10 | Automated test gates on model change; requires E1+E2+E3 |
 | 24 | Enterprise Connectors | ⏸️ Deferred | SharePoint, OneDrive, Google Drive, S3 |
 | 25 | Model Hosting / Multi-tenant | ⏸️ Deferred | Cloud execution service |
-| 26 | Model Monitoring | ⏸️ Deferred | Drift detection, execution anomalies |
+| 26 | Model Monitoring | ⏸️ Deferred → E11 | Drift detection, execution anomalies, corpus health |
 | 27 | Model Lineage | ⏸️ Deferred | Full source → assumption → output → decision tracing |
+| 28 | Debugging Core | 📐 Designed → E7 | Graph tracing, structured findings, impact quantification |
+| 29 | Model Contract & Intent Authority | 📐 Designed → E8 | ModelContract type, explicit intent, inference ≠ authority boundary |
+| 30 | Assurance Ladder | 📐 Designed → E9 | Validity semantics: UNASSESSED → TESTED → VERIFIED → VALIDATED |
 
 ---
 

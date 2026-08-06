@@ -262,3 +262,19 @@ interface SensitivityPoint {
 | **Validated run** | `POST /models/:id/run` with `?evidence=true` | Output values + evidence record | Yes |
 | **Publish gate** | Internal (E3) | Tests + evidence | Yes (required) |
 | **Delivery** | `POST /models/:id/deliver` | Deliverable package | Yes (included) |
+
+---
+
+## Constitutional Alignment
+
+This document implements the following constitutional requirements:
+
+| Constitution Section | Requirement | Implementation |
+|---|---|---|
+| §§9–11 (Testing) | Every meaningful model must be testable | Three-tier test taxonomy + auto-generation |
+| §§12–14 (Debugging) | Findings must be structured, classified, and impact-aware | Finding type (E7); structural tests are baseline |
+| §§22–25 (Assurance) | Execution ≠ validity; assurance requires evidence | Evidence records; publish gate; assurance ladder (E9) |
+| §50 Rule 8 | Successful execution is not validity | Separate execution mode vs. validated run |
+| §50 Rule 13 | Deterministic execution must remain deterministic | No eval/Function/LLM; sandbox constraints; step limits |
+| §50 Rule 14 | Every important result should have provenance | EvidenceRecord schema + immutability guarantees |
+| §53 Rule 3 | No LLM as calculation engine | Tree-walking interpreter; no AI in runtime path |

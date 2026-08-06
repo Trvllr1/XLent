@@ -1,0 +1,2523 @@
+# XLent Engineering Constitution
+
+**Document Type:** Foundational Engineering & Product Constitution
+**Product:** XLent
+**Status:** Governing Design Doctrine
+**Primary Consumer:** Agent SWE / Autonomous Engineering Agents
+**First Strategic Customer:** Sil
+**Core Domain:** Spreadsheet Model Engineering / ModelOps / Model Assurance
+
+---
+
+# 0. Constitutional Principle
+
+> **XLent exists to make spreadsheet models behave like software without forcing users to abandon the spreadsheet paradigm.**
+
+XLent shall take a powerful but difficult computational primitive—the spreadsheet model—and make it:
+
+* accessible
+* understandable
+* operational
+* programmable
+* testable
+* debuggable
+* versionable
+* governable
+* reproducible
+* deployable
+* auditable
+* assureable
+
+while preserving the underlying spreadsheet model paradigm.
+
+XLent must not treat the XLSX as merely a document.
+
+**An XLSX containing computational logic is an application whose source code happens to be expressed through cells, formulas, ranges, sheets, names, references, assumptions, and dependencies.**
+
+That premise governs the architecture.
+
+---
+
+# 1. The XLent Thesis
+
+Excel succeeded because it made computational modeling accessible to people who were not traditional programmers.
+
+The spreadsheet paradigm is not the problem.
+
+The problem is that the infrastructure surrounding spreadsheet models never matured to the level of infrastructure surrounding software.
+
+Software has:
+
+```text
+Source Code
+Version Control
+Tests
+Debuggers
+Dependency Graphs
+CI/CD
+Release Management
+Runtime Environments
+APIs
+Monitoring
+Observability
+Governance
+```
+
+Complex spreadsheets generally have:
+
+```text
+Workbook
+Copy/Paste
+"FINAL_v7.xlsx"
+Cell Inspection
+Manual Recalculation
+Human Review
+Email Attachments
+```
+
+XLent exists to close this infrastructure gap.
+
+Therefore:
+
+> **XLent is not an Excel replacement. XLent is the infrastructure layer that industrializes the spreadsheet model.**
+
+---
+
+# 2. The Spreadsheet-as-Application Principle
+
+XLent shall treat a computational workbook as an application.
+
+Conceptual mapping:
+
+| Software               | XLent                      |
+| ---------------------- | -------------------------- |
+| Application            | Workbook / Model           |
+| Source code            | Formulas + model structure |
+| Function               | Formula / model component  |
+| Variable               | Cell / named value         |
+| Module                 | Worksheet / model section  |
+| Dependency             | Cell/range reference       |
+| Call graph             | Dependency graph           |
+| Unit test              | Model test                 |
+| Bug                    | Formula/model defect       |
+| Exception              | Calculation failure        |
+| Stack trace            | Dependency trace           |
+| Linter                 | Workbook analyzer          |
+| Debugger               | Model debugger             |
+| Git diff               | Model diff                 |
+| CI                     | Model CI                   |
+| Release                | Published model            |
+| Production             | Deployed model             |
+| Runtime                | XLent Model Runtime        |
+| API                    | Model endpoint             |
+| Application monitoring | Model monitoring           |
+
+This is not metaphorical.
+
+The architecture should make these analogies operational.
+
+---
+
+# 3. The Primary Product Insight: Debugging
+
+Spreadsheet debugging is one of XLent's primary wedges.
+
+The product shall be able to answer:
+
+> **What is wrong with this workbook, why is it wrong, where did the defect originate, what does it affect, and what evidence supports that conclusion?**
+
+XLent should not merely identify suspicious cells.
+
+It should trace defects through the model.
+
+For example:
+
+```text
+Revenue!G42
+      ↓
+FY2029 Revenue
+      ↓
+EBITDA
+      ↓
+Free Cash Flow
+      ↓
+IRR
+```
+
+A useful finding should explain:
+
+```text
+DEFECT
+──────
+Location:
+Revenue!G42
+
+Expected formula:
+=G38*G39
+
+Observed:
+=G38*F39
+
+Likely cause:
+Incorrect prior-period reference
+
+Severity:
+HIGH
+
+Downstream impact:
+Revenue
+EBITDA
+FCF
+IRR
+
+Estimated IRR impact:
+28.4% → 25.9%
+```
+
+This is **spreadsheet debugging as software engineering**.
+
+---
+
+# 4. XLent Must Distinguish the Model From Its File
+
+The XLSX file is not the model.
+
+It is one representation of the model.
+
+Conceptually:
+
+```text
+XLSX
+  ↓
+Import
+  ↓
+XMR
+  ↓
+Canonical Model
+```
+
+The same underlying model may eventually have:
+
+* XLSX representation
+* XMR representation
+* API representation
+* runtime representation
+* scenario representation
+* evidence representation
+* human-readable report
+* machine-readable Model Package
+
+Therefore:
+
+> **Model identity must not depend on filename.**
+
+Never treat:
+
+```text
+Forecast_FINAL_FINAL_v7.xlsx
+```
+
+as the durable identity of a model.
+
+Instead:
+
+```text
+Model:
+acme-fy27-operating-model
+
+Version:
+3.2.0
+```
+
+---
+
+# 5. XMR — The Canonical Model Representation
+
+XLent should establish a canonical representation of spreadsheet models, referred to conceptually as **XMR**.
+
+XMR should represent, as appropriate:
+
+* workbook identity
+* worksheets
+* cells
+* ranges
+* formulas
+* values
+* named ranges
+* dependencies
+* references
+* tables
+* inputs
+* outputs
+* assumptions
+* units
+* metadata
+* formatting semantics where useful
+* external dependencies
+* hidden structures
+* model sections
+* relationships
+* provenance
+
+The purpose of XMR is to separate:
+
+> **the model from the workbook implementation.**
+
+XLent should not build a collection of workbook-specific hacks.
+
+Prefer model-level abstractions.
+
+---
+
+# 6. The Model Graph
+
+XLent should construct a dependency graph of the model.
+
+Example:
+
+```text
+Revenue
+   ↓
+COGS
+   ↓
+Gross Profit
+   ↓
+Operating Expenses
+   ↓
+EBITDA
+   ↓
+Free Cash Flow
+   ↓
+IRR
+```
+
+The graph should permit:
+
+* dependency tracing
+* impact analysis
+* root-cause analysis
+* sensitivity analysis
+* change propagation
+* lineage
+* scenario execution
+* debugging
+* model explanation
+
+The user should eventually be able to ask:
+
+> "What drives IRR?"
+
+and:
+
+> "What outputs are affected if this assumption changes?"
+
+XLent should answer from the graph.
+
+---
+
+# 7. ModelOps
+
+XLent is fundamentally a **ModelOps platform**.
+
+ModelOps is the lifecycle infrastructure for computational models.
+
+The lifecycle should eventually resemble:
+
+```text
+IMPORT
+  ↓
+RECONSTRUCT
+  ↓
+UNDERSTAND
+  ↓
+TEST
+  ↓
+VERIFY
+  ↓
+VALIDATE
+  ↓
+APPROVE
+  ↓
+PUBLISH
+  ↓
+DEPLOY
+  ↓
+EXECUTE
+  ↓
+MONITOR
+  ↓
+MIGRATE / VERSION
+  ↓
+RETIRE
+```
+
+ModelOps is not a decorative product label.
+
+Every stage should eventually correspond to actual XLent capabilities.
+
+---
+
+# 8. Import
+
+XLent must ingest spreadsheets while preserving their computational semantics.
+
+Initial emphasis:
+
+* XLSX
+* workbook structure
+* formulas
+* dependencies
+* named ranges
+* tables
+* metadata
+* hidden elements
+* external references
+* calculation relationships
+
+The importer should distinguish:
+
+```text
+Raw Workbook
+      ↓
+Parsed Workbook
+      ↓
+Normalized Model
+      ↓
+XMR
+```
+
+Import is not merely file upload.
+
+It is **model acquisition**.
+
+---
+
+# 9. Model Reconstruction
+
+After import, XLent should reconstruct the model's computational structure.
+
+The system should identify:
+
+* inputs
+* outputs
+* assumptions
+* calculations
+* formula families
+* dependencies
+* sections
+* scenario dimensions
+* likely business concepts
+* anomalies
+* potential contracts
+
+XLent may infer structure.
+
+However:
+
+> **Inference is evidence, not authority.**
+
+An inferred rule must never automatically become an authoritative business requirement.
+
+---
+
+# 10. Model Contract
+
+The **Model Contract** is the authoritative layer describing what the model is intended to mean and how it is expected to behave.
+
+This is one of XLent's most important architectural concepts.
+
+The workbook tells XLent:
+
+> **What the model currently does.**
+
+The Model Contract tells XLent:
+
+> **What the model is supposed to do.**
+
+Conceptually:
+
+```text
+             XLENT MODEL
+                  │
+        ┌─────────┴─────────┐
+        ↓                   ↓
+Executable Model       Model Contract
+        │                   │
+   What it does        What it should do
+        │                   │
+        └─────────┬─────────┘
+                  ↓
+          Assurance Engine
+```
+
+---
+
+# 11. Sources of Model Intent
+
+XLent should establish intended logic through several mechanisms.
+
+## 11.1 Declared Intent
+
+The user explicitly states:
+
+> Revenue equals units sold multiplied by average selling price.
+
+XLent converts that into an executable rule.
+
+Example:
+
+```text
+RULE R-001
+
+Revenue = Units Sold × ASP
+
+Severity:
+ERROR
+
+Scope:
+All forecast periods
+```
+
+---
+
+## 11.2 Imported Specifications
+
+Intent may come from:
+
+* requirements documents
+* policies
+* accounting standards
+* engineering specifications
+* operating procedures
+* regulatory requirements
+* domain documentation
+* reference models
+
+These can contribute to the Model Contract.
+
+---
+
+## 11.3 Inferred Intent
+
+XLent can infer likely logic from:
+
+* formula patterns
+* labels
+* named ranges
+* comments
+* units
+* repeated structures
+* historical behavior
+* existing checks
+
+Example:
+
+```text
+E20 = E15 * E18
+F20 = F15 * F18
+G20 = G15 * G18
+H20 = H15 * H18
+```
+
+XLent may infer:
+
+> `Output = InputA × InputB`
+
+But the inferred rule should be labeled:
+
+```text
+INFERRED
+```
+
+until confirmed.
+
+---
+
+# 12. Authority Hierarchy
+
+XLent shall distinguish the authority of information.
+
+Recommended hierarchy:
+
+```text
+1. Explicitly declared business rule
+2. Approved domain specification
+3. User-confirmed XLent inference
+4. Workbook-derived inference
+5. AI interpretation
+```
+
+AI interpretation alone shall never become authoritative model intent.
+
+The system must be capable of saying:
+
+> **UNASSESSED**
+
+rather than converting uncertainty into false certainty.
+
+---
+
+# 13. Model Contract Structure
+
+Conceptually, a Model Contract may contain:
+
+```text
+MODEL CONTRACT
+│
+├── Identity
+├── Definitions
+├── Units
+├── Rules
+├── Constraints
+├── Invariants
+├── Expected Behaviors
+├── Domain Requirements
+├── Input Bounds
+├── Output Expectations
+├── Reconciliation Rules
+├── Scenario Requirements
+└── Assurance Requirements
+```
+
+Example:
+
+```text
+Definitions:
+
+Revenue:
+  Unit: USD
+  Meaning: Recognized revenue
+
+Rules:
+
+R001:
+  Revenue = Units Sold × ASP
+
+R002:
+  Gross Profit = Revenue - COGS
+
+Constraints:
+
+C001:
+  Debt >= 0
+
+C002:
+  Gross Margin >= 35%
+
+Behavior:
+
+B001:
+  Increasing ASP must not reduce Revenue
+  when volume remains constant.
+```
+
+The exact serialization format is implementation-dependent.
+
+The conceptual model is constitutional.
+
+---
+
+# 14. Model Tests
+
+Every sufficiently mature XLent model should be testable.
+
+Tests should cover several dimensions.
+
+## Structural tests
+
+Examples:
+
+* broken references
+* missing formulas
+* unexpected hardcodes
+* formula inconsistencies
+* circularity
+* hidden dependencies
+* disconnected outputs
+* external links
+
+## Mathematical tests
+
+Examples:
+
+```text
+Assets - Liabilities - Equity = 0
+```
+
+```text
+Ending Balance =
+Beginning Balance
++ Additions
+- Reductions
+```
+
+## Constraint tests
+
+Examples:
+
+```text
+Debt >= 0
+```
+
+```text
+Yield ∈ [0,1]
+```
+
+```text
+Gross Margin >= 35%
+```
+
+## Behavioral tests
+
+Example:
+
+> Increasing price while holding volume constant should not decrease revenue.
+
+Behavioral testing should eventually support property-based and scenario-based techniques.
+
+---
+
+# 15. Model CI
+
+XLent should eventually support continuous validation of model changes.
+
+Conceptually:
+
+```text
+Model Change
+     ↓
+Commit
+     ↓
+Run Tests
+     ↓
+┌────┴────┐
+PASS      FAIL
+ ↓         ↓
+Merge     Block
+```
+
+A model should not become a production version merely because a user saved an XLSX.
+
+---
+
+# 16. Model Versioning
+
+Models must be versioned independently of filenames.
+
+Example:
+
+```text
+Acme FY27 Model
+
+v1.0
+ ↓
+v1.1
+ ↓
+v2.0
+ ↓
+v3.2
+```
+
+Every version should retain, as appropriate:
+
+* source
+* formulas
+* assumptions
+* dependencies
+* contract
+* tests
+* evidence
+* findings
+* execution history
+* deployment state
+
+---
+
+# 17. Model Diff
+
+XLent should make model changes inspectable.
+
+Example:
+
+```text
+MODEL DIFF
+v3.1 → v3.2
+
+Added:
+  Churn assumption
+
+Modified:
+  Revenue formula
+  COGS calculation
+
+Removed:
+  Manual adjustment
+
+Impact:
+  EBITDA ↓ 8.4%
+  IRR ↓ 3.1 percentage points
+```
+
+A model diff should eventually operate at multiple levels:
+
+* cell
+* formula
+* structural
+* dependency
+* semantic
+* contract
+* output
+
+---
+
+# 18. Model Branching
+
+Scenario and experimentation should eventually use model branches.
+
+Instead of:
+
+```text
+Base Case.xlsx
+Downside.xlsx
+Upside.xlsx
+Investor Case.xlsx
+Board Case.xlsx
+```
+
+XLent should support:
+
+```text
+main
+│
+├── downside
+├── upside
+├── investor_case
+└── board_case
+```
+
+Branches should inherit from their parent and record meaningful differences.
+
+This converts scenario file proliferation into model version control.
+
+---
+
+# 19. Execution
+
+A model that executes successfully is only **executable**.
+
+It is not necessarily valid.
+
+This distinction is constitutional.
+
+Example:
+
+```text
+COGS = Revenue × 40%
+```
+
+The calculation runs.
+
+But suppose the intended business rule is:
+
+```text
+COGS = Revenue × 70%
+```
+
+The model is executable.
+
+It is wrong.
+
+Therefore:
+
+> **Successful execution establishes executability only.**
+
+It does not establish correctness.
+
+---
+
+# 20. XLent Runtime
+
+The XLent Runtime should execute models deterministically.
+
+The architecture should conceptually separate:
+
+```text
+User / Agent Intent
+       ↓
+Intent Resolution
+       ↓
+XLent Model Runtime
+       ↓
+Deterministic Calculation
+       ↓
+Validation / Assurance
+       ↓
+Result + Evidence
+```
+
+An LLM should not be the authoritative calculation engine.
+
+AI may determine:
+
+> "The user wants IRR under the downside scenario."
+
+The runtime should determine:
+
+> **What the IRR actually is.**
+
+---
+
+# 21. Query vs Execution
+
+XLent should support both.
+
+## Retrieval
+
+> "What IRR is currently shown in this workbook?"
+
+Result:
+
+```text
+IRR = 28.4%
+
+Source:
+Returns!B18
+```
+
+This is retrieval.
+
+## Recalculation
+
+> "What is IRR if growth increases to 20%?"
+
+Result requires model execution.
+
+## Model Execution
+
+> "Run 1,000 combinations of growth, margin, and exit multiple and identify the primary IRR drivers."
+
+This is model execution and analysis.
+
+Therefore:
+
+```text
+Traditional Analytics:
+Data → Query → Result
+
+XLent:
+Model → Inputs → Execution → Result → Evidence
+```
+
+XLent must preserve this distinction.
+
+---
+
+# 22. Deployment
+
+Deployable does not mean downloadable.
+
+It means:
+
+> **A validated model can be executed as a controlled, versioned artifact by people, applications, agents, or other systems without requiring Excel.**
+
+Conceptually:
+
+```text
+Published Model
+      ↓
+XLent Runtime
+      ↓
+Deployment
+      ↓
+Model Endpoint
+      ↓
+API / SDK / Agent
+```
+
+A deployed model becomes programmable.
+
+---
+
+# 23. Model API
+
+Conceptual interfaces may eventually include:
+
+```text
+GET  /models/{id}
+GET  /models/{id}/versions
+GET  /models/{id}/graph
+GET  /models/{id}/tests
+GET  /models/{id}/evidence
+
+POST /models/{id}/execute
+POST /models/{id}/scenario
+POST /models/{id}/validate
+```
+
+Exact API design remains implementation-dependent.
+
+The constitutional requirement is:
+
+> **A model must be callable like software.**
+
+---
+
+# 24. Model SDK
+
+XLent should eventually permit developers to embed models into applications.
+
+Example:
+
+```text
+CRM
+ ↓
+XLent SDK
+ ↓
+Pricing Model
+ ↓
+Recommended Price
+ ↓
+CRM
+```
+
+Or:
+
+```text
+Sil
+ ↓
+XLent
+ ↓
+Customer Model
+ ↓
+Results + Evidence
+ ↓
+Sil Agent
+```
+
+---
+
+# 25. Model Execution Evidence
+
+A result must be traceable.
+
+A response such as:
+
+```text
+IRR = 28.4%
+```
+
+is insufficient for enterprise assurance.
+
+A richer result:
+
+```text
+IRR = 28.4%
+
+Model:
+Acme Acquisition Model v3.2
+
+Scenario:
+Base Case
+
+Inputs:
+...
+
+Execution:
+...
+
+Dependencies:
+...
+
+Tests:
+47/47 PASS
+
+Evidence:
+...
+```
+
+The execution record should be associated with:
+
+```text
+Model Identity
++
+Model Version
++
+Input Set
++
+Scenario
++
+Execution
++
+Output
+```
+
+This enables reproducibility.
+
+---
+
+# 26. Model Lineage
+
+XLent should eventually explain:
+
+> **Where did this number come from?**
+
+Lineage:
+
+```text
+Source Data
+     ↓
+Assumption
+     ↓
+Formula
+     ↓
+Calculation
+     ↓
+Output
+     ↓
+Decision
+```
+
+And the inverse:
+
+> **What will this assumption affect?**
+
+```text
+Assumption
+     ↓
+Revenue
+     ↓
+EBITDA
+     ↓
+FCF
+     ↓
+IRR
+```
+
+Lineage is foundational to debugging, assurance, and trust.
+
+---
+
+# 27. Model Registry
+
+XLent should eventually maintain an organization-wide registry.
+
+Example:
+
+```text
+XLent Model Registry
+
+Revenue Forecast        v4.2
+Pricing Model           v2.8
+Headcount Plan          v3.1
+Acquisition Model       v7.0
+CapEx Model             v1.4
+Debt Model              v2.3
+```
+
+Each model should expose:
+
+* identity
+* owner
+* versions
+* status
+* source
+* contract
+* tests
+* lineage
+* dependencies
+* permissions
+* consumers
+* deployment status
+* assurance state
+
+The registry becomes an organization's inventory of **decision models**.
+
+---
+
+# 28. Model Governance
+
+Recommended lifecycle:
+
+```text
+DRAFT
+  ↓
+TESTED
+  ↓
+VERIFIED
+  ↓
+VALIDATED
+  ↓
+APPROVED
+  ↓
+PUBLISHED
+  ↓
+DEPLOYED
+  ↓
+MONITORED
+  ↓
+DEPRECATED
+```
+
+The states must have distinct meanings.
+
+Do not collapse them into a generic "ready" flag.
+
+---
+
+# 29. The Central Principle of Model Validity
+
+XLent shall never equate:
+
+```text
+Executes successfully
+```
+
+with:
+
+```text
+Valid
+```
+
+A model can execute perfectly while containing:
+
+* incorrect formulas
+* incorrect assumptions
+* broken dependencies
+* unit mismatches
+* semantic errors
+* domain violations
+* unintended behavior
+* incorrect business logic
+
+Therefore:
+
+> **Execution proves that a model can calculate. It does not prove that it calculates the right thing.**
+
+---
+
+# 30. Model Integrity
+
+Integrity asks:
+
+> **Is the model internally coherent?**
+
+Integrity is evidence about the model itself.
+
+It should encompass, where applicable:
+
+### Structural Integrity
+
+* references resolve
+* formulas are structurally consistent
+* no unexplained anomalies
+* no unintended hardcodes
+* no broken links
+* no unexpected circularity
+
+### Dependency Integrity
+
+* dependencies resolve
+* intended relationships exist
+* no disconnected outputs
+* no unexpected dependency paths
+
+### Computational Integrity
+
+* calculations reconcile
+* equations behave correctly
+* balances balance
+* roll-forwards work
+* constraints hold
+
+### Data Integrity
+
+* values conform to expected types
+* units are consistent
+* ranges are valid
+* source relationships are intact
+
+---
+
+# 31. Model Validity
+
+Validity asks a deeper question:
+
+> **Does the executable model conform to what it is intended to represent?**
+
+Validity therefore extends beyond integrity.
+
+At minimum, distinguish:
+
+```text
+EXECUTABLE
+    ↓
+STRUCTURALLY INTACT
+    ↓
+COMPUTATIONALLY INTEGRAL
+    ↓
+SEMANTICALLY CONSISTENT
+    ↓
+DOMAIN-CONFORMANT
+    ↓
+VALIDATED
+```
+
+Not every model will possess evidence for every layer.
+
+XLent must communicate the scope of its claim.
+
+---
+
+# 32. Verification vs Validation
+
+These concepts must remain separate.
+
+## Verification
+
+> **Did we build the model correctly?**
+
+Examples:
+
+* formulas behave consistently
+* dependencies resolve
+* equations reconcile
+* constraints hold
+* tests pass
+
+## Validation
+
+> **Did we build the correct model?**
+
+Examples:
+
+* intended business logic is represented
+* assumptions correspond to the intended process
+* units are correct
+* domain rules are satisfied
+* expected behavior matches observed behavior
+
+Conceptually:
+
+```text
+          MODEL
+            │
+      ┌─────┴─────┐
+      ↓           ↓
+VERIFICATION   VALIDATION
+      │           │
+"Built right?" "Right thing?"
+```
+
+XLent should report both.
+
+---
+
+# 33. Semantic Integrity
+
+Semantic integrity asks:
+
+> **Does the implementation mean what the model says it means?**
+
+Example:
+
+Declared:
+
+```text
+Annual Churn = 5%
+```
+
+Implementation:
+
+```text
+Monthly Churn = 5%
+```
+
+The workbook executes.
+
+The formulas may be internally consistent.
+
+But the semantic interpretation is wrong.
+
+XLent should produce:
+
+```text
+SEMANTIC WARNING
+
+Declared:
+Annual churn = 5%
+
+Observed:
+5% applied monthly
+
+Estimated effective annual churn:
+≈ 46%
+
+Potential impact:
+Revenue
+ARR
+IRR
+
+Confidence:
+HIGH
+```
+
+Semantic analysis is one of XLent's most important advanced capabilities.
+
+---
+
+# 34. Domain Integrity
+
+Domain integrity asks:
+
+> **Does the model conform to established rules of its domain?**
+
+Examples:
+
+## Finance
+
+```text
+Assets - Liabilities - Equity = 0
+Debt >= 0
+Cash >= minimum liquidity
+```
+
+## Semiconductor
+
+```text
+Yield ∈ [0,1]
+Die Count ≤ Wafer Capacity
+Defect Density ≥ 0
+```
+
+## Engineering
+
+```text
+Safety Factor ≥ required minimum
+Force = Mass × Acceleration
+Temperature ≤ Material Limit
+```
+
+## Logistics
+
+```text
+Shipment ≤ Vehicle Capacity
+Inventory ≥ 0
+Demand Allocation reconciles
+```
+
+Domain-specific contracts can be layered onto generic ModelOps.
+
+---
+
+# 35. Behavioral Validity
+
+Not all intended behavior is a static equation.
+
+Example:
+
+> Increasing price while keeping volume constant should not reduce revenue.
+
+XLent should eventually express this as a behavioral test:
+
+```text
+Baseline:
+Price = $100
+Volume = 1M
+Revenue = $100M
+
+Scenario:
+Price = $110
+Volume = 1M
+
+Expected:
+Revenue >= $100M
+```
+
+This enables **property-based model testing**.
+
+It is a major future direction for XLent.
+
+---
+
+# 36. The Assurance Ladder
+
+XLent should not default to a simplistic:
+
+```text
+VALID ✓
+```
+
+Instead, provide an evidence-based assurance state.
+
+Example:
+
+```text
+╔══════════════════════════════════════╗
+║          XLENT MODEL ASSURANCE       ║
+╠══════════════════════════════════════╣
+║                                      ║
+║ Execution             ✓ PASS         ║
+║ Structural Integrity  ✓ PASS         ║
+║ Computational Tests   ✓ 47/47        ║
+║ Dependency Integrity  ✓ PASS         ║
+║ Semantic Checks       ⚠ 2 warnings   ║
+║ Domain Constraints    ✓ PASS         ║
+║                                      ║
+║ OVERALL: CONDITIONAL                 ║
+╚══════════════════════════════════════╝
+```
+
+Recommended states:
+
+### VERIFIED
+
+Evidence supports the model against all applicable checks within scope.
+
+### CONDITIONAL
+
+The model is largely coherent but unresolved findings remain.
+
+### REVIEW REQUIRED
+
+Material anomalies require human/domain review.
+
+### INVALID
+
+A critical required condition fails.
+
+### UNASSESSED
+
+XLent lacks sufficient evidence to make a determination.
+
+**UNASSESSED is a legitimate and important state.**
+
+XLent must be allowed to say:
+
+> **I don't know.**
+
+---
+
+# 37. Assurance Is an Evidence Claim
+
+XLent should never confuse confidence with truth.
+
+If:
+
+```text
+50/50 tests pass
+0 broken references
+100% formula consistency
+```
+
+XLent can legitimately say:
+
+> **The model is internally consistent under the tested conditions.**
+
+It cannot automatically say:
+
+> **The model is economically correct.**
+
+Unless the relevant economic assumptions and rules have been established.
+
+Therefore:
+
+> **Assurance is not a confidence score. Assurance is a structured claim backed by evidence.**
+
+---
+
+# 38. Model Assurance Report
+
+A mature XLent model should be capable of producing an assurance report containing:
+
+```text
+MODEL IDENTITY
+VERSION
+SOURCE
+MODEL CONTRACT
+EXECUTION STATUS
+
+STRUCTURAL INTEGRITY
+COMPUTATIONAL INTEGRITY
+DEPENDENCY INTEGRITY
+DATA INTEGRITY
+SEMANTIC INTEGRITY
+DOMAIN INTEGRITY
+
+TEST RESULTS
+CONTRACT RESULTS
+WARNINGS
+FAILURES
+UNASSESSED AREAS
+
+DOWNSTREAM IMPACT
+LINEAGE
+PROVENANCE
+
+OVERALL ASSURANCE STATE
+```
+
+The report should answer:
+
+1. What is this model?
+2. What is it supposed to do?
+3. What does it actually do?
+4. What did XLent test?
+5. What passed?
+6. What failed?
+7. What remains uncertain?
+8. What outputs are affected?
+9. What evidence supports the conclusion?
+
+---
+
+# 39. Model Validity Must Be Scoped
+
+XLent should avoid universal claims.
+
+Instead of:
+
+> "This model is valid."
+
+Prefer:
+
+> "This model is verified against the declared Model Contract v2.1, with 87/87 required tests passing. Two semantic areas remain unassessed."
+
+This creates a defensible assurance boundary.
+
+The claim should always include:
+
+```text
+VALIDITY
++
+SCOPE
++
+VERSION
++
+EVIDENCE
+```
+
+---
+
+# 40. AI's Role in XLent
+
+AI is powerful, but its role must be carefully bounded.
+
+AI can:
+
+* interpret user intent
+* infer model structure
+* explain formulas
+* propose Model Contract rules
+* identify anomalies
+* generate tests
+* propose fixes
+* summarize evidence
+* explain downstream impact
+* help construct scenarios
+* reason over model results
+
+AI must not be the sole authority for:
+
+* arithmetic
+* deterministic execution
+* final model validity
+* authoritative business rules
+* evidence claims
+
+Constitutional rule:
+
+> **AI reasons about models. XLent deterministically executes, tests, and evidences models.**
+
+---
+
+# 41. Agent Architecture
+
+The XLent agent should be able to operate over the model without pretending that an LLM itself is the calculation engine.
+
+Conceptually:
+
+```text
+User
+ ↓
+Agent
+ ↓
+Intent
+ ↓
+Model Contract / Execution Request
+ ↓
+XLent Runtime
+ ↓
+Deterministic Execution
+ ↓
+Assurance Engine
+ ↓
+Evidence
+ ↓
+Agent Explanation
+```
+
+This is especially important for Sil.
+
+---
+
+# 42. Sil Integration
+
+XLent is standalone.
+
+Sil is the first customer and flagship integration.
+
+The responsibilities should remain distinct.
+
+## XLent
+
+Answers:
+
+* What is this model?
+* How is it structured?
+* What does it calculate?
+* Is it internally coherent?
+* What happens under a scenario?
+* What evidence supports the output?
+* What changed between versions?
+
+## Sil
+
+Answers:
+
+* So what?
+* What does this mean?
+* How does this compare with Reference Models?
+* What decision follows?
+* What should the user do?
+
+Architecture:
+
+```text
+                         SIL
+                Reasoning / Decision
+                         │
+                     API / SDK
+                         │
+                         ▼
+                       XLENT
+                    ModelOps Layer
+                         │
+        ┌────────────────┼────────────────┐
+        ↓                ↓                ↓
+     Import           Verify           Execute
+        ↓                ↓                ↓
+       XMR           Evidence         Results
+```
+
+---
+
+# 43. Sil BYOA
+
+Preferred workflow:
+
+```text
+Sil
+ ↓
+BYOA
+ ↓
+"Analyze with XLent"
+ ↓
+XLent Importer
+ ↓
+Reconstruct Model
+ ↓
+Test / Verify / Scenario
+ ↓
+XLent Model Package
+ ↓
+Sil
+ ↓
+Reference Model comparison
+ ↓
+Agent reasoning
+ ↓
+Decision
+```
+
+Sil should not become responsible for spreadsheet parsing.
+
+XLent owns the model.
+
+Sil consumes the model.
+
+---
+
+# 44. XLent Model Package
+
+The primary handoff should be machine-readable.
+
+Conceptual structure:
+
+```text
+XLent Model Package
+│
+├── model_manifest
+├── canonical_model
+├── workbook_map
+├── dependency_graph
+├── assumptions
+├── formulas
+├── outputs
+├── findings
+├── test_results
+├── scenarios
+├── sensitivities
+├── reconciliations
+├── contract
+├── evidence
+└── assurance_summary
+```
+
+Human-readable reports may be generated from this package.
+
+The machine-readable package remains the canonical artifact.
+
+---
+
+# 45. Industry-Agnostic Core
+
+XLent should not be architected around finance.
+
+The underlying problem is universal:
+
+> **Organizations encode consequential computational logic in spreadsheets.**
+
+Applications include:
+
+### Finance
+
+* financial models
+* valuation
+* budgeting
+* forecasting
+* underwriting
+* capital allocation
+
+### Semiconductor / Silicon
+
+* wafer economics
+* die yield
+* PPA models
+* NRE
+* cost/die
+* ROI
+* capacity
+* packaging
+* manufacturing assumptions
+
+### Engineering
+
+* calculations
+* safety factors
+* performance models
+* design constraints
+* resource models
+
+### Logistics
+
+* routing
+* inventory
+* capacity
+* demand
+* supply planning
+* transportation economics
+
+### Operations
+
+* staffing
+* procurement
+* pricing
+* planning
+* forecasting
+* resource allocation
+
+The common primitive is the **model**.
+
+---
+
+# 46. Debugging as the Wedge
+
+The initial customer value proposition may be much simpler than the complete ModelOps platform.
+
+A user doesn't necessarily wake up wanting:
+
+> "I need ModelOps."
+
+They wake up thinking:
+
+> **"This spreadsheet is broken and I can't figure out why."**
+
+XLent should therefore lead with concrete pain:
+
+> **Upload your spreadsheet. XLent debugs it like software.**
+
+Then expand:
+
+```text
+Debug
+ ↓
+Understand
+ ↓
+Test
+ ↓
+Assure
+ ↓
+Version
+ ↓
+Deploy
+ ↓
+Operate
+```
+
+Debugging is the painkiller.
+
+ModelOps is the platform.
+
+Model Assurance is the trust layer.
+
+---
+
+# 47. The XLent Product Stack
+
+The long-term product architecture can therefore be understood as:
+
+```text
+                         XLENT
+                           │
+         ┌─────────────────┼─────────────────┐
+         │                 │                 │
+         ▼                 ▼                 ▼
+     MODEL INTEL       MODELOPS          ASSURANCE
+         │                 │                 │
+     Understand         Version           Verify
+     Debug              Branch            Validate
+     Explain            Publish           Evidence
+     Trace              Deploy            Govern
+     Diagnose           Execute           Certify*
+         │                 │                 │
+         └─────────────────┼─────────────────┘
+                           ▼
+                      MODEL RUNTIME
+                           │
+                           ▼
+                     API / SDK / AI
+```
+
+* "Certify" should only be used where XLent actually possesses the authority, evidence, and applicable standards to make such a claim.
+
+---
+
+# 48. Enterprise Connectivity
+
+XLent may eventually connect to organizational data systems.
+
+Potential sources:
+
+* PostgreSQL
+* Supabase
+* data warehouses
+* S3
+* SharePoint
+* OneDrive
+* Google Drive
+* enterprise repositories
+* APIs
+* databases
+
+However:
+
+> **Connectivity must not imply unrestricted data acquisition.**
+
+The principle is **governed model acquisition**.
+
+Users should explicitly authorize:
+
+* source
+* scope
+* model
+* dataset
+* permissions
+* refresh behavior
+
+XLent should prefer the minimum required access.
+
+---
+
+# 49. What XLent Must Not Become
+
+XLent should not drift into:
+
+* generic spreadsheet chatbot
+* generic BI dashboard
+* Tableau clone
+* Power BI clone
+* generic ETL platform
+* database-management platform
+* Excel replacement
+* generic document management system
+* LLM-powered calculator
+* black-box AI model validator
+
+The center of gravity remains:
+
+> **The computational spreadsheet model.**
+
+---
+
+# 50. Engineering Constitution
+
+The following rules are binding principles for XLent implementation.
+
+## Rule 1 — The model is the product.
+
+Not the workbook file.
+
+## Rule 2 — Excel remains a first-class authoring surface.
+
+Do not require users to abandon the spreadsheet paradigm.
+
+## Rule 3 — XMR is the abstraction layer.
+
+Separate source representation from canonical model representation.
+
+## Rule 4 — Treat spreadsheets as applications.
+
+Use software engineering concepts wherever they improve model reliability.
+
+## Rule 5 — Debug before beautifying.
+
+Finding model defects is more valuable than merely presenting model outputs attractively.
+
+## Rule 6 — Every meaningful model should be testable.
+
+"Looks right" is not a test.
+
+## Rule 7 — Every bug fix requires a regression test.
+
+Never fix a model defect without creating protection against recurrence.
+
+## Rule 8 — Successful execution is not validity.
+
+Execution establishes executability only.
+
+## Rule 9 — Never declare a model valid solely because it executes.
+
+Validity requires evidence.
+
+## Rule 10 — Distinguish verification from validation.
+
+"Built correctly" and "correct thing" are different claims.
+
+## Rule 11 — Model intent must be explicit where possible.
+
+Use a Model Contract.
+
+## Rule 12 — Inference is not authority.
+
+AI-generated or workbook-inferred rules must not silently become business requirements.
+
+## Rule 13 — Deterministic execution must remain deterministic.
+
+LLMs must not be the authoritative calculation engine.
+
+## Rule 14 — Every important result should have provenance.
+
+Users should be able to determine where a number came from.
+
+## Rule 15 — Every important assumption should have impact visibility.
+
+Users should be able to determine what a number affects.
+
+## Rule 16 — Models must be reproducible.
+
+Model version + inputs + scenario must identify the execution.
+
+## Rule 17 — Models must be versionable.
+
+Do not rely on filenames as version control.
+
+## Rule 18 — Model changes must be inspectable.
+
+Provide model diffs.
+
+## Rule 19 — Scenario analysis should not require workbook proliferation.
+
+Prefer model branching and scenario objects.
+
+## Rule 20 — Model assurance must expose uncertainty.
+
+When evidence is insufficient, say UNASSESSED.
+
+## Rule 21 — Never turn confidence into truth.
+
+Assurance is evidence, not an LLM confidence score.
+
+## Rule 22 — Explain defects in terms of impact.
+
+A finding should answer what broke, why, and what it affects.
+
+## Rule 23 — Prefer model-level abstractions over workbook-specific hacks.
+
+Build reusable infrastructure.
+
+## Rule 24 — Preserve semantics during transformation.
+
+Importing into XMR must not silently alter model meaning.
+
+## Rule 25 — Sil is a customer, not a dependency.
+
+XLent must remain independently useful and independently deployable.
+
+---
+
+# 51. Agent SWE Development Constitution
+
+When an autonomous coding agent is tasked with building XLent, it should operate against a persistent engineering environment containing:
+
+```text
+Repository
+Architecture
+Specifications
+Tests
+Fixtures
+Task Backlog
+Model Contracts
+CI
+Runtime
+Documentation
+```
+
+The agent should be able to:
+
+```text
+Plan
+ ↓
+Implement
+ ↓
+Run
+ ↓
+Test
+ ↓
+Diagnose
+ ↓
+Fix
+ ↓
+Regression Test
+ ↓
+Commit
+ ↓
+Continue
+```
+
+The agent should not rely solely on human visual inspection.
+
+---
+
+# 52. XLent Test Corpus
+
+XLent development must maintain a corpus of intentionally varied workbooks.
+
+Examples:
+
+```text
+fixtures/
+├── clean_financial_model.xlsx
+├── broken_formula.xlsx
+├── circular_reference.xlsx
+├── inconsistent_copy.xlsx
+├── hidden_dependency.xlsx
+├── hardcoded_override.xlsx
+├── external_link.xlsx
+├── unit_mismatch.xlsx
+├── semantic_mismatch.xlsx
+├── domain_constraint_failure.xlsx
+├── large_model.xlsx
+└── multi_sheet_model.xlsx
+```
+
+The test corpus should grow continuously.
+
+Every discovered bug should ideally become a fixture.
+
+---
+
+# 53. Agent Engineering Constitution
+
+The autonomous engineering agent itself should follow:
+
+```text
+1. Never modify a workbook silently.
+2. Preserve source workbook semantics.
+3. Never use an LLM as the authoritative calculation engine.
+4. Deterministic execution must be reproducible.
+5. Every transformation must be inspectable.
+6. Every bug fix requires a regression test.
+7. Every parser capability requires fixture coverage.
+8. Model outputs must retain provenance.
+9. Never declare a model valid solely because it executes.
+10. Prefer model-level abstractions over workbook-specific hacks.
+11. Do not infer authority where none has been established.
+12. Report uncertainty explicitly.
+13. Never hide a failing test to obtain a green build.
+14. Never weaken a test merely to make an implementation pass.
+15. Preserve backward compatibility where the model contract requires it.
+16. Treat evidence as a first-class artifact.
+17. Treat debugging findings as reusable knowledge.
+18. Optimize for correctness before convenience.
+```
+
+---
+
+# 54. Development Roadmap
+
+## Phase I — Model Foundation
+
+Build:
+
+1. XLSX ingestion
+2. Workbook parser
+3. Formula extraction
+4. Dependency extraction
+5. XMR
+6. Model graph
+7. Model manifest
+8. Model explorer
+
+## Phase II — Debugging & Assurance Foundation
+
+Build:
+
+9. Structural analysis
+10. Formula anomaly detection
+11. Dependency analysis
+12. Broken-reference detection
+13. Hardcode anomaly detection
+14. Mathematical reconciliation
+15. Test engine
+16. Evidence generation
+17. Debugging reports
+
+## Phase III — Model Contract
+
+Build:
+
+18. Model Contract schema
+19. Rule definitions
+20. Constraint definitions
+21. Behavioral assertions
+22. Human confirmation workflow
+23. Inference classification
+24. Contract testing
+
+## Phase IV — ModelOps
+
+Build:
+
+25. Model identity
+26. Versioning
+27. Model diff
+28. Branching
+29. Migration engine
+30. Registry
+31. Lifecycle states
+
+## Phase V — Runtime
+
+Build:
+
+32. Publishing
+33. Execution runtime
+34. Scenario execution
+35. Reproducibility
+36. Execution records
+37. Model API
+38. SDK
+
+## Phase VI — Sil Integration
+
+Build:
+
+39. Sil → XLent invocation
+40. BYOA integration
+41. XLent Importer
+42. XLent Model Package
+43. XLent → Sil handoff
+44. Reference Model comparison
+45. Agent access
+
+## Phase VII — Enterprise ModelOps
+
+Build:
+
+46. Enterprise repositories
+47. Governed connectors
+48. Database access
+49. Data lineage
+50. Model monitoring
+51. Continuous validation
+52. Organization-wide Model Registry
+
+---
+
+# 55. The Ultimate XLent Architecture
+
+The long-term conceptual architecture:
+
+```text
+                         USER / AGENT
+                              │
+                              ▼
+                       INTENT / REQUEST
+                              │
+                              ▼
+                       MODEL CONTRACT
+                              │
+                              │
+        ┌─────────────────────┴─────────────────────┐
+        │                                           │
+        ▼                                           ▼
+   SOURCE MODELS                               DOMAIN RULES
+        │                                           │
+      XLSX                                      Policies
+      Sheets                                    Standards
+      Data                                      Requirements
+        │                                           │
+        └─────────────────────┬─────────────────────┘
+                              ▼
+                           IMPORT
+                              ↓
+                            XMR
+                              ↓
+                        MODEL GRAPH
+                              ↓
+                 ┌────────────┼────────────┐
+                 ↓            ↓            ↓
+               DEBUG         TEST       EXECUTE
+                 ↓            ↓            ↓
+                 └────────────┼────────────┘
+                              ↓
+                       ASSURANCE ENGINE
+                              ↓
+          ┌───────────────────┼───────────────────┐
+          ↓                   ↓                   ↓
+      INTEGRITY           VALIDITY            EVIDENCE
+          │                   │                   │
+          └───────────────────┼───────────────────┘
+                              ↓
+                         VERSION / DIFF
+                              ↓
+                           PUBLISH
+                              ↓
+                           DEPLOY
+                              ↓
+                      XLENT MODEL RUNTIME
+                              ↓
+                         API / SDK / AI
+                              ↓
+                         SIL / APPS
+                              ↓
+                          DECISIONS
+```
+
+---
+
+# 56. The North Star
+
+XLent should ultimately make this possible:
+
+```text
+Upload a spreadsheet.
+        ↓
+Understand the model.
+        ↓
+Find what is broken.
+        ↓
+Explain why.
+        ↓
+Trace the impact.
+        ↓
+Declare what the model is supposed to do.
+        ↓
+Test the implementation against that intent.
+        ↓
+Identify what is proven, violated, or unknown.
+        ↓
+Version the model.
+        ↓
+Publish it.
+        ↓
+Deploy it.
+        ↓
+Execute it without Excel.
+        ↓
+Monitor it.
+        ↓
+Provide evidence for every important result.
+```
+
+---
+
+# 57. The Most Important Distinctions
+
+Agent SWE should preserve these distinctions throughout implementation.
+
+```text
+Workbook ≠ Model
+
+Data ≠ Model
+
+Retrieval ≠ Execution
+
+Execution ≠ Correctness
+
+Correctness ≠ Validity
+
+Verification ≠ Validation
+
+Inference ≠ Intent
+
+Confidence ≠ Evidence
+
+Result ≠ Provenance
+
+Version ≠ Filename
+
+Scenario ≠ Copy of a Workbook
+
+AI Reasoning ≠ Deterministic Calculation
+
+ModelOps ≠ BI
+
+Debugging ≠ Formatting
+```
+
+These distinctions are foundational.
+
+---
+
+# 58. The XLent Promise
+
+The product can ultimately be expressed in one sentence:
+
+> **XLent makes spreadsheet models behave like software.**
+
+More technically:
+
+> **XLent is the ModelOps and Model Assurance infrastructure that transforms spreadsheet models from opaque files into accessible, executable, testable, debuggable, versionable, governable, reproducible, and deployable computational artifacts.**
+
+And the most customer-facing expression may be:
+
+> **XLent debugs spreadsheets like software.**
+
+The first statement describes the platform.
+
+The second describes the wedge.
+
+---
+
+# 59. Final Constitutional Principle
+
+The fundamental problem XLent solves is not:
+
+> "How do we get information out of Excel?"
+
+It is:
+
+> **"How do we know that a computational model encoded in a spreadsheet is doing what its authors intended—and how do we safely operate that model once we know?"**
+
+XLent therefore exists at the intersection of:
+
+```text
+Spreadsheet
+      +
+Software Engineering
+      +
+ModelOps
+      +
+Domain Logic
+      +
+Verification
+      +
+Validation
+      +
+Evidence
+```
+
+The ultimate objective is not merely to produce:
+
+```text
+IRR = 28.4%
+```
+
+It is to produce:
+
+```text
+IRR = 28.4%
+
+Model:
+Acquisition Model v3.2
+
+Scenario:
+Base Case
+
+Execution:
+PASS
+
+Structural Integrity:
+PASS
+
+Computational Tests:
+47/47 PASS
+
+Contract:
+v2.1
+
+Semantic Checks:
+PASS
+
+Domain Constraints:
+PASS
+
+Provenance:
+Available
+
+Dependencies:
+Traceable
+
+Reproducibility:
+YES
+
+Assurance:
+VERIFIED WITHIN DECLARED SCOPE
+```
+
+And when the evidence isn't sufficient:
+
+```text
+ASSURANCE:
+UNASSESSED
+```
+
+When something is wrong:
+
+```text
+ASSURANCE:
+REVIEW REQUIRED
+
+Root Cause:
+Revenue!G42
+
+Impact:
+Revenue → EBITDA → FCF → IRR
+```
+
+That is the standard.
+
+**XLent must never merely tell users what a spreadsheet says.**
+
+**XLent must progressively establish what the model does, what it is intended to do, whether those two things agree, what evidence supports that conclusion, and what can safely be done with the model thereafter.**
