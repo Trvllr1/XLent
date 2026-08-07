@@ -20,7 +20,7 @@ import {
 } from '@xlent/core';
 import type { Model, ModelStatus, ModelTestDefinition, Parameter, Output, ScenarioOverride, Deliverable, Snapshot, EvidenceRecord, AssuranceLevel } from '@xlent/core';
 import { store, clientStore, snapshotStore, testStore, evidenceStore } from '../store.js';
-import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema, deliverToClientSchema, statusTransitionSchema } from '../schemas.js';
+import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema, deliverToClientSchema, statusTransitionSchema, metadataSchema } from '../schemas.js';
 
 export const modelsRouter = new Hono();
 
@@ -527,6 +527,24 @@ modelsRouter.delete('/:id', (c) => {
   const deleted = store.deleteModel(c.req.param('id'));
   if (!deleted) return c.json({ error: 'Model not found' }, 404);
   return c.json({ deleted: true });
+});
+
+/** PATCH /models/:id — Update model metadata (name, owner, tags) */
+modelsRouter.patch('/:id', async (c) => {
+  const model = store.getModel(c.req.param('id'));
+  if (!model) return c.json({ error: 'Model not found' }, 404);
+
+  const raw = await c.req.json().catch(() => ({}));
+  const parsed = metadataSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
+
+  const d = parsed.data;
+  if (d.name !== undefined) model.name = d.name;
+  if (d.owner !== undefined) model.owner = d.owner;
+  if (d.tags !== undefined) model.tags = d.tags;
+
+  store.setModel(model);
+  return c.json({ model });
 });
 
 /** GET /models/:id/package — Full model package with assurance summary */

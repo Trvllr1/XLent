@@ -215,6 +215,8 @@ export interface Model {
   assuranceLevel?: AssuranceLevel;   // default UNASSESSED when absent
   createdAt: string;
   workbookName: string;
+  owner?: string;                    // E3.2: registry attribution
+  tags?: string[];                   // E3.2: registry filtering
   parameters: Parameter[];
   calculations: Calculation[];
   outputs: Output[];

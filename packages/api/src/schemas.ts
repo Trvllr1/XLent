@@ -77,3 +77,9 @@ export const runTestsSchema = z.object({
 export const statusTransitionSchema = z.object({
   status: z.enum(['draft', 'sandbox', 'validated', 'approved', 'published', 'deprecated']),
 });
+
+export const metadataSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  owner: z.string().max(200).optional(),
+  tags: z.array(z.string().min(1).max(60)).max(20).optional(),
+});
