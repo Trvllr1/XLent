@@ -333,14 +333,23 @@ export type AssertionType =
   | 'balance'
   | 'non_negative'
   | 'is_numeric'
-  | 'custom';
+  | 'custom'
+  // E10.1 — behavioral test types
+  | 'regression_baseline'
+  | 'boundary'
+  | 'consistency';
 
 export interface TestAssertion {
   type: AssertionType;
-  left: string;   // output ID or cell ref to check
-  right?: unknown; // expected value or upper bound
+  left: string;   // output ID, cell ref, or (behavioral) a label to resolve
+  right?: unknown; // expected value, upper bound, or (behavioral) config
   rightB?: unknown; // lower bound for 'between'
   tolerance?: number;
+  // E10.1 behavioral config
+  baseline?: Record<string, unknown>;  // regression_baseline: snapshot of outputs
+  boundaryParams?: { parameterId: string; min: number; max: number }[]; // boundary: sweep these
+  consistencyPair?: [string, string];  // consistency: two output labels that must hold a relationship
+  regressionFor?: string;              // E10.2: the previous version this test guards
 }
 
 export interface ModelTestDefinition {

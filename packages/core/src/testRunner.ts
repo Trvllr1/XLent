@@ -12,7 +12,7 @@ export function runModelTests(
   const runtime = new ModelRuntime(model, workbook);
   const results = runtime.run(overrides);
 
-  return tests.map((test) => runSingleTest(test, results, model, runtime));
+  return tests.map((test) => runSingleTest(test, results, model, runtime, workbook));
 }
 
 function runSingleTest(
@@ -20,6 +20,7 @@ function runSingleTest(
   results: Record<string, unknown>,
   model: Model,
   runtime?: ModelRuntime,
+  workbook?: ParsedWorkbook,
 ): ModelTestResult {
   const now = new Date().toISOString();
   const base = { testId: test.id, name: test.name, category: test.category, executedAt: now };
@@ -79,6 +80,58 @@ function runSingleTest(
       case 'custom': {
         status = 'skip';
         break;
+      }
+
+      // E10.1 — behavioral test types
+      case 'regression_baseline': {
+        // Snapshot comparison: each baseline output must match within tolerance.
+        const baseline = test.assertion.baseline ?? {};
+        const drifts: string[] = [];
+        for (const [key, baseVal] of Object.entries(baseline)) {
+          const cur = resolveValue(key, results, model, runtime);
+          const bNum = typeof baseVal === 'number' ? baseVal : NaN;
+          const cNum = typeof cur === 'number' ? cur : NaN;
+          if (Number.isNaN(bNum) || Number.isNaN(cNum)) {
+            if (cur !== baseVal) drifts.push(`${key}: ${baseVal} → ${cur}`);
+          } else if (!approxEqual(cNum, bNum, tolerance)) {
+            drifts.push(`${key}: ${baseVal} → ${cur}`);
+          }
+        }
+        status = drifts.length === 0 ? 'pass' : 'fail';
+        expected = 'baseline unchanged';
+        return { ...base, status, actual: drifts.length ? drifts.join('; ') : 'within tolerance', expected, message: status === 'fail' ? `Outputs drifted from baseline: ${drifts.join('; ')}` : undefined };
+      }
+      case 'boundary': {
+        // Run with min and max parameter values; assert no error outputs.
+        if (!workbook) { status = 'skip'; expected = 'workbook required'; break; }
+        const params = test.assertion.boundaryParams ?? [];
+        const errs: string[] = [];
+        for (const bp of params) {
+          for (const v of [bp.min, bp.max]) {
+            const fresh = new ModelRuntime(model, workbook).run([{ parameterId: bp.parameterId, value: v }]);
+            for (const [oid, val] of Object.entries(fresh)) {
+              const bad = (typeof val === 'string' && val.startsWith('#')) || (typeof val === 'number' && !isFinite(val));
+              if (bad) errs.push(`${bp.parameterId}=${v} → ${oid}=${val}`);
+            }
+          }
+        }
+        status = errs.length === 0 ? 'pass' : 'fail';
+        expected = 'no errors at parameter bounds';
+        return { ...base, status, actual: errs.length ? errs.join('; ') : 'clean at bounds', expected, message: status === 'fail' ? `Errors at boundary: ${errs.join('; ')}` : undefined };
+      }
+      case 'consistency': {
+        // Two related outputs must maintain a relationship (e.g. ratio in [lo,hi]).
+        const pair = test.assertion.consistencyPair;
+        if (!pair) { status = 'error'; return { ...base, status, message: 'consistencyPair required' }; }
+        const a = toNum(resolveValue(pair[0], results, model, runtime));
+        const b = toNum(resolveValue(pair[1], results, model, runtime));
+        if (b === 0) { status = 'skip'; expected = 'denominator non-zero'; break; }
+        const ratio = a / b;
+        const lo = toNum(test.assertion.rightB ?? 0);
+        const hi = toNum(test.assertion.right ?? Infinity);
+        status = ratio >= lo && ratio <= hi ? 'pass' : 'fail';
+        expected = `ratio ${pair[0]}/${pair[1]} ∈ [${lo}, ${hi}]`;
+        return { ...base, status, actual: ratio, expected, message: status === 'fail' ? `Ratio ${ratio.toFixed(4)} outside [${lo}, ${hi}]` : undefined };
       }
       default:
         status = 'error';

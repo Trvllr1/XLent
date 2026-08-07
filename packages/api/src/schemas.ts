@@ -44,11 +44,16 @@ export const deliverToClientSchema = z.object({
 });
 
 export const testAssertionSchema = z.object({
-  type: z.enum(['equals', 'gt', 'lt', 'gte', 'lte', 'between', 'balance', 'non_negative', 'is_numeric', 'custom']),
+  type: z.enum(['equals', 'gt', 'lt', 'gte', 'lte', 'between', 'balance', 'non_negative', 'is_numeric', 'custom', 'regression_baseline', 'boundary', 'consistency']),
   left: z.string().min(1),
   right: z.unknown().optional(),
   rightB: z.unknown().optional(),
   tolerance: z.number().min(0).optional(),
+  // E10.1 behavioral fields
+  baseline: z.record(z.string(), z.unknown()).optional(),
+  boundaryParams: z.array(z.object({ parameterId: z.string(), min: z.number(), max: z.number() })).optional(),
+  consistencyPair: z.tuple([z.string(), z.string()]).optional(),
+  regressionFor: z.string().optional(),
 });
 
 export const createTestSchema = z.object({

@@ -7,6 +7,7 @@ export { runScenario, compareScenarios } from './scenario.js';
 export { runModelTests } from './testRunner.js';
 export { generateStructuralTests, resolveMetaValue } from './autoTests.js';
 export { diffModels, bumpSemver } from './diff.js';
+export { checkBugfixRegression } from './regressionTracking.js';
 export { runSensitivity } from './sensitivity.js';
 export type { SensitivityConfig, SensitivityResult, ParameterImpact } from './sensitivity.js';
 export { analyzeFindings } from './findings.js';

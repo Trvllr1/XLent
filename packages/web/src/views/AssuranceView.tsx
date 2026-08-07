@@ -34,7 +34,7 @@ const LEVEL_DESC: Record<string, string> = {
 };
 
 export function AssuranceView() {
-  const { modelId, refreshModel } = useOutletContext<ModelOutletContext>();
+  const { modelId, model, refreshModel } = useOutletContext<ModelOutletContext>();
   const [data, setData] = useState<AssuranceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,12 +85,22 @@ export function AssuranceView() {
   if (!data) return null;
 
   const currentIdx = data.ladder.indexOf(data.current);
+  const lastCI = (model as any)?.lastCI;
 
   return (
     <div className="max-w-3xl space-y-6">
       <p className="text-xs text-slate-500">
         Assurance is evidence-backed validity (Rules 8–10, 20–21), distinct from lifecycle status. A model advances one level at a time; each level has explicit gate requirements.
       </p>
+
+      {lastCI && (
+        <div className={`rounded-lg border px-4 py-3 text-xs ${lastCI.allPass ? 'border-emerald-800/50 bg-emerald-950/20' : 'border-red-800/50 bg-red-950/20'}`}>
+          <p className={lastCI.allPass ? 'text-emerald-300' : 'text-red-300'}>
+            Last re-import CI: {lastCI.allPass ? 'all tests passed' : `${lastCI.failures} test(s) failed`} · {lastCI.bump} change · assurance {lastCI.assuranceFrom} → {lastCI.assuranceTo}
+          </p>
+          <p className="text-slate-500 mt-1">{new Date(lastCI.at).toLocaleString()}</p>
+        </div>
+      )}
 
       {/* Ladder */}
       <div className="space-y-0">
