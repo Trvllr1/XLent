@@ -66,9 +66,10 @@ export function ClientsPage() {
     if (newClient?.id === id) setNewClient(null);
   };
 
-  if (loading) return <p className="text-slate-400">Loading…</p>;
+  if (loading) return <p className="text-slate-400 p-6">Loading…</p>;
 
   return (
+    <div className="h-full overflow-y-auto p-6">
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="flex items-center gap-4">
         <Link to="/" className="text-sm text-slate-400 hover:text-slate-200">← Models</Link>
@@ -140,6 +141,7 @@ export function ClientsPage() {
           ))}
         </section>
       )}
+    </div>
     </div>
   );
 }

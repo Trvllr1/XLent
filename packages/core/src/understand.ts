@@ -5,10 +5,11 @@ export interface LabeledCell {
   cellId: string;
   label: string;
   value: unknown;
+  format?: string;
   formula?: string;
   role: 'parameter' | 'intermediate' | 'output';
-  fanOut: number; // how many cells depend on this
-  fanIn: number;  // how many cells this depends on
+  fanOut: number;
+  fanIn: number;
 }
 
 export interface ModelUnderstanding {
@@ -52,15 +53,19 @@ export function resolveLabels(workbook: ParsedWorkbook, graph: DependencyGraph):
       // Skip if cell itself is a text label
       if (cell.type === 'string' && !cell.formula) continue;
 
-      // Pattern 1: look left for a text label (A-col label, B-col value)
+      // Pattern 1: scan left for the nearest text label (handles labels in col A for values in C/D/etc.)
       if (col !== 'A') {
-        const leftCol = String.fromCharCode(col.charCodeAt(0) - 1);
-        const leftRef = `${leftCol}${row}`;
-        const leftCell = cellMap.get(leftRef);
-        if (leftCell && leftCell.type === 'string' && typeof leftCell.value === 'string' && leftCell.value.trim()) {
-          labels.set(cellId, cleanLabel(leftCell.value));
-          continue;
+        let found = false;
+        for (let c = col.charCodeAt(0) - 1; c >= 65 /* 'A' */; c--) {
+          const leftRef = `${String.fromCharCode(c)}${row}`;
+          const leftCell = cellMap.get(leftRef);
+          if (leftCell && leftCell.type === 'string' && typeof leftCell.value === 'string' && leftCell.value.trim()) {
+            labels.set(cellId, cleanLabel(leftCell.value));
+            found = true;
+            break;
+          }
         }
+        if (found) continue;
       }
 
       // Pattern 2: look up for a header row
@@ -123,6 +128,7 @@ export function findSignificantIntermediates(
           cellId,
           label: label || cellId,
           value: cell.value,
+          format: cell.format,
           formula: cell.formula,
           role: 'intermediate',
           fanOut,
@@ -168,10 +174,10 @@ export function understandModel(
       const fanIn = fanInMap.get(cellId) || 0;
 
       if (!cell.formula && cell.type === 'number' && roots.has(cellId)) {
-        parameters.push({ cellId, label, value: cell.value, role: 'parameter', fanOut, fanIn });
+        parameters.push({ cellId, label, value: cell.value, format: cell.format, role: 'parameter', fanOut, fanIn });
       }
       if (cell.formula && terminals.has(cellId)) {
-        outputs.push({ cellId, label, value: cell.value, formula: cell.formula, role: 'output', fanOut, fanIn });
+        outputs.push({ cellId, label, value: cell.value, format: cell.format, formula: cell.formula, role: 'output', fanOut, fanIn });
       }
     }
   }
@@ -243,7 +249,7 @@ function detectSections(
         const fanIn = fanInMap.get(cellId) || 0;
         const role = fanIn === 0 ? 'parameter' : (fanOut === 0 ? 'output' : 'intermediate');
 
-        cells.push({ cellId, label, value: cell.value, formula: cell.formula, role: role as any, fanOut, fanIn });
+        cells.push({ cellId, label, value: cell.value, format: cell.format, formula: cell.formula, role: role as any, fanOut, fanIn });
       }
 
       if (cells.length > 0) {

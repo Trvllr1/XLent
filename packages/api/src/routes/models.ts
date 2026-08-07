@@ -64,6 +64,7 @@ modelsRouter.post('/import', async (c) => {
           id: crypto.randomUUID(),
           name: label || cellId,
           type: cell.type,
+          format: cell.format,
           currentValue: cell.value,
           originalValue: cell.value,
           sourceCell: cell.address,
@@ -74,11 +75,13 @@ modelsRouter.post('/import', async (c) => {
       }
 
       if (cell.formula && terminalNodes.includes(cellId)) {
+        if (cell.value == null || (typeof cell.value === 'string' && !cell.value.trim())) continue;
         const label = labels.get(cellId) || null;
         outputs.push({
           id: crypto.randomUUID(),
           name: label || cellId,
           value: cell.value,
+          format: cell.format,
           sourceCell: cell.address,
           dependsOn: [],
           confidence: label ? 'HIGH' : 'MEDIUM',
@@ -137,14 +140,74 @@ modelsRouter.post('/import', async (c) => {
   return c.json({ model, discovery }, 201);
 });
 
-/** POST /models/:id/analyze — Re-run discovery */
+/** POST /models/:id/analyze — Re-run discovery and refresh labels */
 modelsRouter.post('/:id/analyze', (c) => {
   const model = store.getModel(c.req.param('id'));
+  if (!model) return c.json({ error: 'Model not found' }, 404);
+
   const workbook = store.getWorkbook(c.req.param('id'));
-  if (!model || !workbook) return c.json({ error: 'Model not found' }, 404);
+  if (!workbook) {
+    // No workbook stored — just clean up empty outputs from stored data
+    model.outputs = (model.outputs || []).filter((o: any) =>
+      o.value != null && !(typeof o.value === 'string' && !o.value.trim())
+    );
+    store.setModel(model);
+    return c.json({ model, discovery: model.discovery, warning: 'Workbook not found — re-upload to enable full analysis' });
+  }
 
   const discovery = discoverModel(workbook);
-  return c.json({ discovery });
+  const graph = buildGraph(workbook);
+  const rootNodes = findRootNodes(graph);
+  const terminalNodes = findTerminalNodes(graph);
+  const labels = resolveLabels(workbook, graph);
+
+  const parameters: Parameter[] = [];
+  const outputs: Output[] = [];
+
+  for (const sheet of workbook.sheets) {
+    for (const cell of sheet.cells) {
+      const cellId = `${cell.address.sheet}!${cell.address.ref}`;
+
+      if (!cell.formula && cell.type === 'number' && rootNodes.includes(cellId)) {
+        const label = labels.get(cellId) || null;
+        parameters.push({
+          id: crypto.randomUUID(),
+          name: label || cellId,
+          type: cell.type,
+          format: cell.format,
+          currentValue: cell.value,
+          originalValue: cell.value,
+          sourceCell: cell.address,
+          source: 'CLIENT_MODEL',
+          confidence: label ? 'HIGH' : 'MEDIUM',
+          confirmed: false,
+        });
+      }
+
+      if (cell.formula && terminalNodes.includes(cellId)) {
+        if (cell.value == null || (typeof cell.value === 'string' && !cell.value.trim())) continue;
+        const label = labels.get(cellId) || null;
+        outputs.push({
+          id: crypto.randomUUID(),
+          name: label || cellId,
+          value: cell.value,
+          format: cell.format,
+          sourceCell: cell.address,
+          dependsOn: [],
+          confidence: label ? 'HIGH' : 'MEDIUM',
+          confirmed: false,
+        });
+      }
+    }
+  }
+
+  model.parameters = parameters;
+  model.outputs = outputs;
+  model.graph = graph;
+  model.discovery = discovery;
+  store.setModel(model);
+
+  return c.json({ model, discovery });
 });
 
 /** POST /models/:id/reimport — Re-import xlsx, bump version, generate diff */
@@ -180,6 +243,7 @@ modelsRouter.post('/:id/reimport', async (c) => {
           id: crypto.randomUUID(),
           name: label || cellId,
           type: cell.type,
+          format: cell.format,
           currentValue: cell.value,
           originalValue: cell.value,
           sourceCell: cell.address,
@@ -189,11 +253,13 @@ modelsRouter.post('/:id/reimport', async (c) => {
         });
       }
       if (cell.formula && terminalNodes.includes(cellId)) {
+        if (cell.value == null || (typeof cell.value === 'string' && !cell.value.trim())) continue;
         const label = labels.get(cellId) || null;
         outputs.push({
           id: crypto.randomUUID(),
           name: label || cellId,
           value: cell.value,
+          format: cell.format,
           sourceCell: cell.address,
           dependsOn: [],
           confidence: label ? 'HIGH' : 'MEDIUM',

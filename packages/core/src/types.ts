@@ -23,6 +23,7 @@ export interface Parameter {
   name: string;
   type: CellType;
   unit?: string;
+  format?: string;
   currentValue: unknown;
   originalValue: unknown;
   allowedRange?: { min?: number; max?: number };
@@ -45,6 +46,7 @@ export interface Output {
   id: string;
   name: string;
   value: unknown;
+  format?: string;
   sourceCell: CellAddress;
   dependsOn: string[]; // parameter IDs
   confidence: 'HIGH' | 'MEDIUM' | 'LOW';

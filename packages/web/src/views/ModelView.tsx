@@ -1,219 +1,68 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { UnderstandPanel } from './UnderstandPanel.js';
+import { Outlet, useParams } from 'react-router-dom';
+import { StatusBar } from '../components/StatusBar.js';
+import type { Understanding } from './UnderstandPanel.js';
 
-type Tab = 'overview' | 'inputs' | 'outputs' | 'understand' | 'graph' | 'compatibility' | 'provenance';
+export interface ModelOutletContext {
+  model: any;
+  modelId: string;
+  understanding: Understanding | null;
+  understandingError: string | null;
+  understandingLoading: boolean;
+  refreshModel: () => void;
+}
 
 export function ModelView() {
   const { id: modelId } = useParams<{ id: string }>();
-  const [tab, setTab] = useState<Tab>('overview');
   const [model, setModel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [reload, setReload] = useState(0);
+  const [understanding, setUnderstanding] = useState<Understanding | null>(null);
+  const [understandingError, setUnderstandingError] = useState<string | null>(null);
+  const [understandingLoading, setUnderstandingLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     fetch(`/models/${modelId}`)
       .then((r) => r.json())
-      .then((d) => setModel(d.model))
-      .finally(() => setLoading(false));
-  }, [modelId]);
+      .then((d) => { if (!cancelled) setModel(d.model); })
+      .catch(() => { if (!cancelled) setModel(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [modelId, reload]);
 
-  if (loading) return <p className="text-slate-400">Loading model…</p>;
-  if (!model) return <p className="text-red-400">Model not found</p>;
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'inputs', label: 'Inputs' },
-    { key: 'outputs', label: 'Outputs' },
-    { key: 'understand', label: 'Understand' },
-    { key: 'graph', label: 'Graph' },
-    { key: 'compatibility', label: 'Compatibility' },
-    { key: 'provenance', label: 'Provenance' },
-  ];
-
-  return (
-    <div>
-      <div className="flex items-center gap-4 mb-4">
-        <h2 className="text-2xl font-semibold">{model.name}</h2>
-        <Link
-          to={`/models/${modelId}/run`}
-          className="ml-auto bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg"
-        >
-          Run Model →
-        </Link>
-      </div>
-
-      <nav className="flex gap-1 border-b border-slate-800 mb-6">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={`px-3 py-2 text-sm rounded-t transition-colors ${
-              tab === t.key ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'
-            }`}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === 'overview' && <OverviewPanel model={model} />}
-      {tab === 'inputs' && <InputsPanel parameters={model.parameters} />}
-      {tab === 'outputs' && <OutputsPanel outputs={model.outputs} />}
-      {tab === 'understand' && <UnderstandPanel modelId={modelId!} />}
-      {tab === 'graph' && <GraphPanel graph={model.graph} />}
-      {tab === 'compatibility' && <CompatibilityPanel report={model.compatibility} />}
-      {tab === 'provenance' && <ProvenancePanel modelId={modelId!} />}
-    </div>
-  );
-}
-
-function OverviewPanel({ model }: { model: any }) {
-  const d = model.discovery;
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {[
-        ['Sheets', d.sheets],
-        ['Formula Cells', d.formulaCells],
-        ['Input Candidates', d.inputCandidates],
-        ['Output Candidates', d.outputCandidates],
-        ['Cross-Sheet Refs', d.crossSheetReferences],
-        ['External Refs', d.externalReferences],
-        ['Named Ranges', d.namedRanges],
-        ['Compatibility', d.compatibility],
-      ].map(([label, value]) => (
-        <div key={label as string} className="bg-slate-900 rounded-lg p-4">
-          <p className="text-xs text-slate-500 uppercase">{label}</p>
-          <p className="text-lg font-mono mt-1">{String(value)}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function InputsPanel({ parameters }: { parameters: any[] }) {
-  return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-slate-500 border-b border-slate-800">
-          <th className="py-2">Name</th>
-          <th>Value</th>
-          <th>Source</th>
-          <th>Confidence</th>
-        </tr>
-      </thead>
-      <tbody>
-        {parameters.map((p: any) => (
-          <tr key={p.id} className="border-b border-slate-800/50">
-            <td className="py-2 font-mono text-xs">{p.name}</td>
-            <td className="font-mono">{String(p.currentValue)}</td>
-            <td className="text-xs text-slate-400">{p.source}</td>
-            <td><ConfidenceBadge level={p.confidence} /></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function OutputsPanel({ outputs }: { outputs: any[] }) {
-  return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-slate-500 border-b border-slate-800">
-          <th className="py-2">Name</th>
-          <th>Value</th>
-          <th>Confidence</th>
-        </tr>
-      </thead>
-      <tbody>
-        {outputs.map((o: any) => (
-          <tr key={o.id} className="border-b border-slate-800/50">
-            <td className="py-2 font-mono text-xs">{o.name}</td>
-            <td className="font-mono">{String(o.value)}</td>
-            <td><ConfidenceBadge level={o.confidence} /></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function GraphPanel({ graph }: { graph: any }) {
-  return (
-    <div className="bg-slate-900 rounded-lg p-4">
-      <p className="text-sm text-slate-400 mb-2">
-        {graph.nodes.length} nodes · {graph.edges.length} edges
-      </p>
-      <p className="text-xs text-slate-500">
-        Full interactive graph visualization coming in next iteration.
-      </p>
-    </div>
-  );
-}
-
-function CompatibilityPanel({ report }: { report: any }) {
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <span className={`px-2 py-1 rounded text-xs font-medium ${
-          report.status === 'VALID' ? 'bg-emerald-900 text-emerald-300' :
-          report.status === 'PARTIAL' ? 'bg-amber-900 text-amber-300' :
-          'bg-red-900 text-red-300'
-        }`}>
-          {report.status}
-        </span>
-        <span className="text-sm text-slate-400">
-          {report.supportedFormulas}/{report.totalFormulas} formulas supported
-        </span>
-      </div>
-      {report.issues?.length > 0 && (
-        <ul className="space-y-1">
-          {report.issues.map((issue: any, i: number) => (
-            <li key={i} className="text-xs text-slate-400">
-              [{issue.severity}] {issue.detail}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function ProvenancePanel({ modelId }: { modelId: string }) {
-  const [data, setData] = useState<any[]>([]);
   useEffect(() => {
-    fetch(`/models/${modelId}/provenance`)
-      .then((r) => r.json())
-      .then((d) => setData(d.provenance || []));
+    let cancelled = false;
+    setUnderstanding(null);
+    setUnderstandingError(null);
+    setUnderstandingLoading(true);
+    fetch(`/understand/${modelId}`)
+      .then((r) => (r.ok ? r.json() : r.json().then((e) => Promise.reject(new Error(e.error || 'Analysis failed')))))
+      .then((d) => { if (!cancelled) setUnderstanding(d); })
+      .catch((e) => { if (!cancelled) setUnderstandingError(e.message); })
+      .finally(() => { if (!cancelled) setUnderstandingLoading(false); });
+    return () => { cancelled = true; };
   }, [modelId]);
 
-  return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-slate-500 border-b border-slate-800">
-          <th className="py-2">Cell</th>
-          <th>Source</th>
-          <th>Modified</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((p: any) => (
-          <tr key={p.parameterId} className="border-b border-slate-800/50">
-            <td className="py-2 font-mono text-xs">{p.sheet}!{p.cell}</td>
-            <td className="text-xs">{p.source}</td>
-            <td>{p.modified ? '✓' : '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
+  if (loading) return <p className="text-slate-400 p-6">Loading model…</p>;
+  if (!model) return <p className="text-red-400 p-6">Model not found</p>;
 
-function ConfidenceBadge({ level }: { level: string }) {
-  const colors = {
-    HIGH: 'text-emerald-400',
-    MEDIUM: 'text-amber-400',
-    LOW: 'text-red-400',
+  const ctx: ModelOutletContext = {
+    model,
+    modelId: modelId!,
+    understanding,
+    understandingError,
+    understandingLoading,
+    refreshModel: () => setReload((n) => n + 1),
   };
-  return <span className={`text-xs ${colors[level as keyof typeof colors] || ''}`}>{level}</span>;
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <Outlet context={ctx} />
+      </div>
+      <StatusBar model={model} />
+    </div>
+  );
 }

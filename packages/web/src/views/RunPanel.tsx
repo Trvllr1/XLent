@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { formatExcelValue } from '../format.js';
 
 interface Parameter {
   id: string;
@@ -13,6 +14,7 @@ interface Parameter {
 interface OutputItem {
   id: string;
   name: string;
+  format?: string;
   confidence: string;
 }
 
@@ -133,7 +135,6 @@ export function RunPanel() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link to={`/models/${modelId}`} className="text-sm text-slate-400 hover:text-slate-200">← {model.name}</Link>
         <h2 className="text-xl font-semibold">Run Model</h2>
       </div>
 
@@ -235,7 +236,7 @@ export function RunPanel() {
               <div key={o.id} className="flex items-center justify-between px-4 py-3">
                 <span className="text-sm font-mono text-slate-300">{o.name}</span>
                 <span className="text-sm font-mono font-medium text-slate-100">
-                  {typeof results[o.id] === 'number' ? (results[o.id] as number).toFixed(4) : String(results[o.id] ?? '—')}
+                  {formatExcelValue(results[o.id], o.format)}
                 </span>
               </div>
             ))}

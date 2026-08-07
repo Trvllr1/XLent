@@ -7,9 +7,17 @@ export default defineConfig({
   server: {
     port: 4200,
     proxy: {
-      '/models': 'http://localhost:4100',
+      '/models': {
+        target: 'http://localhost:4100',
+        bypass(req) {
+          if (req.headers.accept?.includes('text/html')) return req.url;
+        },
+      },
       '/clients': 'http://localhost:4100',
       '/health': 'http://localhost:4100',
+      '/understand': 'http://localhost:4100',
+      '/sensitivity': 'http://localhost:4100',
+      '/tests': 'http://localhost:4100',
     },
   },
 });

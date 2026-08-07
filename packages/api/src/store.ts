@@ -24,7 +24,9 @@ export interface DeliveryRecord {
 
 class ModelStore {
   private stmts = {
-    insertModel: db.prepare('INSERT OR REPLACE INTO models (id, name, slug, semver, status, version, created_at, workbook_name, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+    // Upsert (not INSERT OR REPLACE) — REPLACE does DELETE+INSERT which fires ON DELETE CASCADE and wipes child rows
+    insertModel: db.prepare(`INSERT INTO models (id, name, slug, semver, status, version, created_at, workbook_name, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET name=excluded.name, slug=excluded.slug, semver=excluded.semver, status=excluded.status, version=excluded.version, workbook_name=excluded.workbook_name, data=excluded.data`),
     getModel: db.prepare('SELECT data FROM models WHERE id = ?'),
     getBySlug: db.prepare('SELECT data FROM models WHERE slug = ?'),
     listModels: db.prepare('SELECT data FROM models ORDER BY created_at DESC'),
