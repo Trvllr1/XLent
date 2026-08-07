@@ -18,6 +18,8 @@ Master documentation suite for XLent — ModelOps infrastructure for spreadsheet
 | 09 | [Glossary](09-Glossary.md) | Term definitions |
 | 10 | [Market Validation](10-Market-Validation.md) | Pain-point evidence, competitive map, target workflows, falsifiable milestones |
 | 11 | [GTM Strategy](11-GTM-Strategy.md) | GTM wedge, positioning, ICP, pricing, PMF definition, commercialization flywheel |
+| 12 | [Model Review](12-Model-Review.md) | Review discipline: findings taxonomy/states, materiality, impact analysis, approval, review-as-API |
+| 13 | [Programmatic Defect Corpus](13-Programmatic-Defect-Corpus.md) | Internal assurance substrate: Golden Models, mutation engine, ground-truth metrics, release gates |
 
 ## Source Documents
 
@@ -27,6 +29,8 @@ The `source/` directory contains the original strategy and governance documents 
 - `XLent-ModelOps.txt` — ModelOps vision and platform design
 - `XLent-Engineering-Constitution.txt` — binding engineering doctrine, assurance semantics, and agent-development rules
 - `XLent-GTM-PMF-Commercialization.txt` — GTM, PMF, and commercialization strategy
+- `XLent-Model-Review.txt` — Model Review discipline (normative source for doc 12)
+- `XLent-Programmatic-Defect-Corpus.txt` — Programmatic Defect Corpus internal assurance system (normative source for doc 13)
 
 The blueprint is the source of truth for product capabilities. The constitution is the source of truth for engineering invariants. Source documents are retained for reference only.
 

@@ -15,6 +15,10 @@ NEXT (Constitutional Epics):
             Debug   Contract Assurance  CI     Corpus  Model
             Core    Intent   Ladder     Gates  Monitor IDE
 
+AFTER IDE:  E13 ──▶ E14
+            Review  PDC
+            Layer   (XLent tests XLent)
+
 DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 ```
 
@@ -37,6 +41,8 @@ DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 | E10 | 📐 Next | Behavioral Testing & Model CI |
 | E11 | 📐 Next | Test Corpus & Monitoring |
 | E12 | 📐 Next | Model IDE (Explorer → Editor → IDE) |
+| E13 | 📋 Planned | Model Review — judgment layer above E7–E11 (see doc 12) |
+| E14 | 📋 Planned | Programmatic Defect Corpus — XLent tests XLent (see doc 13) |
 
 ---
 
@@ -568,6 +574,105 @@ These items have design notes in the blueprint but no scheduled implementation. 
 
 ---
 
+## E13 — Model Review
+
+**Goal:** Add the judgment layer above the engineering capabilities built in E7–E11. A persistent, versioned `ModelReview` artifact lets reviewers convert machine findings into recorded, evidence-backed human decisions — without becoming programmers.
+
+**Source:** `docs/12-Model-Review.md` (normative source: `docs/source/XLent-Model-Review.txt`).
+
+**Constitutional note:** Review is distinct from Assurance (Review ≠ Assurance). E9's ladder records evidence; E13 records judgment. Do not fold into AssuranceView.
+
+**Dependencies:** E7 (findings), E8 (contract intent), E9 (assurance ladder), E10 (behavioral CI), E2 (model diff).
+
+### E13.1 — ModelReview Object & Finding State Machine
+
+| Field | Value |
+|---|---|
+| **Scope** | New persistent `ModelReview` entity bound to (model_id, model_version). Finding states `OPEN → INVESTIGATING → RESOLVED / ACCEPTED_EXCEPTION / REJECTED / DEFERRED`. Every disposition records who/when/why/evidence/version. Findings never silently disappear. |
+| **Files** | New: `packages/api/src/routes/reviews.ts`, review store + `reviews` / `review_findings` tables. Modify: `packages/core/src/types.ts` (`ModelReview`, `ReviewFinding`, `FindingState`, `ReviewStatus`). |
+| **Acceptance criteria** | (1) Create a review for a model version. (2) Existing auto-findings (E7) can be attached to a review. (3) Each finding transitions through the state machine; every transition persists actor, timestamp, rationale, evidence ref, model version. (4) A finding cannot be deleted — only transitioned. (5) Review persists across sessions (DB-backed). |
+| **Verification** | API tests: create review, attach finding, walk all disposition states, confirm audit trail. tsc clean. |
+
+### E13.2 — Review Comments, Materiality & Impact
+
+| Field | Value |
+|---|---|
+| **Scope** | Reviewer comments on findings/elements; materiality classification (LOW/MEDIUM/HIGH by affected output, financial magnitude, dependency depth, decision consequence); downstream impact chain attached to each material finding (reuses E7 quantify/impactChain). |
+| **Files** | Modify: review store + routes. Modify: `packages/web` Review UI. |
+| **Acceptance criteria** | (1) Comment with evidence ref attaches to a finding. (2) Materiality recorded per finding. (3) Material finding shows its downstream output impact chain. (4) Review lists findings grouped by state and materiality. |
+
+### E13.3 — Approval States & Review API
+
+| Field | Value |
+|---|---|
+| **Scope** | Explicit approval: `DRAFT · IN_REVIEW · CONDITIONAL · APPROVED · APPROVED_WITH_EXCEPTIONS · REJECTED · SUPERSEDED · RETIRED`, bound to a specific version + scope with reviewer metadata. Machine-readable `ModelReview` export. No permanent validity — a change triggers REASSESS. |
+| **Files** | Modify: reviews routes. New: `GET /models/:id/reviews/:rid/export`. |
+| **Acceptance criteria** | (1) `POST /models/:id/reviews`, `GET /models/:id/reviews`, `GET .../:rid`, `POST .../findings`, `POST .../approve`, `POST .../reject`. (2) Approval binds to version + scope + reviewer. (3) Re-import/model change on an approved version marks it REASSESS. (4) Export yields the full machine-readable ModelReview artifact. (5) Approval is never AI-generated (Constitution: AI confidence ≠ approval). |
+
+### E13.4 — Review Tab (Web UI)
+
+| Field | Value |
+|---|---|
+| **Scope** | A `Review` tab in the model workspace (Sidebar `Assure` group), rendering the review object, findings with states/materiality/impact, comments, and the approval action. |
+| **Files** | New: `packages/web/src/views/ReviewView.tsx`. Modify: Sidebar, App routes. |
+| **Acceptance criteria** | (1) Review tab lists findings by state. (2) Reviewer can transition a finding, comment, and set materiality from the UI. (3) Approval button reflects policy state and records the explicit action. (4) Underlying evidence always reachable from any score/summary (score is never a verdict). |
+
+---
+
+## E14 — Programmatic Defect Corpus (PDC)
+
+**Goal:** Generalize the E11.1 seed corpus into XLent's internal, continuously executed assurance system: Golden Models, a programmatic mutation engine, ground-truth comparison (detection/localization/classification/impact/explanation), generative fuzzing, and release gating. PDC tests **XLent itself** — it is the Engineering Constitution applied recursively.
+
+**Source:** `docs/13-Programmatic-Defect-Corpus.md` (normative source: `docs/source/XLent-Programmatic-Defect-Corpus.txt`).
+
+**Constitutional note:** PDC is internal infrastructure, not a customer feature. It embodies the Recursive Principle — XLent must not trust itself merely because its code executes.
+
+**Dependencies:** E11 (seed corpus + execution monitoring), E0 (AST — required for semantic mutation), E7 (detectors under test).
+
+### E14.1 — PDC Schema, Golden Model Format & Comparator
+
+| Field | Value |
+|---|---|
+| **Scope** | Machine-readable PDC case schema (case_id, golden_model, mutation, defect_class, severity, expected detection/location/classification/impact/explanation, legitimate_exception, provenance). Golden Model format (known inputs, expected outputs, contract, expected graph/formulas/tests/behavior). Ground-truth comparator scoring EXPECTED vs OBSERVED. |
+| **Files** | New: `packages/core/src/pdc/schema.ts`, `packages/core/src/pdc/golden.ts`, `packages/core/src/pdc/compare.ts`. |
+| **Acceptance criteria** | (1) A PDC case serializes to/from JSON. (2) Comparator scores detection, localization, classification as separate booleans. (3) Cases carry DEFECTIVE / LEGITIMATE / AMBIGUOUS labels (negative knowledge). (4) Severity assigned by consequence, not syntactic unusualness. |
+
+### E14.2 — Mutation Engine
+
+| Field | Value |
+|---|---|
+| **Scope** | Programmatic mutation of a valid Golden Model into a known defect: formula, reference (off-by-one), range, sign, temporal, hardcode, dependency, logic mutations. Each mutation records expected ground truth. |
+| **Files** | New: `packages/core/src/pdc/mutate.ts`. |
+| **Acceptance criteria** | (1) Each mutation class produces a mutated model + a ground-truth record. (2) Off-by-one reference mutation is detected + correctly localized by E7 pattern detection. (3) Mutations are deterministic (seeded) and reproducible. (4) Mutation preserves executability unless the defect class is intentional breakage. |
+
+### E14.3 — Execution Harness, Metrics & CLI Runner
+
+| Field | Value |
+|---|---|
+| **Scope** | Unattended runner: select corpus → execute XLent → compare to ground truth → compute metrics (detection, localization, classification, severity, impact, explanation, false-positive, false-negative, regression rates) → emit report + evidence. Absorbs the E11.1 deterministic corpus as Phase 2 content. |
+| **Files** | New: `packages/core/src/pdc/runner.ts`, `packages/core/src/pdc/metrics.ts`, CLI entry. |
+| **Acceptance criteria** | (1) `pnpm pdc:run` executes the deterministic corpus and prints metrics. (2) Every resolved real-world defect can be formalized into a permanent regression case. (3) Results persisted as engineering evidence. (4) E11.1 fixtures re-expressed as PDC cases pass. |
+
+### E14.4 — CI Integration & Release Gates
+
+| Field | Value |
+|---|---|
+| **Scope** | Wire PDC into CI: on-commit smoke suite, nightly full deterministic corpus. Release gates block on regressions in critical-defect detection, high-severity localization, or false-positive threshold breach. |
+| **Files** | New: CI workflow config; Modify: `packages/core/src/pdc/gates.ts`. |
+| **Acceptance criteria** | (1) On-commit PDC smoke runs and fails the build on a critical-detection regression. (2) A seeded detector regression is caught by the gate. (3) Metrics are reported per run. |
+
+### E14.5 — Generative Mutation, Compound/Masked Defects & Domain Packs (Deferred)
+
+| Field | Value |
+|---|---|
+| **Scope** | Generative/fuzzing corpus (fresh mutations for novel-failure discovery); compound + interacting + masked faults (e.g. offsetting ±$10M errors); domain packs (Finance, Semiconductor, etc.); AI/agent evaluation harness. |
+| **Files** | TBD. |
+| **Acceptance criteria** | (1) Generative mode produces novel valid mutations. (2) Masked-defect cases verify XLent detects structural/logical defects even when outputs net to correct. (3) A domain pack adds domain-specific Golden Models + invariants. (4) An agent's "review this model" response is scored against ground truth. |
+| **Dependencies** | E14.1–E14.4 |
+| **Trigger** | After the deterministic corpus is stable in CI; before claiming broad domain coverage. |
+
+---
+
 ## Sequencing Rationale
 
 | Decision | Rationale |
@@ -580,3 +685,5 @@ These items have design notes in the blueprint but no scheduled implementation. 
 | E10 before E11 | Behavioral tests validate corpus fixtures. Build the test types before building the corpus. |
 | E12 after E0+E7+E8+E9 | IDE requires AST (formula editing), findings (inline diagnostics), contracts (intent editing), and assurance (authoring feedback). It's the capstone that turns infrastructure into product surface. |
 | E3 deferred | Lifecycle/registry is governance infrastructure needed when multiple users/models exist. Not blocking single-tenant + Sil integration. |
+| E13 after E7–E11 | Model Review is the judgment layer that *consumes* findings, contracts, assurance, and CI. Those facts must exist before they can be judged. Review ≠ Assurance — it is recorded human decision, not the evidence ladder. |
+| E14 after E11 | PDC generalizes the E11.1 seed corpus into a full mutation/ground-truth/release-gate system. It needs E0's AST for semantic mutation and E7's detectors as the system under test. It is XLent testing XLent — internal, never customer-facing. |

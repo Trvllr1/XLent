@@ -1,0 +1,1456 @@
+# XLent: Programmatic Defect Corpus
+
+## Internal Model-Integrity Assurance & Regression System
+
+**Status:** Foundational Internal Engineering Package
+**Primary Audience:** XLent Engineering, QA, Research, Agent SWE
+**Scope:** XLent platform development, regression, benchmarking, release assurance
+**Relationship:** Supporting system for the XLent Engineering Constitution
+
+---
+
+# 1. Purpose
+
+The **Programmatic Defect Corpus (PDC)** is XLent's internal, machine-executable body of known model defects, mutations, anomalies, edge cases, and legitimate exceptions.
+
+Its purpose is to continuously determine whether XLent can correctly:
+
+* detect model defects
+* localize defects
+* classify defects
+* assess materiality
+* trace downstream impact
+* distinguish defects from legitimate exceptions
+* explain findings
+* avoid false positives
+* preserve model semantics
+* maintain performance across releases
+
+The governing principle is:
+
+> **XLent must continuously test its ability to understand models that are correct, incorrect, unusual, and intentionally altered.**
+
+PDC is therefore not primarily a customer feature.
+
+It is **XLent's laboratory for testing XLent.**
+
+---
+
+# 2. The Fundamental Distinction
+
+PDC must remain distinct from user-facing model operations.
+
+| Concept             | Purpose                                                              |
+| ------------------- | -------------------------------------------------------------------- |
+| **Scenario**        | Explore a legitimate alternate model state                           |
+| **Model Test**      | Determine whether a defined property holds                           |
+| **Model Review**    | Determine whether a model is acceptable                              |
+| **Fault Injection** | Deliberately introduce a fault to test model resilience              |
+| **PDC**             | Deliberately introduce known faults to test XLent's own capabilities |
+
+The distinction is:
+
+> **A scenario changes the world.**
+
+> **A test challenges the model.**
+
+> **A mutation breaks the implementation.**
+
+> **PDC uses broken implementations to challenge XLent.**
+
+---
+
+# 3. Scope
+
+PDC covers the entire XLent stack.
+
+```text
+                       PDC
+                        │
+     ┌──────────────────┼──────────────────┐
+     ▼                  ▼                  ▼
+   Import             Model              Runtime
+   Layer              IR/XMR              │
+     │                  │                  │
+     └──────────────────┼──────────────────┘
+                        ▼
+                    Model Graph
+                        │
+                        ▼
+                    Analyzer
+                        │
+             ┌──────────┼──────────┐
+             ▼          ▼          ▼
+           Tests      Review     Assurance
+             │          │          │
+             └──────────┼──────────┘
+                        ▼
+                  XLent Release
+```
+
+PDC may therefore validate:
+
+* workbook ingestion
+* model reconstruction
+* formula interpretation
+* dependency analysis
+* execution
+* semantic analysis
+* contract checking
+* test generation
+* defect detection
+* defect localization
+* defect classification
+* impact analysis
+* explanation
+* model review support
+* assurance artifact generation
+
+---
+
+# 4. PDC Is Internal
+
+PDC is primarily an **engineering system**, not a normal end-user feature.
+
+Customers should not ordinarily see:
+
+> "PDC-17,392"
+
+or:
+
+> "XLent passed 98.7% of PDC defects."
+
+Instead, they may eventually benefit from the underlying capabilities through:
+
+* Model Review
+* Model Testing
+* Model Assurance
+* Model Health
+* Fault Injection
+* Model Resilience Testing
+
+The PDC itself exists to ensure that those capabilities work.
+
+---
+
+# 5. PDC's Ground Truth Principle
+
+Every canonical PDC case must have known ground truth.
+
+At minimum:
+
+```text
+Correct Model
++
+Mutation / Condition
++
+Expected Outcome
++
+Expected Detection
++
+Expected Location
++
+Expected Classification
++
+Expected Impact
+```
+
+Therefore XLent can compare:
+
+```text
+EXPECTED
+   vs.
+OBSERVED
+```
+
+rather than relying on subjective judgment.
+
+---
+
+# 6. Golden Models
+
+The foundation of PDC is the **Golden Model**.
+
+A Golden Model is a model whose intended behavior is sufficiently established to serve as a reference artifact.
+
+It may contain:
+
+* known inputs
+* expected outputs
+* Model Contract
+* invariants
+* dependencies
+* tests
+* domain semantics
+* expected formula patterns
+
+Example:
+
+```text
+Golden Model
+    │
+    ├── Contract
+    ├── Expected Outputs
+    ├── Expected Graph
+    ├── Expected Formulas
+    ├── Expected Tests
+    └── Expected Behavior
+```
+
+Golden Models are the source from which controlled mutations can be generated.
+
+---
+
+# 7. Programmatic Mutation
+
+PDC must support automated mutation.
+
+A mutation is a deliberate transformation of a valid model intended to create a known defect or test condition.
+
+Examples:
+
+### Formula mutation
+
+```text
+=A1*B1
+```
+
+→
+
+```text
+=A1+B1
+```
+
+### Reference mutation
+
+```text
+=B12
+```
+
+→
+
+```text
+=B13
+```
+
+### Range mutation
+
+```text
+=SUM(B2:B12)
+```
+
+→
+
+```text
+=SUM(B2:B11)
+```
+
+### Sign mutation
+
+```text
+=Revenue-Cost
+```
+
+→
+
+```text
+=Revenue+Cost
+```
+
+### Temporal mutation
+
+```text
+Growth[2029]
+```
+
+→
+
+```text
+Growth[2028]
+```
+
+### Hardcode mutation
+
+```text
+=Revenue*Margin
+```
+
+→
+
+```text
+=Revenue*0.23
+```
+
+### Dependency mutation
+
+Redirect a formula to an unintended upstream component.
+
+### Logic mutation
+
+Replace a valid business rule with an incorrect but executable rule.
+
+---
+
+# 8. Defect Taxonomy
+
+PDC must maintain a formal taxonomy.
+
+## Structural
+
+* missing worksheet
+* unexpected worksheet
+* malformed workbook structure
+* hidden dependency
+* broken named range
+* broken external link
+
+## Formula
+
+* incorrect reference
+* off-by-one reference
+* incorrect range
+* missing formula
+* formula inconsistency
+* incorrect operator
+* incorrect function
+* absolute/relative reference error
+* accidental hardcode
+
+## Dependency
+
+* unintended dependency
+* orphaned input
+* circular dependency
+* dependency bypass
+* unexpected downstream path
+
+## Data
+
+* wrong type
+* wrong unit
+* missing value
+* duplicated value
+* stale value
+* date error
+* sign error
+* scaling error
+
+## Logic
+
+* incorrect business rule
+* incorrect conditional
+* incorrect threshold
+* incorrect temporal relationship
+* invalid assumption relationship
+* incorrect aggregation
+
+## Behavioral
+
+* unexpected sensitivity
+* monotonicity violation
+* boundary failure
+* invariant violation
+* scenario inconsistency
+
+## Integration
+
+* broken external source
+* changed schema
+* invalid import
+* stale dependency
+* interface mismatch
+
+---
+
+# 9. Legitimate Anomalies
+
+PDC must contain legitimate anomalies as well as defects.
+
+This is critical.
+
+Not every deviation is an error.
+
+Example:
+
+```text
+Pattern:
+Revenue growth = 8%
+Revenue growth = 8%
+Revenue growth = 3%
+Revenue growth = 8%
+```
+
+The 3% deviation may be:
+
+* a defect
+* an intentional capacity constraint
+* a contractual condition
+* a one-time event
+* a legitimate boundary condition
+
+Therefore PDC must include:
+
+```text
+DEFECTIVE
+LEGITIMATE
+AMBIGUOUS
+```
+
+cases.
+
+This is necessary to optimize XLent's false-positive behavior.
+
+---
+
+# 10. PDC Case Schema
+
+A canonical PDC case should conceptually contain:
+
+```text
+PDC Case
+├── case_id
+├── version
+├── domain
+├── golden_model
+├── mutation
+├── defect_class
+├── severity
+├── intended_behavior
+├── expected_behavior
+├── observed_behavior
+├── affected_components
+├── expected_detection
+├── expected_location
+├── expected_classification
+├── expected_impact
+├── expected_explanation
+├── legitimate_exception
+├── required_tests
+└── provenance
+```
+
+The schema should remain machine-readable.
+
+---
+
+# 11. Severity
+
+PDC should support severity levels.
+
+Example:
+
+```text
+INFO
+LOW
+MEDIUM
+HIGH
+CRITICAL
+```
+
+Severity should be determined according to the defect's consequence, not merely its syntactic unusualness.
+
+For example:
+
+A formatting inconsistency may be LOW.
+
+A wrong reference that changes IRR by 0.02% may be LOW.
+
+A wrong debt balance that changes reported valuation by 15% may be HIGH.
+
+A defect affecting a safety-critical engineering model may be CRITICAL even with a relatively small numerical deviation.
+
+---
+
+# 12. Expected Detection
+
+Every seeded defect should specify whether XLent is expected to detect it.
+
+This enables precise benchmarking.
+
+Example:
+
+```text
+PDC-004821
+
+Defect:
+Incorrect reference
+
+Expected Detection:
+YES
+
+Expected Location:
+Returns!H82
+
+Expected Severity:
+HIGH
+```
+
+XLent's result is then compared against ground truth.
+
+---
+
+# 13. Expected Localization
+
+Detection alone is insufficient.
+
+XLent must ideally identify **where the problem is**.
+
+Metrics should distinguish:
+
+```text
+Detected
+Detected + Correctly Localized
+Detected + Correctly Classified
+Detected + Correctly Explained
+```
+
+A system that says:
+
+> "Something is wrong somewhere."
+
+is substantially less useful than:
+
+> "Returns!H82 references the FY2028 growth assumption instead of FY2029."
+
+---
+
+# 14. Expected Impact
+
+PDC cases should encode expected downstream effects.
+
+Example:
+
+```text
+Defect
+  ↓
+Revenue
+  ↓
+EBITDA
+  ↓
+FCF
+  ↓
+Debt
+  ↓
+IRR
+```
+
+XLent should be evaluated on whether it correctly traces that impact.
+
+This tests the integrity of the Model Graph and impact-analysis system.
+
+---
+
+# 15. Expected Explanation
+
+For explainable defects, PDC should define what a correct explanation must establish.
+
+A good explanation should answer:
+
+1. What is wrong?
+2. Where is it?
+3. What should happen?
+4. What actually happens?
+5. Why does the difference matter?
+6. What downstream results are affected?
+
+The PDC should test explanation quality, not merely defect detection.
+
+---
+
+# 16. Automated PDC Execution
+
+PDC MUST support unattended execution.
+
+The system should be capable of:
+
+* generating cases
+* mutating models
+* executing XLent
+* collecting results
+* comparing results to ground truth
+* calculating metrics
+* identifying regressions
+* producing reports
+* triggering alerts
+* preserving run artifacts
+
+No engineer should have to manually run the full PDC.
+
+---
+
+# 17. PDC Orchestrator
+
+Conceptually:
+
+```text
+                    PDC ORCHESTRATOR
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+       Generate          Select           Schedule
+        Cases            Corpus             Run
+          │                │                │
+          └────────────────┼────────────────┘
+                           ▼
+                    Execute XLent
+                           │
+             ┌─────────────┼─────────────┐
+             ▼             ▼             ▼
+          Detect        Localize      Explain
+             │             │             │
+             └─────────────┼─────────────┘
+                           ▼
+                     Compare Truth
+                           │
+                           ▼
+                      Score Results
+                           │
+                           ▼
+                       Report
+```
+
+---
+
+# 18. Scheduling
+
+PDC must support multiple execution frequencies.
+
+## On Commit
+
+Fast regression suite.
+
+Purpose:
+
+> Detect immediate breakage.
+
+## Nightly
+
+Full deterministic corpus.
+
+Purpose:
+
+> Continuous regression.
+
+## Weekly
+
+Expanded mutation generation.
+
+Purpose:
+
+> Explore new combinations and edge cases.
+
+## Pre-Release
+
+Full assurance suite.
+
+Purpose:
+
+> Release qualification.
+
+## On Demand
+
+Developer-selected subsets.
+
+Purpose:
+
+> Targeted engineering investigation.
+
+---
+
+# 19. PDC Continuous Assurance
+
+The canonical loop is:
+
+```text
+Developer Change
+       ↓
+Build XLent
+       ↓
+Unit Tests
+       ↓
+Integration Tests
+       ↓
+PDC Smoke
+       ↓
+PDC Full
+       ↓
+Benchmark
+       ↓
+Assurance Gates
+       ↓
+PASS / FAIL
+```
+
+This makes PDC part of XLent's engineering lifecycle.
+
+---
+
+# 20. Release Gates
+
+A release may be blocked when defined thresholds are violated.
+
+Examples:
+
+> No regression in critical defect detection.
+
+> No regression in high-severity localization.
+
+> False-positive rate must remain below threshold.
+
+> No critical defect category may fall below minimum coverage.
+
+> Runtime correctness must not regress.
+
+> Importer fidelity must not regress.
+
+> Model Graph reconstruction must remain within tolerance.
+
+PDC therefore becomes a **release-quality gate**.
+
+---
+
+# 21. Deterministic vs. Generative PDC
+
+PDC should contain two major classes of tests.
+
+## Deterministic Corpus
+
+Stable known cases.
+
+Purpose:
+
+* regression
+* reproducibility
+* release comparison
+
+Example:
+
+```text
+PDC-000001
+PDC-000002
+...
+PDC-050000
+```
+
+## Generative Corpus
+
+Freshly generated mutations and combinations.
+
+Purpose:
+
+* exploration
+* fuzzing
+* novel failure discovery
+* robustness testing
+
+The two complement each other.
+
+```text
+                 PDC
+                  │
+          ┌───────┴────────┐
+          ▼                ▼
+    Deterministic       Generative
+          │                │
+    Regression          Discovery
+```
+
+---
+
+# 22. Mutation Combinatorics
+
+PDC should eventually test combinations of defects.
+
+For example:
+
+```text
+Mutation A:
+Wrong Reference
+
++
+Mutation B:
+Hardcoded Assumption
+
++
+Mutation C:
+Range Shift
+```
+
+This creates a compound model defect.
+
+Real-world models frequently contain multiple interacting issues.
+
+XLent must therefore eventually be tested against:
+
+* single faults
+* paired faults
+* compound faults
+* interacting faults
+* masking faults
+
+---
+
+# 23. Defect Masking
+
+A particularly important class is **masked defects**.
+
+Example:
+
+Two errors cancel each other:
+
+```text
+Defect A: +$10M
+Defect B: -$10M
+
+Net Output:
+$0 difference
+```
+
+The model may appear correct.
+
+PDC must test whether XLent can detect the underlying structural or logical defects even when aggregate outputs appear reasonable.
+
+This is a key reason:
+
+> **Output correctness alone does not establish model validity.**
+
+---
+
+# 24. PDC Metrics
+
+PDC should generate quantitative engineering metrics.
+
+### Detection Rate
+
+Percentage of known defects detected.
+
+### Localization Rate
+
+Percentage correctly localized.
+
+### Classification Accuracy
+
+Percentage correctly classified.
+
+### Severity Accuracy
+
+Percentage assigned appropriate severity.
+
+### Impact Accuracy
+
+Percentage with correct downstream impact analysis.
+
+### Explanation Accuracy
+
+Percentage producing substantively correct explanations.
+
+### False Positive Rate
+
+Legitimate cases incorrectly flagged.
+
+### False Negative Rate
+
+Known defects not detected.
+
+### Regression Rate
+
+Previously solved cases that regress.
+
+### Repair Safety
+
+Percentage of proposed fixes that resolve the defect without introducing additional defects.
+
+---
+
+# 25. PDC Dashboard
+
+Internal XLent engineering may expose:
+
+```text
+PDC ASSURANCE
+─────────────────────────────
+
+Corpus:
+42,781 canonical cases
+
+Defect Classes:
+137
+
+Domains:
+12
+
+Detection:
+98.7%
+
+Localization:
+96.4%
+
+Classification:
+95.9%
+
+False Positive:
+1.8%
+
+Critical Defects:
+100%
+
+Regression:
+0
+
+Last Run:
+02:14 UTC
+
+Status:
+PASS
+```
+
+The numbers above are illustrative, not targets.
+
+The important principle is that XLent's quality claims should eventually be supported by reproducible measurements.
+
+---
+
+# 26. PDC Regression
+
+Once XLent learns to detect a defect, that capability must not disappear unnoticed.
+
+Every resolved defect should become a permanent regression case unless explicitly retired.
+
+```text
+New Failure
+    ↓
+Investigate
+    ↓
+Fix XLent
+    ↓
+Formalize Defect
+    ↓
+Add to PDC
+    ↓
+Permanent Regression Case
+```
+
+This creates institutional memory for the engineering team.
+
+---
+
+# 27. PDC as a Feedback Loop
+
+PDC should continuously improve XLent.
+
+```text
+                PDC
+                 │
+                 ▼
+             Find Gap
+                 │
+                 ▼
+          Engineer Fix
+                 │
+                 ▼
+           Add New Case
+                 │
+                 ▼
+          Improve Corpus
+                 │
+                 ▼
+        Improve XLent
+                 │
+                 └──────────► PDC
+```
+
+The corpus becomes progressively more representative and difficult.
+
+---
+
+# 28. New Defect Discovery
+
+PDC is not restricted to known defects.
+
+If XLent discovers a novel failure mode:
+
+```text
+Novel Failure
+     ↓
+Reproduce
+     ↓
+Classify
+     ↓
+Create Ground Truth
+     ↓
+Create Mutation
+     ↓
+Add to PDC
+     ↓
+Regression Forever
+```
+
+This ensures that XLent's accumulated engineering knowledge grows over time.
+
+---
+
+# 29. Domain Packs
+
+PDC should be extensible by domain.
+
+Potential packs:
+
+```text
+XLent PDC
+│
+├── Core
+├── Finance
+├── Accounting
+├── Engineering
+├── Semiconductor
+├── Supply Chain
+├── Logistics
+├── Operations
+├── Healthcare
+└── Custom Enterprise
+```
+
+The core engine remains domain-agnostic.
+
+Domain packs introduce:
+
+* domain-specific defect classes
+* domain-specific Golden Models
+* domain-specific Contracts
+* domain-specific invariants
+* domain-specific benchmarks
+
+---
+
+# 30. Privacy and Customer Data
+
+PDC should **not** depend on collecting customer workbooks.
+
+The core corpus should primarily consist of:
+
+* synthetic models
+* generated models
+* controlled mutations
+* licensed public models
+* explicitly contributed artifacts
+* legally permitted anonymized patterns
+
+Customer workbooks should not automatically become training or corpus material.
+
+If customer-derived cases are ever incorporated, explicit governance must determine:
+
+* authorization
+* anonymization
+* ownership
+* retention
+* isolation
+* permitted use
+
+The PDC's value should derive from its **structured defect knowledge**, not from indiscriminate accumulation of customer data.
+
+---
+
+# 31. PDC and AI
+
+PDC can provide an evaluation substrate for AI components.
+
+AI systems may be evaluated on:
+
+* finding generation
+* explanation
+* classification
+* root-cause analysis
+* remediation suggestions
+* review summaries
+
+The AI must be measured against known ground truth.
+
+Therefore:
+
+```text
+LLM Output
+    ↓
+PDC Ground Truth
+    ↓
+Evaluation
+    ↓
+Pass / Fail
+```
+
+This helps prevent subjective claims such as:
+
+> "The agent seems pretty good at spreadsheets."
+
+---
+
+# 32. Agent Evaluation
+
+PDC should eventually become an evaluation harness for XLent agents.
+
+An agent may receive:
+
+> "Review this model."
+
+The PDC knows:
+
+* what defects exist
+* what should be detected
+* what evidence should be cited
+* what should be ignored
+* what the correct explanation is
+
+The agent's response can therefore be scored.
+
+This creates a powerful environment for Agent SWE to improve XLent's own intelligence.
+
+---
+
+# 33. PDC and Model Review
+
+PDC supports Model Review indirectly.
+
+The relationship is:
+
+```text
+PDC
+ │
+ │ validates XLent's ability
+ ▼
+XLent Analysis
+ │
+ ▼
+Model Review
+ │
+ ▼
+Customer Decision
+```
+
+PDC should not replace Model Review.
+
+It validates the machinery that makes Model Review credible.
+
+---
+
+# 34. PDC and Model Assurance
+
+PDC itself produces engineering assurance evidence.
+
+For each release, XLent can retain:
+
+* corpus version
+* XLent version
+* test configuration
+* execution environment
+* test results
+* failures
+* accepted deviations
+* metrics
+* release decision
+
+This establishes reproducibility.
+
+---
+
+# 35. PDC and ModelOps
+
+PDC is not ModelOps.
+
+Rather:
+
+```text
+PDC
+ ↓
+Assures XLent's ability to operate on models
+ ↓
+ModelOps
+ ↓
+Operates customer models
+```
+
+PDC is therefore an internal assurance substrate for the broader XLent platform.
+
+---
+
+# 36. PDC's Non-Goals
+
+PDC is not intended to:
+
+* become a customer spreadsheet repository
+* replace Model Review
+* replace Scenario Analysis
+* replace Model Testing
+* automatically declare customer models invalid
+* silently repair customer models
+* serve as a general-purpose analytics database
+* become a training-data vacuum
+* substitute statistical benchmarks for deterministic ground truth
+
+Its primary job is:
+
+> **Test XLent.**
+
+---
+
+# 37. Core Engineering Principles
+
+### PDC-01 — Ground Truth
+
+Every canonical case must have a known expected outcome.
+
+### PDC-02 — Reproducibility
+
+A canonical failure must be reproducible.
+
+### PDC-03 — Automation
+
+The corpus must execute without manual intervention.
+
+### PDC-04 — Regression
+
+Resolved failures become permanent regression cases.
+
+### PDC-05 — Mutation
+
+XLent must be challenged with controlled model corruption.
+
+### PDC-06 — Negative Knowledge
+
+Legitimate anomalies must be represented alongside defects.
+
+### PDC-07 — Materiality
+
+Defects must be evaluated according to consequence.
+
+### PDC-08 — End-to-End
+
+PDC must test the complete XLent pipeline, not only isolated algorithms.
+
+### PDC-09 — No Execution-Only Validation
+
+A model executing successfully does not establish its correctness.
+
+### PDC-10 — No AI-Only Assurance
+
+AI confidence does not establish correctness.
+
+### PDC-11 — Continuous Execution
+
+PDC must run automatically according to defined schedules.
+
+### PDC-12 — Release Gating
+
+Critical PDC regressions may block XLent releases.
+
+### PDC-13 — Controlled Evolution
+
+The corpus itself must be versioned.
+
+### PDC-14 — Evidence
+
+PDC results must be retained as engineering evidence.
+
+---
+
+# 38. Recommended Architecture
+
+```text
+                         XLENT REPOSITORY
+                                │
+                                ▼
+                       PDC ORCHESTRATOR
+                                │
+                ┌───────────────┼───────────────┐
+                ▼               ▼               ▼
+           Case Registry   Mutation Engine   Scheduler
+                │               │               │
+                └───────────────┼───────────────┘
+                                ▼
+                         Execution Harness
+                                │
+                                ▼
+                            XLent Core
+                                │
+                ┌───────────────┼───────────────┐
+                ▼               ▼               ▼
+             Runtime         Analyzer         Agent
+                │               │               │
+                └───────────────┼───────────────┘
+                                ▼
+                         Result Collector
+                                │
+                                ▼
+                      Ground Truth Comparator
+                                │
+                                ▼
+                         Metrics Engine
+                                │
+                ┌───────────────┼───────────────┐
+                ▼               ▼               ▼
+             Dashboard       Regression       Release Gate
+                                │
+                                ▼
+                           Evidence Store
+```
+
+---
+
+# 39. Suggested Initial Implementation
+
+PDC does not need to begin with tens of thousands of models.
+
+The first implementation should establish the machinery.
+
+### Phase 1
+
+Build:
+
+* PDC schema
+* Golden Model format
+* mutation framework
+* expected-result framework
+* execution harness
+* result comparator
+* basic metrics
+* CLI runner
+
+### Phase 2
+
+Add:
+
+* deterministic corpus
+* formula defects
+* reference defects
+* dependency defects
+* hardcode defects
+* range defects
+* basic logic defects
+
+### Phase 3
+
+Add:
+
+* automated scheduling
+* CI integration
+* release gates
+* dashboards
+* regression history
+
+### Phase 4
+
+Add:
+
+* generative mutation
+* compound defects
+* domain packs
+* false-positive corpus
+* AI evaluation
+
+### Phase 5
+
+Add:
+
+* continuous discovery
+* advanced fault generation
+* model resilience testing
+* agent benchmarking
+* automated corpus expansion
+
+---
+
+# 40. The Recursive Principle
+
+There is a particularly important philosophical property of PDC:
+
+> **XLent should apply its own engineering philosophy to itself.**
+
+XLent tells customers:
+
+> Don't trust a model simply because it executes.
+
+XLent should therefore tell itself:
+
+> Don't trust XLent simply because its code executes.
+
+XLent tells customers:
+
+> Test against known behavior.
+
+PDC therefore tests XLent against known behavior.
+
+XLent tells customers:
+
+> Preserve evidence.
+
+PDC preserves evidence of XLent's own behavior.
+
+XLent tells customers:
+
+> Review changes.
+
+PDC evaluates whether changes to XLent introduce regressions.
+
+This makes PDC an embodiment of the XLent Engineering Constitution.
+
+---
+
+# 41. Final Definition
+
+> **The Programmatic Defect Corpus is XLent's continuously executed internal assurance system comprising known-good models, programmatically generated mutations, known defects, legitimate anomalies, edge cases, expected behaviors, and ground-truth outcomes, used to benchmark, regression-test, optimize, and release XLent's model understanding and assurance capabilities.**
+
+The shortest version:
+
+> **PDC is how XLent continuously breaks models so XLent's engineers can prove XLent still knows what is broken.**
+
+---
+
+# 42. Relationship to the XLent System
+
+The final conceptual stack is:
+
+```text
+                    XLENT
+              Spreadsheet ModelOps
+                         │
+       ┌─────────────────┼──────────────────┐
+       │                 │                  │
+       ▼                 ▼                  ▼
+   Understand          Debug             Review
+       │                 │                  │
+       └─────────────────┼──────────────────┘
+                         ▼
+                       Test
+                         │
+                         ▼
+                  Verify / Validate
+                         │
+                         ▼
+                      Assure
+                         │
+                         ▼
+                     Deploy
+                         │
+                         ▼
+                     Operate
+
+
+                  XLENT ENGINEERING
+                         │
+                         ▼
+               PROGRAMMATIC DEFECT
+                    CORPUS (PDC)
+                         │
+                         ▼
+                Tests XLent itself
+```
+
+**PDC is internal.**
+
+**Model Review is customer-facing.**
+
+**Scenario Analysis is user exploration.**
+
+**Model Testing challenges the user's model.**
+
+**PDC challenges XLent's ability to understand all three.**
+
+That separation should remain explicit throughout XLent's architecture.

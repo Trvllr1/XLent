@@ -1,0 +1,1707 @@
+# XLent: Model Review
+
+## The Review Discipline for Computational Models
+
+**Status:** Foundational Product & Engineering Specification
+**Applies to:** XLent Core, ModelOps, Model Assurance, Runtime, Integrations, and Domain Packs
+**Related:** XLent Engineering Constitution
+
+---
+
+# 1. Purpose
+
+XLent Model Review establishes a systematic way for users to inspect, challenge, test, explain, approve, and govern spreadsheet models.
+
+Its central premise is:
+
+> **A spreadsheet model should be reviewable with the rigor developers apply to software.**
+
+XLent does not require the reviewer to become a programmer.
+
+Instead, XLent translates software-engineering review practices into a model-native workflow.
+
+Model Review therefore sits between:
+
+**Model Engineering**
+
+and
+
+**Model Governance.**
+
+Engineering determines what the model is and what it actually does.
+
+Review determines whether that behavior is acceptable.
+
+Assurance records the evidence supporting that determination.
+
+---
+
+# 2. The Foundational Analogy
+
+XLent treats a spreadsheet model as an executable computational artifact.
+
+The resulting analogy is:
+
+| Software Engineering  | XLent Model Review        |
+| --------------------- | ------------------------- |
+| Source code           | Workbook / model          |
+| Function              | Model component           |
+| Variable              | Cell / named range        |
+| Dependency graph      | Model graph               |
+| Static analysis       | Structural/model analysis |
+| Unit test             | Model test                |
+| Integration test      | Cross-model test          |
+| Code review           | **Model Review**          |
+| Pull request          | Model revision            |
+| Code diff             | Model diff                |
+| CI pipeline           | Model validation pipeline |
+| Build                 | Model execution           |
+| Release               | Model approval/deployment |
+| Code owner            | Model owner               |
+| Production monitoring | Model monitoring          |
+| Software assurance    | Model assurance           |
+
+The objective is not to make spreadsheets look like software.
+
+The objective is to bring **software engineering's discipline of review** to the spreadsheet-model paradigm while preserving the spreadsheet as a legitimate modeling surface.
+
+---
+
+# 3. Engineering vs. Model Review
+
+Model Review is **not a replacement for XLent Engineering**.
+
+It is an operational layer built on top of it.
+
+### XLent Engineering asks:
+
+> What is this model?
+
+> How is it structured?
+
+> What does it actually execute?
+
+> What are its dependencies?
+
+> Does it satisfy its formal properties?
+
+> Is it internally coherent?
+
+### Model Review asks:
+
+> Is this behavior what we intended?
+
+> Are the assumptions appropriate?
+
+> Are anomalies explainable?
+
+> Are identified defects material?
+
+> Have findings been resolved?
+
+> Is the model acceptable for its intended use?
+
+### Model Assurance asks:
+
+> What evidence supports that conclusion?
+
+Therefore:
+
+```text
+                     MODEL INTENT
+                          │
+                          ▼
+                   MODEL CONTRACT
+                          │
+                          ▼
+                 XLENT ENGINEERING
+                          │
+                establishes facts
+                          │
+                          ▼
+                    MODEL REVIEW
+                          │
+                 evaluates acceptability
+                          │
+                          ▼
+                   MODEL DECISION
+                          │
+                          ▼
+                   MODEL ASSURANCE
+                          │
+                          ▼
+                       RELEASE
+```
+
+---
+
+# 4. Model Review Is Not Spreadsheet Auditing
+
+Traditional spreadsheet auditing tends to focus on:
+
+* formula errors
+* broken references
+* inconsistent cells
+* hardcodes
+* links
+* formatting
+* suspicious formulas
+
+These are useful.
+
+But XLent Model Review is broader.
+
+It evaluates the **model as a computational system**.
+
+A Model Review can encompass:
+
+* structural integrity
+* computational integrity
+* business logic
+* assumptions
+* dependencies
+* outputs
+* scenarios
+* behavioral consistency
+* materiality
+* model changes
+* test results
+* exceptions
+* evidence
+* reviewer judgment
+
+Therefore:
+
+> **Spreadsheet auditing is a component of Model Review, not its definition.**
+
+---
+
+# 5. The Model Review Object
+
+A Model Review is a persistent artifact associated with a specific model version.
+
+Conceptually:
+
+```text
+MODEL REVIEW
+────────────────────────────────
+Model: Acquisition Model
+Version: v23
+Review: 2026-08-06
+Owner: Finance
+Reviewer(s): Corporate Development
+
+Status: IN REVIEW
+
+Model Health: 91/100
+
+Tests:
+48 / 50 PASS
+
+Findings:
+7 OPEN
+3 RESOLVED
+2 ACCEPTED EXCEPTIONS
+
+Assurance:
+PENDING
+```
+
+The review should persist independently of the user's immediate session.
+
+It becomes part of the model's lifecycle history.
+
+---
+
+# 6. Canonical Review Lifecycle
+
+The standard lifecycle is:
+
+```text
+SUBMIT
+   ↓
+DISCOVER
+   ↓
+INSPECT
+   ↓
+REVIEW
+   ↓
+FINDINGS
+   ↓
+RESOLVE
+   ↓
+TEST
+   ↓
+VERIFY
+   ↓
+ASSURE
+   ↓
+APPROVE
+   ↓
+RELEASE
+```
+
+Not every model requires every stage.
+
+Model Review is risk-sensitive.
+
+A simple personal planning model may require:
+
+```text
+Inspect → Review → Approve
+```
+
+A board-level financial model may require:
+
+```text
+Discover
+→ Inspect
+→ Review
+→ Test
+→ Verify
+→ Assure
+→ Approve
+```
+
+A production model exposed through an API may require the complete lifecycle.
+
+---
+
+# 7. Stage 1 — Discover
+
+XLent reconstructs the model before judgment begins.
+
+The system establishes:
+
+* workbook structure
+* sheets
+* formulas
+* inputs
+* outputs
+* named ranges
+* external links
+* dependencies
+* formula patterns
+* data types
+* model graph
+* model complexity
+* calculation structure
+
+The reviewer should first be able to answer:
+
+> **"What am I reviewing?"**
+
+before being asked:
+
+> **"Is it correct?"**
+
+---
+
+# 8. Stage 2 — Inspect
+
+XLent performs automated examination.
+
+Potential inspection classes:
+
+### Structural
+
+* missing sheets
+* unexpected sheets
+* hidden structures
+* merged structures
+* external references
+* broken links
+
+### Formula
+
+* inconsistent formulas
+* anomalous formulas
+* unexpected hardcodes
+* missing formulas
+* formula drift
+
+### Dependency
+
+* unexpected references
+* orphaned cells
+* circular dependencies
+* suspicious dependency chains
+* unexplained downstream impacts
+
+### Semantic
+
+* inconsistent labels
+* assumption/output confusion
+* unit inconsistencies
+* date inconsistencies
+* domain anomalies
+
+Inspection generates **findings**, not automatic verdicts.
+
+---
+
+# 9. Stage 3 — Review
+
+Review converts machine observations into human judgment.
+
+A reviewer can inspect:
+
+* finding
+* location
+* model context
+* dependency path
+* expected behavior
+* observed behavior
+* affected outputs
+* materiality
+* evidence
+* related tests
+* historical changes
+
+The objective is to answer:
+
+> **"Does this matter?"**
+
+and:
+
+> **"Is this intended?"**
+
+---
+
+# 10. Finding Taxonomy
+
+XLent MUST distinguish between different classes of observations.
+
+## Anomaly
+
+A deviation from an expected structural or computational pattern.
+
+Example:
+
+> Formula differs from neighboring cells.
+
+An anomaly is not necessarily an error.
+
+---
+
+## Finding
+
+An observation requiring reviewer attention.
+
+Example:
+
+> Revenue growth formula deviates from the model's established pattern.
+
+---
+
+## Defect
+
+A finding that violates an established model requirement.
+
+Example:
+
+> The 2030 forecast does not apply the contracted growth assumption.
+
+---
+
+## Exception
+
+A deviation intentionally accepted by the reviewer.
+
+Example:
+
+> 2030 growth is intentionally lower because of a known capacity constraint.
+
+---
+
+## Failure
+
+A required property or test has not been satisfied.
+
+Example:
+
+> Balance sheet does not reconcile.
+
+---
+
+## Informational
+
+An observation that may improve understanding but does not require remediation.
+
+This taxonomy prevents XLent from declaring every anomaly a "bug."
+
+---
+
+# 11. Finding States
+
+Each finding should have a controlled state.
+
+```text
+OPEN
+ ↓
+INVESTIGATING
+ ↓
+ ┌───────────┬────────────┬────────────┐
+ ▼           ▼            ▼            ▼
+RESOLVED   ACCEPTED     REJECTED     DEFERRED
+EXCEPTION
+```
+
+A finding should never silently disappear.
+
+Every disposition should preserve:
+
+* who made the decision
+* when
+* why
+* supporting evidence
+* affected model version
+
+---
+
+# 12. Review Comments
+
+Reviewers must be able to attach commentary to model elements and findings.
+
+For example:
+
+```text
+Finding #17
+
+Location:
+Revenue!H27
+
+Issue:
+Formula pattern deviation
+
+Reviewer:
+Sarah
+
+Comment:
+"Intentional. Capacity constraint begins in FY2030."
+
+Evidence:
+Capacity_Model!H14
+
+Disposition:
+Accepted Exception
+```
+
+This transforms institutional knowledge into a persistent model artifact.
+
+---
+
+# 13. Model Review and Model Contract
+
+The Model Contract is foundational.
+
+Review cannot determine whether behavior is correct without some representation of intended behavior.
+
+The contract can define:
+
+* inputs
+* outputs
+* constraints
+* invariants
+* business rules
+* expected relationships
+* assumptions
+* units
+* tolerances
+* permitted exceptions
+* prohibited conditions
+
+Therefore:
+
+```text
+MODEL CONTRACT
+      ↓
+defines intended behavior
+      ↓
+MODEL EXECUTION
+      ↓
+reveals actual behavior
+      ↓
+MODEL REVIEW
+      ↓
+compares intent vs. implementation
+```
+
+This is the spreadsheet equivalent of reviewing implementation against requirements.
+
+---
+
+# 14. The Central Review Question
+
+The central Model Review question is:
+
+> **Does the executable model behave according to its declared intent?**
+
+This should be decomposed into:
+
+### Structural validity
+
+Is the model structurally coherent?
+
+### Computational validity
+
+Does it execute correctly?
+
+### Logical validity
+
+Does it implement the intended rules?
+
+### Behavioral validity
+
+Does it respond correctly to changes in inputs?
+
+### Domain validity
+
+Does it represent the intended real-world/business relationships?
+
+### Operational validity
+
+Can it safely be used in its intended workflow?
+
+---
+
+# 15. Model Diff
+
+Model Review MUST support version-aware comparison.
+
+The goal is not simply:
+
+> "Cell F82 changed."
+
+XLent should establish semantic impact.
+
+Example:
+
+```text
+MODEL v14 → v15
+
+IRR:
+24.7% → 21.3%
+
+Primary driver:
+Exit Multiple
+10.0x → 8.5x
+
+Secondary impact:
+Debt repayment schedule modified
+
+Formula change:
+Returns!F82
+previously referenced Assumptions!F30
+now references Assumptions!F31
+```
+
+The reviewer should be able to understand:
+
+> **What changed?**
+
+> **Why did it change?**
+
+> **What did the change affect?**
+
+> **Was the change intentional?**
+
+This is the Model Review equivalent of a pull request.
+
+---
+
+# 16. Model Review as a Change-Control Mechanism
+
+A material model change should trigger an appropriate review.
+
+Example:
+
+```text
+Model v21
+   ↓
+Change
+   ↓
+XLent determines affected components
+   ↓
+Impact analysis
+   ↓
+Required tests
+   ↓
+Reviewer assignment
+   ↓
+Review
+   ↓
+Approval
+   ↓
+Model v22
+```
+
+Not every cell change should require a formal review.
+
+The system should support **risk-based review thresholds**.
+
+---
+
+# 17. Materiality
+
+XLent should distinguish between trivial and material findings.
+
+Materiality may consider:
+
+* affected output
+* financial magnitude
+* dependency depth
+* decision consequence
+* model criticality
+* sensitivity
+* regulatory requirements
+* user-defined thresholds
+
+Example:
+
+```text
+Finding A
+Formatting anomaly
+Materiality: LOW
+
+Finding B
+Wrong depreciation reference
+Materiality: MEDIUM
+
+Finding C
+Incorrect debt balance
+Impacts IRR by 6.8%
+Materiality: HIGH
+```
+
+This keeps reviewers focused on what matters.
+
+---
+
+# 18. Impact Analysis
+
+Every meaningful finding should be traceable downstream.
+
+For example:
+
+```text
+Wrong Assumption
+      ↓
+Revenue
+      ↓
+EBITDA
+      ↓
+Cash Flow
+      ↓
+Debt Paydown
+      ↓
+Exit Value
+      ↓
+IRR
+```
+
+The reviewer should see:
+
+> **"This finding affects these outputs."**
+
+This is a critical difference from cell-centric auditing.
+
+---
+
+# 19. Model Tests
+
+Model Review should be tightly integrated with testing.
+
+Tests may establish:
+
+### Reconciliation
+
+```text
+Assets = Liabilities + Equity
+```
+
+### Behavioral
+
+```text
+If price increases,
+revenue should not decrease.
+```
+
+### Boundary
+
+```text
+Debt cannot become negative.
+```
+
+### Invariant
+
+```text
+Ownership percentages sum to 100%.
+```
+
+### Regression
+
+```text
+Known input set must produce expected output.
+```
+
+### Scenario
+
+```text
+Stress scenario must remain within defined limits.
+```
+
+Tests create objective evidence for the review.
+
+---
+
+# 20. Review vs. Verification vs. Validation
+
+These concepts MUST remain distinct.
+
+### Verification
+
+> **Did we implement the model correctly according to its specification?**
+
+### Validation
+
+> **Is the model itself appropriate for the intended real-world purpose?**
+
+### Review
+
+> **Has a qualified reviewer examined the model and determined whether it is acceptable?**
+
+### Assurance
+
+> **Can we substantiate that determination with evidence?**
+
+Therefore:
+
+```text
+Verification ≠ Validation
+Validation ≠ Review
+Review ≠ Assurance
+```
+
+They cooperate but cannot be collapsed into one score.
+
+---
+
+# 21. AI's Role
+
+AI may assist Model Review but must not become the authority.
+
+AI can:
+
+* explain formulas
+* summarize dependencies
+* identify suspicious patterns
+* propose findings
+* explain likely root causes
+* suggest tests
+* summarize changes
+* generate review questions
+* translate technical findings into domain language
+
+AI must not silently:
+
+* declare a model valid
+* dismiss findings
+* rewrite business logic
+* approve models
+* fabricate evidence
+* substitute probabilistic reasoning for deterministic execution
+
+The principle is:
+
+> **AI assists review. Evidence establishes review. Humans retain authority over consequential judgment.**
+
+---
+
+# 22. Review Evidence
+
+Every significant finding should be evidence-backed.
+
+Evidence can include:
+
+* formula
+* cell/range
+* dependency path
+* model graph
+* test result
+* execution result
+* contract clause
+* model diff
+* scenario output
+* source data
+* reviewer comment
+* historical state
+
+The review record should make it possible for another person to reconstruct:
+
+> **What was observed, what was decided, and why?**
+
+---
+
+# 23. Review Score
+
+XLent may present a model health/review score.
+
+However:
+
+> **A score must never be the model's validity verdict.**
+
+Example:
+
+```text
+Model Health: 91/100
+```
+
+can summarize conditions.
+
+It must not mean:
+
+> "91 = valid."
+
+A model can score highly while containing one material unresolved issue.
+
+Therefore the interface should always expose the underlying evidence.
+
+---
+
+# 24. Approval
+
+Approval is an explicit state.
+
+Potential states:
+
+```text
+DRAFT
+IN REVIEW
+CONDITIONAL
+APPROVED
+APPROVED WITH EXCEPTIONS
+REJECTED
+SUPERSEDED
+RETIRED
+```
+
+Approval metadata:
+
+* reviewer
+* role
+* date
+* model version
+* review scope
+* tests performed
+* unresolved exceptions
+* assurance status
+
+Approval applies to a **specific model version and defined scope**.
+
+---
+
+# 25. No Permanent Validity
+
+A model is never simply:
+
+> VALID FOREVER.
+
+Instead:
+
+> **This model version was approved for this defined purpose under this defined review scope.**
+
+A new change may invalidate that conclusion.
+
+A changed assumption may invalidate it.
+
+A changed data source may invalidate it.
+
+A changed business requirement may invalidate it.
+
+Therefore:
+
+```text
+APPROVED v17
+     ↓
+Change
+     ↓
+Review status
+     ↓
+REASSESS
+```
+
+Model validity is **versioned and contextual**.
+
+---
+
+# 26. Model Review Report
+
+XLent should be capable of generating a portable review artifact.
+
+Example:
+
+# Model Review Report
+
+**Model:** Acquisition Model
+**Version:** v23
+**Review Date:** August 6, 2026
+
+### Executive Result
+
+**Conditional Approval**
+
+### Model Profile
+
+* 27 worksheets
+* 8,420 formulas
+* 318 inputs
+* 42 primary outputs
+* 4 external dependencies
+
+### Review Results
+
+| Category             | Result              |
+| -------------------- | ------------------- |
+| Structural Integrity | PASS                |
+| Formula Integrity    | PASS WITH FINDINGS  |
+| Dependency Integrity | PASS                |
+| Business Logic       | PASS WITH EXCEPTION |
+| Regression Tests     | 48/50 PASS          |
+| Materiality Review   | 2 OPEN              |
+| Assurance            | CONDITIONAL         |
+
+### Material Findings
+
+1. Revenue growth deviation in FY2030
+2. External debt schedule dependency
+
+### Accepted Exceptions
+
+1. Intentional capacity constraint
+
+### Required Actions
+
+* resolve debt schedule dependency
+* rerun regression suite
+* update Model Contract
+
+### Reviewer Decision
+
+**Conditional Approval**
+
+---
+
+# 27. Model Review Workspace
+
+The product experience should eventually include:
+
+```text
+MODEL
+├── Overview
+├── Structure
+├── Model Graph
+├── Assumptions
+├── Outputs
+├── Findings
+├── Tests
+├── Contract
+├── Versions
+├── Diff
+├── Evidence
+├── Review
+└── Assurance
+```
+
+The Review tab is not an isolated tool.
+
+It is the place where all of XLent's underlying engineering capabilities converge.
+
+---
+
+# 28. Roles
+
+Model Review should support role-based participation.
+
+Potential roles:
+
+### Model Owner
+
+Responsible for the model.
+
+### Author
+
+Creates or modifies it.
+
+### Reviewer
+
+Examines the model.
+
+### Domain Reviewer
+
+Evaluates domain/business appropriateness.
+
+### Technical Reviewer
+
+Evaluates computational/structural integrity.
+
+### Approver
+
+Has authority to approve release.
+
+### Auditor
+
+Reviews historical evidence.
+
+A single person may hold multiple roles for low-risk models.
+
+Critical models may require separation of duties.
+
+---
+
+# 29. Review Policies
+
+Organizations should be able to define policy.
+
+Examples:
+
+> Models above $100M exposure require independent review.
+
+> Models used for board reporting require two approvals.
+
+> Any change affecting IRR requires regression testing.
+
+> Production models cannot deploy with unresolved high-severity findings.
+
+> Any change to a Model Contract requires re-approval.
+
+Policies turn Model Review into organizational infrastructure.
+
+---
+
+# 30. Model Review Automation
+
+XLent should automatically determine review requirements based on model characteristics.
+
+Example:
+
+```text
+Model detected:
+High complexity
+High financial materiality
+External data
+Production deployment
+```
+
+XLent:
+
+> **Enhanced Review Required**
+
+Required:
+
+* contract
+* regression suite
+* dependency analysis
+* change review
+* independent approval
+* assurance report
+
+A smaller model may receive a lightweight workflow.
+
+---
+
+# 31. Model Review and Deployment
+
+Deployment should be gated by review state where policy requires it.
+
+```text
+MODEL
+  ↓
+TEST
+  ↓
+REVIEW
+  ↓
+ASSURE
+  ↓
+APPROVED
+  ↓
+DEPLOY
+```
+
+If a required condition fails:
+
+```text
+MODEL
+  ↓
+TEST FAILURE
+  ↓
+DEPLOYMENT BLOCKED
+```
+
+This is the spreadsheet-model equivalent of a CI/CD quality gate.
+
+---
+
+# 32. Model Review and Runtime
+
+Once deployed, the model can be monitored.
+
+XLent should detect:
+
+* unexpected behavior
+* changed dependencies
+* drift
+* changed input distributions
+* execution failures
+* contract violations
+* output anomalies
+
+A production model may therefore transition:
+
+```text
+Review
+ ↓
+Approval
+ ↓
+Deployment
+ ↓
+Runtime
+ ↓
+Monitoring
+ ↓
+New Finding
+ ↓
+Re-review
+```
+
+Model Review becomes continuous rather than merely pre-release.
+
+---
+
+# 33. Model Review and Sil
+
+Sil's BYOA architecture provides a natural entry point.
+
+```text
+SIL
+ │
+ └── BYOA
+       │
+       └── Import Spreadsheet
+               │
+               ▼
+             XLENT
+               │
+       ┌───────┼────────┐
+       ▼       ▼        ▼
+   Understand Debug    Review
+       │       │        │
+       └───────┼────────┘
+               ▼
+             Tests
+               ▼
+            Assurance
+               ▼
+              SIL
+```
+
+Sil can therefore consume not just a spreadsheet's numerical output, but its:
+
+* model understanding
+* findings
+* tests
+* assumptions
+* evidence
+* assurance state
+
+This makes XLent substantially more useful as infrastructure.
+
+---
+
+# 34. The Model Review Artifact
+
+Every review should be exportable as a machine-readable and human-readable artifact.
+
+Conceptually:
+
+```text
+ModelReview
+├── model_id
+├── model_version
+├── review_id
+├── scope
+├── reviewer(s)
+├── findings[]
+├── tests[]
+├── exceptions[]
+├── evidence[]
+├── decisions[]
+├── approvals[]
+├── assurance_state
+└── timestamp
+```
+
+This makes Model Review programmable.
+
+Agents, applications, auditors, and enterprise systems can consume it.
+
+---
+
+# 35. Model Review as an API
+
+Eventually:
+
+```text
+POST /models/{id}/reviews
+GET  /models/{id}/reviews
+GET  /models/{id}/reviews/{review_id}
+POST /reviews/{review_id}/findings
+POST /reviews/{review_id}/approve
+POST /reviews/{review_id}/reject
+```
+
+This allows Model Review to become infrastructure rather than merely UI.
+
+---
+
+# 36. Model Review and Agents
+
+An agent may ask:
+
+> "Can I use this model?"
+
+XLent should not respond merely:
+
+> "Yes."
+
+Instead:
+
+```text
+Model Status:
+APPROVED WITH EXCEPTIONS
+
+Review:
+v23
+
+Tests:
+48/50 PASS
+
+Open Findings:
+2
+
+Material Findings:
+1
+
+Assurance:
+CONDITIONAL
+
+Approved Purpose:
+Acquisition valuation
+
+Approved Scope:
+FY2026–FY2031
+```
+
+The agent can then reason over evidence rather than hallucinating confidence.
+
+---
+
+# 37. Model Review Principle: No Silent Mutation
+
+Review systems must preserve the reviewed artifact.
+
+XLent must never silently modify a model during review.
+
+If XLent proposes:
+
+> "Replace formula X with formula Y"
+
+that is a **proposal**.
+
+The change must create a new model revision.
+
+```text
+v23
+ ↓
+Proposed Change
+ ↓
+v24
+ ↓
+Re-test
+ ↓
+Re-review
+```
+
+The original evidence remains intact.
+
+---
+
+# 38. Model Review Principle: No Silent Approval
+
+No AI-generated:
+
+> "Looks good."
+
+may constitute approval.
+
+Approval must be an explicit action under defined policy.
+
+This is essential to the XLent Engineering Constitution's broader principle:
+
+> **Execution does not establish validity.**
+
+Likewise:
+
+> **AI confidence does not establish approval.**
+
+---
+
+# 39. Model Review Principle: Evidence Before Judgment
+
+The reviewer should be able to navigate:
+
+```text
+Decision
+  ↓
+Finding
+  ↓
+Evidence
+  ↓
+Execution
+  ↓
+Model
+```
+
+A review conclusion without traceable evidence is an assertion, not assurance.
+
+---
+
+# 40. Model Review Principle: Intent vs. Execution
+
+Every serious review should ultimately compare:
+
+```text
+INTENDED
+    │
+    │ Model Contract
+    ▼
+IMPLEMENTED
+    │
+    │ Execution
+    ▼
+OBSERVED
+    │
+    │ Review
+    ▼
+ACCEPTED?
+```
+
+This is the fundamental Model Review loop.
+
+---
+
+# 41. Model Review Principle: Humans Remain Domain Authorities
+
+XLent can establish computational facts.
+
+It cannot independently determine whether a business decision is wise.
+
+For example:
+
+XLent can determine:
+
+> "Changing the exit multiple from 10x to 8x reduces IRR from 27.2% to 19.4%."
+
+A domain expert determines:
+
+> "8x is the appropriate exit multiple assumption."
+
+Therefore:
+
+> **XLent verifies computational claims; qualified humans retain responsibility for consequential domain judgments.**
+
+---
+
+# 42. The Model Review Constitution
+
+The following principles are normative.
+
+### MR-01 — Every review has scope.
+
+A review must identify the model version, intended use, and review scope.
+
+### MR-02 — An anomaly is not automatically a defect.
+
+XLent must distinguish observation from judgment.
+
+### MR-03 — Findings require evidence.
+
+Material findings must be traceable to model evidence.
+
+### MR-04 — Intent must be distinguishable from execution.
+
+The system must preserve the difference between what the model is supposed to do and what it actually does.
+
+### MR-05 — Approval is explicit.
+
+No implicit or AI-generated approval.
+
+### MR-06 — Approval is version-specific.
+
+Approval applies to a defined artifact/version and scope.
+
+### MR-07 — Exceptions are first-class.
+
+Intentional deviations must be documented rather than erased.
+
+### MR-08 — Materiality matters.
+
+Review effort should correspond to consequence.
+
+### MR-09 — Changes may invalidate prior conclusions.
+
+Model review is not permanent.
+
+### MR-10 — AI assists; evidence establishes.
+
+AI may accelerate review but cannot replace evidence.
+
+### MR-11 — Review must be reproducible.
+
+Another qualified reviewer should be able to reconstruct the basis of the decision.
+
+### MR-12 — Review artifacts are persistent.
+
+Findings, decisions, evidence, and approvals must become part of model history.
+
+---
+
+# 43. Relationship to XLent Engineering Constitution
+
+The architecture is:
+
+```text
+                 XLENT ENGINEERING
+                        │
+          defines computational truth
+                        │
+                        ▼
+                  MODEL CONTRACT
+                        │
+              defines intended behavior
+                        │
+                        ▼
+                 MODEL EXECUTION
+                        │
+               produces observations
+                        │
+                        ▼
+                  MODEL REVIEW
+                        │
+             establishes acceptability
+                        │
+                        ▼
+                 MODEL ASSURANCE
+                        │
+              packages supporting evidence
+                        │
+                        ▼
+                  MODEL RELEASE
+                        │
+                        ▼
+                 MODEL OPERATIONS
+```
+
+Therefore:
+
+**Engineering = How XLent establishes truth.**
+
+**Model Contract = What the model is supposed to do.**
+
+**Model Review = Whether the model is acceptable.**
+
+**Assurance = Evidence supporting that conclusion.**
+
+**ModelOps = What happens to the model throughout its lifecycle.**
+
+---
+
+# 44. Product Implication
+
+Model Review should eventually become a visible XLent capability:
+
+> **Review Model**
+
+A user can invoke it at any point.
+
+They don't have to first "debug."
+
+They don't have to first create a test suite.
+
+They can simply ask:
+
+> **"Review this model."**
+
+XLent then determines the appropriate review scope based on the model and organizational policy.
+
+Possible entry points:
+
+```text
+Understand
+Debug
+Test
+Review
+Assure
+Compare
+Execute
+Deploy
+```
+
+Model Review is therefore an **independent entry point into ModelOps**, just as Debug is.
+
+---
+
+# 45. GTM Implication
+
+Model Review creates another powerful wedge.
+
+### Debugging message
+
+> **Find what's wrong with your spreadsheet.**
+
+### Understanding message
+
+> **Understand any spreadsheet model.**
+
+### Model Review message
+
+> **Review your spreadsheet like a developer reviews code.**
+
+### Assurance message
+
+> **Know whether your model deserves to be trusted.**
+
+These are different doors into the same XLent platform.
+
+---
+
+# 46. The Larger Concept
+
+The deeper objective is not simply to improve spreadsheet auditing.
+
+It is to establish a new norm:
+
+> **Consequential spreadsheet models should be reviewable artifacts.**
+
+Today:
+
+```text
+Spreadsheet
+ ↓
+Human inspection
+ ↓
+"Looks right."
+ ↓
+Decision
+```
+
+XLent's paradigm:
+
+```text
+Spreadsheet
+ ↓
+Model Reconstruction
+ ↓
+Model Contract
+ ↓
+Automated Analysis
+ ↓
+Model Review
+ ↓
+Testing
+ ↓
+Verification / Validation
+ ↓
+Assurance
+ ↓
+Approval
+ ↓
+Decision
+```
+
+That is a fundamentally different operating model.
+
+---
+
+# 47. Final Definition
+
+## Model Review
+
+> **A structured human-and-machine process for examining a computational model against its intended behavior, identifying and resolving material findings, evaluating evidence, recording exceptions, and determining whether a specific model version is acceptable for a defined purpose.**
+
+And the simplest explanation is:
+
+> **Model Review is Code Review for spreadsheet models.**
+
+But XLent goes one step further.
+
+It doesn't merely give ordinary users a place to comment on formulas.
+
+It gives them the underlying:
+
+**model graph + contracts + execution + tests + verification + validation + evidence**
+
+required to make that review meaningful.
+
+---
+
+# 48. The Strategic Position
+
+The final architecture should therefore be understood as:
+
+```text
+                 XLENT
+          Spreadsheet ModelOps
+                    │
+       ┌────────────┼─────────────┐
+       │            │             │
+       ▼            ▼             ▼
+  UNDERSTAND      DEBUG          REVIEW
+       │            │             │
+       └────────────┼─────────────┘
+                    │
+                    ▼
+                  TEST
+                    │
+                    ▼
+              VERIFY / VALIDATE
+                    │
+                    ▼
+                ASSURANCE
+                    │
+                    ▼
+              VERSION / GOVERN
+                    │
+                    ▼
+                EXECUTE
+                    │
+                    ▼
+               DEPLOY / API
+                    │
+                    ▼
+             MODEL OPERATIONS
+```
+
+**Debugging gets users in.**
+
+**Understanding gives them insight.**
+
+**Model Review gives them discipline.**
+
+**Testing and Assurance give them confidence.**
+
+**ModelOps gives them continuity.**
+
+**Runtime and API turn the model into infrastructure.**
+
+That makes **Model Review** not merely another feature in XLent, but the bridge between XLent's engineering machinery and the way humans actually make consequential decisions with models.
