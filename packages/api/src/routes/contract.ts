@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { reconcileContract } from '@xlent/core';
+import { reconcileContract, inferContract } from '@xlent/core';
 import { store } from '../store.js';
 
 export const contractRouter = new Hono();
@@ -37,6 +37,8 @@ const contractSchema = z.object({
     description: z.string().optional(),
   })).optional(),
   version: z.string().default('1.0.0'),
+  _inferred: z.boolean().optional(),
+  _authority: z.string().optional(),
 });
 
 /** GET /contract/:modelId — Get the model's contract */
@@ -44,6 +46,14 @@ contractRouter.get('/:modelId', (c) => {
   const model = store.getModel(c.req.param('modelId'));
   if (!model) return c.json({ error: 'Model not found' }, 404);
   return c.json({ contract: model.contract ?? null });
+});
+
+/** POST /contract/:modelId/infer — Generate an INFERRED draft contract from the model (§11.3) */
+contractRouter.post('/:modelId/infer', (c) => {
+  const model = store.getModel(c.req.param('modelId'));
+  if (!model) return c.json({ error: 'Model not found' }, 404);
+  const draft = inferContract(model);
+  return c.json({ contract: draft, inferred: true });
 });
 
 /** PUT /contract/:modelId — Set/replace the model's contract */

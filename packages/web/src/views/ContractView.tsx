@@ -2,25 +2,21 @@ import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ModelOutletContext } from './ModelView.js';
 
-const TEMPLATE = {
-  purpose: 'What this model exists to compute',
-  declaredInputs: [
-    { name: 'Current Stock price', unit: 'USD', description: 'Pre-buyback share price' },
-  ],
-  declaredOutputs: [
-    { name: 'Post-buyback price per share', unit: 'USD', meaning: 'Share price after buyback', expectation: 'non-negative' },
-  ],
-  invariants: [
-    { id: 'C001', expression: 'Cash >= 0', description: 'Cash balance cannot go negative' },
-  ],
-  rules: [
-    { id: 'R001', expression: 'Post-buyback price per share = Equity value / Number of shares', severity: 'critical', scope: 'All periods' },
-  ],
-  behaviors: [
-    { id: 'B001', statement: 'Increasing buyback price must not increase post-buyback value per share' },
-  ],
-  version: '1.0.0',
-};
+// Seed the editor from the model's discovered inputs/outputs — never a canned example.
+function seedFromModel(model: any) {
+  return {
+    purpose: `What ${model.name} computes`,
+    declaredInputs: (model.parameters ?? []).map((p: any) => ({ name: p.name })),
+    declaredOutputs: (model.outputs ?? []).map((o: any) => ({
+      name: o.name,
+      expectation: typeof o.value === 'number' && o.value >= 0 ? 'non-negative' : undefined,
+    })),
+    invariants: [],
+    rules: [],
+    behaviors: [],
+    version: '1.0.0',
+  };
+}
 
 export function ContractView() {
   const { modelId, model, refreshModel } = useOutletContext<ModelOutletContext>();
@@ -32,9 +28,21 @@ export function ContractView() {
 
   const contract = model.contract;
 
+  // Seed when there's no contract. Depend on model identity (id), not the object
+  // reference, so the effect doesn't churn on every outlet re-render.
   useEffect(() => {
-    setText(contract ? JSON.stringify(contract, null, 2) : JSON.stringify(TEMPLATE, null, 2));
-  }, [contract]);
+    setText(contract ? JSON.stringify(contract, null, 2) : JSON.stringify(seedFromModel(model), null, 2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract, modelId]);
+
+  const infer = async () => {
+    setError(null);
+    const res = await fetch(`/contract/${modelId}/infer`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error || 'Inference failed'); return; }
+    setText(JSON.stringify(data.contract, null, 2));
+    setMode('edit');
+  };
 
   const save = async () => {
     setSaving(true);
@@ -62,7 +70,7 @@ export function ContractView() {
   const remove = async () => {
     await fetch(`/contract/${modelId}`, { method: 'DELETE' });
     setResult(null);
-    setText(JSON.stringify(TEMPLATE, null, 2));
+    setText(JSON.stringify(seedFromModel(model), null, 2));
     setMode('edit');
     refreshModel();
   };
@@ -72,9 +80,16 @@ export function ContractView() {
       <div className="flex items-center gap-3">
         <h3 className="text-sm font-semibold text-slate-200">Model Contract</h3>
         <span className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded ${contract ? 'bg-violet-900/50 text-violet-300' : 'bg-slate-800 text-slate-500'}`}>
-          {contract ? `declared · v${contract.version}` : 'not declared'}
+          {contract
+            ? (contract as any)._inferred
+              ? `inferred · v${contract.version}`
+              : `declared · v${contract.version}`
+            : 'not declared'}
         </span>
         <div className="ml-auto flex gap-2">
+          <button onClick={infer} className="text-xs px-3 py-1.5 rounded bg-slate-800 text-violet-300 hover:bg-violet-900/40 transition-colors">
+            Infer from model
+          </button>
           {contract && mode === 'view' && (
             <button onClick={() => setMode('edit')} className="text-xs px-3 py-1.5 rounded bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors">Edit</button>
           )}
