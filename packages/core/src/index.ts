@@ -1,6 +1,6 @@
 export type { ParsedWorkbook, ParsedSheet, NamedRange } from './parser.js';
 export { parseWorkbook } from './parser.js';
-export { discoverModel } from './discovery.js';
+export { discoverModel, buildCalculations, functionInventory } from './discovery.js';
 export { buildGraph, findTerminalNodes, findRootNodes, traceUpstream, detectCycles } from './graph.js';
 export { ModelRuntime } from './runtime.js';
 export { runScenario, compareScenarios } from './scenario.js';
@@ -20,6 +20,8 @@ export { traceDownstream, computeParameterImpact } from './impact.js';
 export { resolveLabels, findSignificantIntermediates, understandModel } from './understand.js';
 export type { LabeledCell, ModelUnderstanding, ModelSection } from './understand.js';
 export { buildModelPackage } from './package.js';
+export { parseFormula, normalizeFormula, collectFunctionCalls } from './ast/index.js';
+export type { ASTNode } from './ast/index.js';
 export * from './functions/index.js';
 export { XLentClient } from './client.js';
 export type { XLentClientOptions } from './client.js';

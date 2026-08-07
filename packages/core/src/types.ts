@@ -38,6 +38,7 @@ export interface Calculation {
   sourceCell: CellAddress;
   originalFormula: string;
   normalizedFormula?: string;
+  functionCalls?: string[];   // E0.4: distinct function names used
   dependencies: string[]; // cell refs
   downstreamOutputs: string[];
 }

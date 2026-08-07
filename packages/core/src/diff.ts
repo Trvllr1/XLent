@@ -1,4 +1,5 @@
 import type { Model, ModelDiff, DiffEntry, DiffChangeType, DiffSemantics, SuggestedBump } from './types.js';
+import { parseFormula, normalizeFormula } from './ast/index.js';
 
 export function diffModels(from: Model, to: Model): ModelDiff {
   const entries: DiffEntry[] = [];
@@ -43,7 +44,7 @@ export function diffModels(from: Model, to: Model): ModelDiff {
     }
   }
 
-  // Compare calculations (formula text comparison — will upgrade to AST diff with E0)
+  // Compare calculations (AST-canonical formula comparison, E0.4)
   const calcKey = (c: { sourceCell: { sheet: string; ref: string } }) => `${c.sourceCell.sheet}!${c.sourceCell.ref}`;
   const fromCalcs = new Map(from.calculations.map((c) => [calcKey(c), c]));
   const toCalcs = new Map(to.calculations.map((c) => [calcKey(c), c]));
@@ -54,7 +55,7 @@ export function diffModels(from: Model, to: Model): ModelDiff {
     } else {
       const prev = fromCalcs.get(ref)!;
       if (prev.originalFormula !== calc.originalFormula) {
-        const semantics = isCosmetic(prev.originalFormula, calc.originalFormula) ? 'cosmetic' : 'semantic';
+        const semantics = isCosmetic(prev, calc) ? 'cosmetic' : 'semantic';
         entries.push({ path: `calculations.${ref}.formula`, changeType: 'modified', semantics, before: prev.originalFormula, after: calc.originalFormula, description: `Formula at ${ref} changed` });
       }
     }
@@ -71,10 +72,19 @@ export function diffModels(from: Model, to: Model): ModelDiff {
   return { fromVersion: from.semver, toVersion: to.semver, entries, suggestedBump, summary };
 }
 
-// Cosmetic change = only differs in absolute/relative ref style ($A$1 vs A1)
-function isCosmetic(a: string, b: string): boolean {
-  const normalize = (f: string) => f.replace(/\$/g, '');
-  return normalize(a) === normalize(b);
+// Cosmetic change = formulas are identical in AST-canonical form (ref-style only,
+// e.g. $A$1 vs A1). Semantic = the canonical structure differs.
+function isCosmetic(a: { originalFormula: string; normalizedFormula?: string }, b: { originalFormula: string; normalizedFormula?: string }): boolean {
+  return canonical(a) === canonical(b);
+}
+
+function canonical(c: { originalFormula: string; normalizedFormula?: string }): string {
+  if (c.normalizedFormula) return c.normalizedFormula;
+  try {
+    return normalizeFormula(parseFormula(c.originalFormula));
+  } catch {
+    return c.originalFormula.replace(/\$/g, ''); // last-resort: strip ref style
+  }
 }
 
 function determineBump(entries: DiffEntry[]): SuggestedBump {

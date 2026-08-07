@@ -15,6 +15,7 @@ import {
   runModelTests,
   buildModelPackage,
   computeParameterImpact,
+  buildCalculations,
 } from '@xlent/core';
 import type { Model, ModelStatus, ModelTestDefinition, Parameter, Output, ScenarioOverride, Deliverable, Snapshot, EvidenceRecord } from '@xlent/core';
 import { store, clientStore, snapshotStore, testStore, evidenceStore } from '../store.js';
@@ -109,7 +110,7 @@ modelsRouter.post('/import', async (c) => {
     createdAt: new Date().toISOString(),
     workbookName: filename,
     parameters,
-    calculations: [],
+    calculations: buildCalculations(workbook, graph),
     outputs,
     graph,
     compatibility: {
@@ -277,7 +278,7 @@ modelsRouter.post('/:id/reimport', async (c) => {
     status: 'draft',
     workbookName: filename,
     parameters,
-    calculations: [],
+    calculations: buildCalculations(workbook, graph),
     outputs,
     graph,
     compatibility: {
