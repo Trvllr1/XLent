@@ -15,9 +15,11 @@ NEXT (Constitutional Epics):
             Debug   Contract Assurance  CI     Corpus  Model
             Core    Intent   Ladder     Gates  Monitor IDE
 
-AFTER IDE:  E13 ──▶ E14
-            Review  PDC
-            Layer   (XLent tests XLent)
+AFTER IDE:  E13 ──▶ E14 ──▶ E15
+            Review  PDC     Graph
+            Layer   (XLent  Reasoning
+                    tests   Surface
+                    XLent)
 
 DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 ```
@@ -43,6 +45,7 @@ DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 | E12 | 📐 Next | Model IDE (Explorer → Editor → IDE) |
 | E13 | 📋 Planned | Model Review — judgment layer above E7–E11 (see doc 12) |
 | E14 | 📋 Planned | Programmatic Defect Corpus — XLent tests XLent (see doc 13) |
+| E15 | 📋 Planned | Graph Reasoning Surface — focus/trace, findings & materiality overlays, semantic diff |
 
 ---
 
@@ -673,6 +676,64 @@ These items have design notes in the blueprint but no scheduled implementation. 
 
 ---
 
+## E15 — Graph Reasoning Surface
+
+**Goal:** Evolve the dependency Graph from a read-only DAG visualization into a model reasoning surface: semantic abstraction levels, focus/trace modes, findings and materiality overlays, and semantic model diff — so reviewers answer "why did this output change?" and "what depends on this defect?" directly from the graph.
+
+**Source:** Inspect-group product surface (doc 01, Graph capability); consumes E7 findings, E9 assurance, E10 tests, E2/E0 diff + AST.
+
+**Constitutional note:** Layout and color are never the sole carriers of meaning. Every graph claim must remain inspectable as structured evidence: `Node → Formula → Dependencies → Finding → Impact → Test → Evidence` (Constitution: evidence before judgment; no execution-only validation).
+
+**Dependencies:** E7 (findings overlays), E9 (assurance overlay), E10 (test coverage overlay), E2 (diff for semantic compare). Large-model AST/path indexing benefits from E0.
+
+### E15.1 — Focus & Trace Modes
+
+| Field | Value |
+|---|---|
+| **Scope** | Selecting a node supports: upstream causes, downstream consequences, shortest path to a selected output, all affected outputs, hide-unrelated-nodes, pin nodes while comparing paths. Turns "where does this connect?" into "why did this output change?" |
+| **Files** | Modify: `packages/web/src/views/GraphView.tsx`, `packages/web/src/layout.ts`. Modify: `packages/api/src/routes/models.ts` (`/graph` accepts focus/trace params) or new focused-slice endpoint. |
+| **Acceptance criteria** | (1) Click a node → toggle upstream/downstream/both. (2) "Path to output X" highlights the dependency chain. (3) "Affected outputs" lists terminal nodes reachable from selection. (4) Hide-unrelated reduces the visible subgraph without losing pinned nodes. (5) Trace state is shareable via URL params. |
+| **Dependencies** | None beyond existing graph endpoint |
+
+### E15.2 — Findings & Materiality Overlays
+
+| Field | Value |
+|---|---|
+| **Scope** | Overlay E7 findings and computed significance on the graph: critical/warning coloring, broken refs as interrupted edges, circular deps as highlighted SCCs, pattern-break markers, dead-input/disconnected indicators. Selectable visual modes: Reach (node size by downstream reach), Sensitivity, Materiality (estimated output impact), Test coverage, Assurance. |
+| **Files** | Modify: `GraphView.tsx`. Modify: API to expose findings + reach/materiality/coverage per node (reuse E7 `analyzeFindings`, `impact.ts` reachCount, E10 test coverage). |
+| **Acceptance criteria** | (1) Findings render as badges/colors on their source node. (2) Clicking a flagged node opens explanation + expected formula + impact + regression test. (3) A mode switcher recolors/resizes nodes by reach, sensitivity, materiality, coverage, assurance. (4) Cycles render as a visible strongly-connected-component highlight. (5) Color is never the only signal — each overlay has a text/label equivalent. |
+| **Dependencies** | E15.1, E7, E9, E10 |
+
+### E15.3 — Semantic Abstraction Levels & Clustering
+
+| Field | Value |
+|---|---|
+| **Scope** | Switchable abstraction: Workbook (sheets + cross-sheet flows) → Component (assumptions/revenue/costs/financing/returns) → Cell (exact formula deps) → Output path (only nodes affecting a selected output). Collapse/expand sheets and components so large models stay legible. |
+| **Files** | Modify: `GraphView.tsx`, `layout.ts`. Modify: `packages/core/src/graph.ts` (component clustering, sheet grouping) or a new `graphCluster.ts`. |
+| **Acceptance criteria** | (1) Level switcher re-renders the same model at each abstraction. (2) Sheet/component clusters collapse to a single node with a count badge. (3) Output-path level shows only nodes upstream of the chosen output. (4) Cross-sheet edges are visible at workbook level. (5) A model with 500+ cells remains navigable at component level. |
+| **Dependencies** | E15.1 |
+
+### E15.4 — Semantic Model Diff on the Graph
+
+| Field | Value |
+|---|---|
+| **Scope** | Version-aware graph comparison (the pull-request equivalent): added/removed nodes, added/removed/redirected edges, formula-semantic changes, changed outputs, impacted tests/contracts, before/after paths to material outputs. |
+| **Files** | Modify: `GraphView.tsx` (diff mode), `packages/core/src/diff.ts` (graph-level diff), API diff endpoint. |
+| **Acceptance criteria** | (1) v_a vs v_b renders added (green), removed (red), modified (amber) nodes/edges. (2) Redirected dependency shown as old edge (struck) + new edge. (3) Changed outputs listed with before/after values. (4) Selecting a changed node shows formula diff + impacted tests. (5) Layout is stable across versions (stable node coordinates) so the diff is visually diffable. |
+| **Dependencies** | E15.1, E2; E0 for full semantic formula diff |
+
+### E15.5 — Performance, Large-Model Scaling & Accessibility (Deferred)
+
+| Field | Value |
+|---|---|
+| **Scope** | Render thresholds: <500 nodes SVG; 500–5,000 virtualization + Web Worker layout + viewport culling + clustering; >5,000 Canvas/WebGL with an SVG/HTML accessibility layer. Backend: precompute adjacency/SCC/reachability/output-path indexes at import; return graph slices; cache layouts per version+level; stable coordinates across versions. Interaction: search, minimap, breadcrumbs, keyboard nav, accessible node descriptions, saved views, PNG/SVG export. |
+| **Files** | Modify: `GraphView.tsx`, `layout.ts`, API graph endpoints; possibly `packages/core/src/graphIndex.ts`. |
+| **Acceptance criteria** | (1) Layout of a 5,000-node model does not block the main thread (Worker). (2) Viewport culling renders only visible nodes at scale. (3) Graph slice endpoints return focused subgraphs without transferring the full graph. (4) Keyboard-only navigation reaches every node with an accessible label. (5) Focused path export produces a shareable PNG/SVG evidence artifact. |
+| **Dependencies** | E15.1–E15.3 |
+| **Trigger** | First model whose node count makes the SVG DAG unreadable or slow; or enterprise import at scale. |
+
+---
+
 ## Sequencing Rationale
 
 | Decision | Rationale |
@@ -687,3 +748,4 @@ These items have design notes in the blueprint but no scheduled implementation. 
 | E3 deferred | Lifecycle/registry is governance infrastructure needed when multiple users/models exist. Not blocking single-tenant + Sil integration. |
 | E13 after E7–E11 | Model Review is the judgment layer that *consumes* findings, contracts, assurance, and CI. Those facts must exist before they can be judged. Review ≠ Assurance — it is recorded human decision, not the evidence ladder. |
 | E14 after E11 | PDC generalizes the E11.1 seed corpus into a full mutation/ground-truth/release-gate system. It needs E0's AST for semantic mutation and E7's detectors as the system under test. It is XLent testing XLent — internal, never customer-facing. |
+| E15 after E7+E9+E10+E2 | The Graph becomes a reasoning surface only once it can overlay findings (E7), assurance (E9), test coverage (E10), and semantic diff (E2). Focus/trace is the entry point; overlays and semantic diff build on it. Performance/scaling deferred until a real model outgrows the SVG DAG. |
