@@ -416,8 +416,11 @@ modelsRouter.patch('/:id/status', async (c) => {
     return c.json({ error: `Invalid transition: ${model.status} → ${target}. Allowed: [${allowed.join(', ')}]` }, 409);
   }
 
-  // Validated gate: all tests must pass
+  // Validated gate: requires a contract (Rule 11 — intent must be explicit) + all tests pass
   if (target === 'validated') {
+    if (!model.contract) {
+      return c.json({ error: 'Cannot validate: no model contract defined. Declare intent (inputs, outputs, invariants) before validation.' }, 409);
+    }
     const tests = testStore.listTests(model.id);
     if (tests.length === 0) return c.json({ error: 'Cannot validate: no tests defined' }, 409);
 

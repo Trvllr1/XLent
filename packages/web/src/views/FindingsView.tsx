@@ -16,7 +16,7 @@ interface ImpactEstimate {
 interface Finding {
   id: string;
   severity: 'critical' | 'warning' | 'info';
-  category: 'structural' | 'logical' | 'consistency' | 'coverage';
+  category: 'structural' | 'logical' | 'consistency' | 'coverage' | 'intent';
   sourceRef?: string;
   explanation: string;
   impact?: string;
@@ -47,6 +47,7 @@ export function FindingsView() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loading, setLoading] = useState(true);
   const [added, setAdded] = useState<Set<string>>(new Set());
+  const [catFilter, setCatFilter] = useState<string>('all');
 
   const addRegressionTest = async (f: Finding) => {
     if (!f.regressionTest) return;
@@ -78,11 +79,17 @@ export function FindingsView() {
     acc[f.severity] = (acc[f.severity] ?? 0) + 1;
     return acc;
   }, {});
-  const shown = filter === 'all' ? findings : findings.filter((f) => f.severity === filter);
+  const catCounts = findings.reduce<Record<string, number>>((acc, f) => {
+    acc[f.category] = (acc[f.category] ?? 0) + 1;
+    return acc;
+  }, {});
+  const shown = findings
+    .filter((f) => filter === 'all' || f.severity === filter)
+    .filter((f) => catFilter === 'all' || f.category === catFilter);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {(['all', 'critical', 'warning', 'info'] as const).map((s) => (
           <button
             key={s}
@@ -94,7 +101,21 @@ export function FindingsView() {
             {s}{s !== 'all' && counts[s] ? ` (${counts[s]})` : ''}
           </button>
         ))}
-        <span className="ml-auto text-xs text-slate-600">{findings.length} finding{findings.length === 1 ? '' : 's'}</span>
+        <span className="text-slate-700">|</span>
+        {(['all', 'structural', 'intent', 'logical', 'consistency', 'coverage'] as const).map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setCatFilter(cat)}
+            className={`px-2.5 py-1 text-xs rounded-md capitalize transition-colors ${
+              catFilter === cat
+                ? (cat === 'intent' ? 'bg-violet-700 text-white' : 'bg-slate-700 text-white')
+                : 'bg-slate-900 text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            {cat}{cat !== 'all' && catCounts[cat] ? ` (${catCounts[cat]})` : ''}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-slate-600">{shown.length} of {findings.length}</span>
       </div>
 
       {shown.length === 0 ? (

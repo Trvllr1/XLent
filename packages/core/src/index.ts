@@ -10,6 +10,7 @@ export { diffModels, bumpSemver } from './diff.js';
 export { runSensitivity } from './sensitivity.js';
 export type { SensitivityConfig, SensitivityResult, ParameterImpact } from './sensitivity.js';
 export { analyzeFindings } from './findings.js';
+export { reconcileContract } from './contractReconcile.js';
 export { detectPatternBreaks } from './pattern.js';
 export { quantifyFormulaImpact, impactChain } from './quantify.js';
 export { traceDownstream, computeParameterImpact } from './impact.js';

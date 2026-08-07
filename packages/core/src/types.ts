@@ -82,7 +82,7 @@ export interface CompatibilityReport {
 // --- Debugging (E7) ---
 
 export type FindingSeverity = 'critical' | 'warning' | 'info';
-export type FindingCategory = 'structural' | 'logical' | 'consistency' | 'coverage';
+export type FindingCategory = 'structural' | 'logical' | 'consistency' | 'coverage' | 'intent';
 
 export interface ImpactEstimate {
   outputId: string;
@@ -130,6 +130,53 @@ export interface ParameterImpactInfo {
   dead: boolean;           // no downstream reach
 }
 
+// --- Model Contract (E8) ---
+
+export interface DeclaredInput {
+  name: string;
+  unit?: string;
+  description?: string;
+  bounds?: { min?: number; max?: number };
+}
+
+export interface DeclaredOutput {
+  name: string;
+  unit?: string;
+  meaning?: string;         // expected semantics, e.g. 'Recognized revenue'
+  expectation?: string;     // e.g. 'non-negative', 'monotonic increasing'
+}
+
+export interface ContractRule {
+  id: string;               // e.g. 'R001'
+  expression: string;       // e.g. 'Revenue = Units Sold × ASP'
+  description?: string;
+  severity?: FindingSeverity; // default 'critical'
+  scope?: string;           // e.g. 'All forecast periods'
+}
+
+export interface ContractInvariant {
+  id: string;               // e.g. 'C001'
+  expression: string;       // e.g. 'Debt >= 0'
+  description?: string;
+}
+
+export interface ContractBehavior {
+  id: string;               // e.g. 'B001'
+  statement: string;        // e.g. 'Increasing ASP must not reduce Revenue when volume is constant'
+  description?: string;
+}
+
+export interface ModelContract {
+  purpose: string;
+  declaredInputs: DeclaredInput[];
+  declaredOutputs: DeclaredOutput[];
+  invariants: ContractInvariant[];
+  rules: ContractRule[];
+  behaviors?: ContractBehavior[];
+  version: string;
+  /** authority: this contract is the highest-authority statement of intent */
+}
+
 export interface ModelDiscovery {
   workbookName: string;
   sheets: number;
@@ -161,6 +208,7 @@ export interface Model {
   graph: DependencyGraph;
   compatibility: CompatibilityReport;
   discovery: ModelDiscovery;
+  contract?: ModelContract;
 }
 
 // --- Snapshots & Versioning (E2) ---

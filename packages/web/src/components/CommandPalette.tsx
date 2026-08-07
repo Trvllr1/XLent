@@ -22,6 +22,7 @@ const MODEL_SECTIONS = [
   ['sensitivity', 'Sensitivity'],
   ['compatibility', 'Compatibility'],
   ['tests', 'Tests'],
+  ['contract', 'Contract'],
   ['provenance', 'Provenance'],
   ['debug', 'Debug'],
 ] as const;

@@ -71,6 +71,7 @@ export function Sidebar() {
           items: [
             { to: `/models/${modelId}/compatibility`, label: 'Compatibility', icon: IconShield },
             { to: `/models/${modelId}/tests`, label: 'Tests', icon: IconGauge },
+            { to: `/models/${modelId}/contract`, label: 'Contract', icon: IconTrace },
           ],
         },
         {

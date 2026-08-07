@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import crypto from 'crypto';
-import { analyzeFindings } from '@xlent/core';
+import { analyzeFindings, reconcileContract } from '@xlent/core';
 import type { DebugFinding } from '@xlent/core';
 import { store, testStore } from '../store.js';
 
@@ -14,6 +14,11 @@ findingsRouter.get('/:modelId', (c) => {
   const workbook = store.getWorkbook(modelId);
 
   const findings: DebugFinding[] = analyzeFindings(model, workbook);
+
+  // intent: contract vs discovered structure (E8.2)
+  if (model.contract) {
+    findings.push(...reconcileContract(model, model.contract as any));
+  }
 
   // coverage: outputs lacking any test
   const tests = testStore.listTests(modelId);
