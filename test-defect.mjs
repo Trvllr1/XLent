@@ -40,6 +40,18 @@ ws['F4'] = { t: 'n', f: 'E4+F3', v: 142 };
 XLSX.utils.sheet_add_aoa(ws, [['IRR Proxy']], { origin: 'A6' });
 ws['B6'] = { t: 'n', f: 'F4/B2-1', v: 0.42 };
 
+// --- Extra defects to exercise the §14 detectors ---
+// Row 8: hardcode inside a formula series (D8 breaks the =B8*2 pattern with a literal)
+XLSX.utils.sheet_add_aoa(ws, [['Margin']], { origin: 'A8' });
+ws['B8'] = { t: 'n', f: 'B3/B2', v: 0.2 };
+ws['C8'] = { t: 'n', f: 'C3/C2', v: 0.208 };
+ws['D8'] = { t: 'n', v: 0.25 };            // <-- hardcode in a formula row
+ws['E8'] = { t: 'n', f: 'E3/E2', v: 0.22 };
+
+// Column H: broken reference (formula points at empty Z99)
+XLSX.utils.sheet_add_aoa(ws, [['Check']], { origin: 'H2' });
+ws['H2'] = { t: 'n', f: 'Z99*2', v: 0 };   // <-- broken ref to empty Z99
+
 XLSX.utils.book_append_sheet(wb, ws, 'Model');
 
 const out = path.join(import.meta.dirname, 'test_defect.xlsx');

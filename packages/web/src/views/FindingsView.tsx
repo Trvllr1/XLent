@@ -27,6 +27,12 @@ interface Finding {
   likelyCause?: string;
   impactChain?: string[];
   impactEstimates?: ImpactEstimate[];
+  regressionTest?: {
+    name: string;
+    category: 'structural' | 'mathematical' | 'business';
+    assertion: { type: string; left: string; right?: unknown };
+    description?: string;
+  };
 }
 
 const SEV_STYLE: Record<string, { chip: string; border: string }> = {
@@ -40,6 +46,17 @@ export function FindingsView() {
   const { select } = useSelection();
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [added, setAdded] = useState<Set<string>>(new Set());
+
+  const addRegressionTest = async (f: Finding) => {
+    if (!f.regressionTest) return;
+    await fetch(`/tests/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(f.regressionTest),
+    });
+    setAdded((prev) => new Set(prev).add(f.id));
+  };
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
 
@@ -87,7 +104,13 @@ export function FindingsView() {
       ) : (
         <div className="space-y-3">
           {shown.map((f) => (
-            <FindingCard key={f.id} finding={f} onInspect={() => f.sourceRef && select({ modelId, cellId: f.sourceRef, label: f.sourceRef, value: undefined })} />
+            <FindingCard
+              key={f.id}
+              finding={f}
+              onInspect={() => f.sourceRef && select({ modelId, cellId: f.sourceRef, label: f.sourceRef, value: undefined })}
+              onAddTest={() => addRegressionTest(f)}
+              added={added.has(f.id)}
+            />
           ))}
         </div>
       )}
@@ -95,7 +118,7 @@ export function FindingsView() {
   );
 }
 
-function FindingCard({ finding: f, onInspect }: { finding: Finding; onInspect: () => void }) {
+function FindingCard({ finding: f, onInspect, onAddTest, added }: { finding: Finding; onInspect: () => void; onAddTest: () => void; added: boolean }) {
   const style = SEV_STYLE[f.severity];
   const rich = f.expectedFormula || f.likelyCause || f.impactChain?.length || f.impactEstimates?.length;
 
@@ -156,6 +179,23 @@ function FindingCard({ finding: f, onInspect }: { finding: Finding; onInspect: (
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {f.regressionTest && (
+            <div className="pt-1">
+              <button
+                onClick={onAddTest}
+                disabled={added}
+                className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+                  added
+                    ? 'bg-emerald-900/40 text-emerald-300 cursor-default'
+                    : 'bg-slate-800 text-slate-200 hover:bg-emerald-700 hover:text-white'
+                }`}
+              >
+                {added ? '✓ Regression test added' : '+ Add regression test'}
+              </button>
+              <span className="ml-2 text-[10px] text-slate-600">Rule 7 — protect against recurrence</span>
             </div>
           )}
         </div>

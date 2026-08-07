@@ -93,6 +93,14 @@ export interface ImpactEstimate {
   percentDelta: number | null;
 }
 
+/** Rule 7: a finding can be converted into a regression test. */
+export interface RegressionTestPayload {
+  name: string;
+  category: 'structural' | 'mathematical' | 'business';
+  assertion: { type: string; left: string; right?: unknown };
+  description?: string;
+}
+
 export interface DebugFinding {
   id: string;
   severity: FindingSeverity;
@@ -109,6 +117,9 @@ export interface DebugFinding {
   likelyCause?: string;       // inferred reason for the mismatch
   impactChain?: string[];     // ordered downstream path e.g. [Revenue, EBITDA, FCF, IRR]
   impactEstimates?: ImpactEstimate[]; // quantified per-output delta
+
+  // Rule 7: one-click regression protection
+  regressionTest?: RegressionTestPayload;
 }
 
 export interface ParameterImpactInfo {

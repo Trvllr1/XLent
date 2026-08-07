@@ -12,19 +12,20 @@ export function runModelTests(
   const runtime = new ModelRuntime(model, workbook);
   const results = runtime.run(overrides);
 
-  return tests.map((test) => runSingleTest(test, results, model));
+  return tests.map((test) => runSingleTest(test, results, model, runtime));
 }
 
 function runSingleTest(
   test: ModelTestDefinition,
   results: Record<string, unknown>,
   model: Model,
+  runtime?: ModelRuntime,
 ): ModelTestResult {
   const now = new Date().toISOString();
   const base = { testId: test.id, name: test.name, category: test.category, executedAt: now };
 
   try {
-    const actual = resolveValue(test.assertion.left, results, model);
+    const actual = resolveValue(test.assertion.left, results, model, runtime);
     const tolerance = test.assertion.tolerance ?? 1e-10;
 
     let status: TestStatus;
@@ -89,7 +90,7 @@ function runSingleTest(
   }
 }
 
-function resolveValue(ref: string, results: Record<string, unknown>, model: Model): unknown {
+function resolveValue(ref: string, results: Record<string, unknown>, model: Model, runtime?: ModelRuntime): unknown {
   // Meta-values for structural tests
   if (ref.startsWith('__meta_')) return resolveMetaValue(ref, model);
   // Try as output ID first
@@ -100,6 +101,11 @@ function resolveValue(ref: string, results: Record<string, unknown>, model: Mode
   // Try as parameter value
   const param = model.parameters.find((p) => p.id === ref || p.name === ref);
   if (param) return param.currentValue;
+  // Try as a bare cell reference (Sheet!A1) against computed cell values
+  if (runtime && ref.includes('!')) {
+    const [sheet, cellRef] = ref.split('!');
+    return runtime.getCellValue(sheet, cellRef);
+  }
   return undefined;
 }
 
