@@ -20,6 +20,7 @@ export default defineConfig({
       '/tests': 'http://localhost:4100',
       '/findings': 'http://localhost:4100',
       '/contract': 'http://localhost:4100',
+      '/assurance': 'http://localhost:4100',
     },
   },
 });

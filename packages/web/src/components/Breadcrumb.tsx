@@ -14,6 +14,7 @@ const SECTION_LABELS: Record<string, string> = {
   compatibility: 'Compatibility',
   tests: 'Tests',
   contract: 'Contract',
+  assurance: 'Assurance',
   provenance: 'Provenance',
   debug: 'Debug',
 };

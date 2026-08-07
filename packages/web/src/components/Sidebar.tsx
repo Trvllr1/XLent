@@ -69,6 +69,7 @@ export function Sidebar() {
         {
           title: 'Assure',
           items: [
+            { to: `/models/${modelId}/assurance`, label: 'Assurance', icon: IconShield },
             { to: `/models/${modelId}/compatibility`, label: 'Compatibility', icon: IconShield },
             { to: `/models/${modelId}/tests`, label: 'Tests', icon: IconGauge },
             { to: `/models/${modelId}/contract`, label: 'Contract', icon: IconTrace },

@@ -12,6 +12,8 @@ export type { SensitivityConfig, SensitivityResult, ParameterImpact } from './se
 export { analyzeFindings } from './findings.js';
 export { reconcileContract } from './contractReconcile.js';
 export { inferContract } from './contractInfer.js';
+export { checkAssuranceGate, nextLevel, assuranceRank, ASSURANCE_ORDER } from './assuranceGates.js';
+export type { AssuranceContext } from './assuranceGates.js';
 export { detectPatternBreaks } from './pattern.js';
 export { quantifyFormulaImpact, impactChain } from './quantify.js';
 export { traceDownstream, computeParameterImpact } from './impact.js';
