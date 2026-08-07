@@ -80,6 +80,20 @@ db.exec(`
     executed_at TEXT NOT NULL,
     data TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS executions (
+    id TEXT PRIMARY KEY,
+    model_id TEXT NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+    model_version INTEGER NOT NULL,
+    executed_at TEXT NOT NULL,
+    duration_ms REAL NOT NULL,
+    input_hash TEXT NOT NULL,
+    output_hash TEXT NOT NULL,
+    success INTEGER NOT NULL DEFAULT 1,
+    error TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_executions_model ON executions(model_id, executed_at);
 `);
 
 export default db;

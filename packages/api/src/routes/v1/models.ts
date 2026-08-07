@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { ModelRuntime, runModelTests } from '@xlent/core';
 import type { ModelTestDefinition, EvidenceRecord, ScenarioOverride } from '@xlent/core';
 import { store, snapshotStore, testStore, evidenceStore } from '../../store.js';
+import { logExecution } from '../../monitoring.js';
 import { rateLimitMiddleware } from '../../middleware/rateLimit.js';
 import { idempotencyMiddleware } from '../../middleware/idempotency.js';
 
@@ -25,7 +26,19 @@ v1Router.post('/models/:slug/execute', async (c) => {
   const overrides: ScenarioOverride[] | undefined = Array.isArray(body.overrides) ? body.overrides : undefined;
 
   const runtime = new ModelRuntime(model, workbook);
+  const started = performance.now();
   const results = runtime.run(overrides);
+  const durationMs = performance.now() - started;
+
+  // E11.3 — log every execution for monitoring/anomaly detection
+  logExecution({
+    modelId: model.id,
+    modelVersion: model.version,
+    durationMs,
+    inputs: { overrides: overrides ?? [] },
+    outputs: results,
+    success: true,
+  });
 
   // Optional evidence
   const withEvidence = c.req.query('evidence') === 'true';
@@ -75,7 +88,18 @@ v1Router.post('/models/:slug/versions/:semver/execute', async (c) => {
   const overrides: ScenarioOverride[] | undefined = Array.isArray(body.overrides) ? body.overrides : undefined;
 
   const runtime = new ModelRuntime(pinnedModel, workbook);
+  const started = performance.now();
   const results = runtime.run(overrides);
+  const durationMs = performance.now() - started;
+
+  logExecution({
+    modelId: model.id,
+    modelVersion: pinnedModel.version,
+    durationMs,
+    inputs: { overrides: overrides ?? [] },
+    outputs: results,
+    success: true,
+  });
 
   return c.json({ slug, semver, results });
 });

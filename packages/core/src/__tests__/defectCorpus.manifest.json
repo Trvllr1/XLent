@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "E11.1 — Intentional-Defect Corpus manifest. Each fixture is a workbook built in code (packages/core/src/__tests__/defectCorpus.test.ts) carrying a known, planted defect. The test imports each fixture, runs analyzeFindings, and asserts the detector produces findings matching the expected category/severity/minimum count. Constitution §53 rule 7: every detector capability has a fixture that exercises it, and every finding ships with a regression test.",
+  "version": "1.0.0",
+  "location": "packages/core/src/__tests__/defectCorpus.test.ts",
+  "fixtures": [
+    {
+      "name": "circular_reference",
+      "defect": "Two cells reference each other (A1=B1+1, B1=A1+1), forming a 2-cell dependency cycle.",
+      "expect": { "category": "structural", "severity": "critical", "atLeast": 1 },
+      "detector": "detectCycles"
+    },
+    {
+      "name": "pattern_break",
+      "defect": "In a 7-period column-accumulation row, one cell (E3) references B2 instead of E2, breaking the dominant relative formula shape.",
+      "expect": { "category": "structural", "severity": "critical", "atLeast": 1 },
+      "detector": "detectPatternBreaks"
+    },
+    {
+      "name": "broken_reference",
+      "defect": "A formula references an empty cell (Z99) that has no content.",
+      "expect": { "category": "structural", "severity": "critical", "atLeast": 1 },
+      "detector": "detectBrokenRefs"
+    },
+    {
+      "name": "hardcode_in_series",
+      "defect": "A literal number (D3=0.5) embedded in a horizontal run of formula cells, so it will not recalculate when inputs change.",
+      "expect": { "category": "structural", "severity": "warning", "atLeast": 1 },
+      "detector": "detectHardcodes"
+    },
+    {
+      "name": "external_reference",
+      "defect": "A formula pulls from another workbook ([Book2.xlsx]Sheet1!A1), which cannot be resolved deterministically.",
+      "expect": { "category": "structural", "severity": "warning", "atLeast": 1 },
+      "detector": "discovery.externalReferences"
+    },
+    {
+      "name": "dead_input",
+      "defect": "An input cell (B1=99) is never referenced by any calculation and reaches no output.",
+      "expect": { "category": "logical", "severity": "info", "atLeast": 1 },
+      "detector": "dead-input reachability analysis"
+    },
+    {
+      "name": "missing_formula",
+      "defect": "A vertical column of formulas has a numeric gap in the middle (B3 literal between B2 and B4 formulas).",
+      "expect": { "category": "structural", "severity": "warning", "atLeast": 1 },
+      "detector": "detectMissingFormulas"
+    },
+    {
+      "name": "disconnected_output",
+      "defect": "A formula island (C1<->D1 cycle) depends on an input but reaches no terminal output — a dead-end calculation.",
+      "expect": { "category": "logical", "severity": "warning", "atLeast": 1 },
+      "detector": "detectDisconnected"
+    }
+  ],
+  "notes": [
+    "Fixtures are generated in-memory via XLSX.utils.aoa_to_sheet + explicit cell assignment, with !ref set to the full used range (required for the parser to see all cells).",
+    "The disconnected_output detector only fires on cyclic islands: in an acyclic graph every dead-end formula is itself a terminal, so non-terminal disconnected nodes require a cycle.",
+    "external_reference is reported at severity 'warning' by design — external refs are a determinism risk, not a guaranteed error."
+  ]
+}
