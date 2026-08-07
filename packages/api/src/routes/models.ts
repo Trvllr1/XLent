@@ -14,6 +14,7 @@ import {
   bumpSemver,
   runModelTests,
   buildModelPackage,
+  computeParameterImpact,
 } from '@xlent/core';
 import type { Model, ModelStatus, ModelTestDefinition, Parameter, Output, ScenarioOverride, Deliverable, Snapshot, EvidenceRecord } from '@xlent/core';
 import { store, clientStore, snapshotStore, testStore, evidenceStore } from '../store.js';
@@ -318,11 +319,12 @@ modelsRouter.get('/', (c) => {
   return c.json({ models: store.listModels() });
 });
 
-/** GET /models/:id — Get model details */
+/** GET /models/:id — Get model details (with parameter impact, E7.3) */
 modelsRouter.get('/:id', (c) => {
   const model = store.getModel(c.req.param('id'));
   if (!model) return c.json({ error: 'Model not found' }, 404);
-  return c.json({ model });
+  const parameterImpact = computeParameterImpact(model.graph, model.parameters);
+  return c.json({ model, parameterImpact });
 });
 
 /** GET /models/:id/parameters — Get model parameters */

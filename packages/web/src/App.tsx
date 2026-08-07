@@ -16,6 +16,7 @@ import { RunPanel } from './views/RunPanel.js';
 import { ScenariosView } from './views/ScenariosView.js';
 import { SensitivityView } from './views/SensitivityView.js';
 import { TestsView } from './views/TestsView.js';
+import { FindingsView } from './views/FindingsView.js';
 import { ClientsPage } from './views/ClientsPage.js';
 
 export function App() {
@@ -38,6 +39,7 @@ export function App() {
             <Route path="compatibility" element={<CompatibilityView />} />
             <Route path="tests" element={<TestsView />} />
             <Route path="provenance" element={<ProvenanceView />} />
+            <Route path="debug" element={<FindingsView />} />
           </Route>
           <Route path="/clients" element={<ClientsPage />} />
         </Route>

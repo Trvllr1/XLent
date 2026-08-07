@@ -21,7 +21,9 @@ const MODEL_SECTIONS = [
   ['scenarios', 'Scenarios'],
   ['sensitivity', 'Sensitivity'],
   ['compatibility', 'Compatibility'],
+  ['tests', 'Tests'],
   ['provenance', 'Provenance'],
+  ['debug', 'Debug'],
 ] as const;
 
 export function CommandPalette() {

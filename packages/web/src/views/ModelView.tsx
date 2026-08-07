@@ -6,6 +6,7 @@ import type { Understanding } from './UnderstandPanel.js';
 export interface ModelOutletContext {
   model: any;
   modelId: string;
+  parameterImpact: any[];
   understanding: Understanding | null;
   understandingError: string | null;
   understandingLoading: boolean;
@@ -15,6 +16,7 @@ export interface ModelOutletContext {
 export function ModelView() {
   const { id: modelId } = useParams<{ id: string }>();
   const [model, setModel] = useState<any>(null);
+  const [parameterImpact, setParameterImpact] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
   const [understanding, setUnderstanding] = useState<Understanding | null>(null);
@@ -26,7 +28,12 @@ export function ModelView() {
     setLoading(true);
     fetch(`/models/${modelId}`)
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) setModel(d.model); })
+      .then((d) => {
+        if (!cancelled) {
+          setModel(d.model);
+          setParameterImpact(d.parameterImpact ?? []);
+        }
+      })
       .catch(() => { if (!cancelled) setModel(null); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -51,6 +58,7 @@ export function ModelView() {
   const ctx: ModelOutletContext = {
     model,
     modelId: modelId!,
+    parameterImpact,
     understanding,
     understandingError,
     understandingLoading,

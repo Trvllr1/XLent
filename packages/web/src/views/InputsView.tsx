@@ -6,7 +6,7 @@ import { formatExcelValue } from '../format.js';
 import { ConfidenceBadge } from '../components/ConfidenceBadge.js';
 
 export function InputsView() {
-  const { model, modelId } = useOutletContext<ModelOutletContext>();
+  const { model, modelId, parameterImpact } = useOutletContext<ModelOutletContext>();
   const { selection, select } = useSelection();
 
   const fanOut = useMemo(() => {
@@ -14,6 +14,11 @@ export function InputsView() {
     for (const e of model.graph?.edges ?? []) map.set(e.from, (map.get(e.from) ?? 0) + 1);
     return map;
   }, [model.graph]);
+
+  const impactByParam = useMemo(
+    () => new Map(parameterImpact.map((p: any) => [p.parameterId, p])),
+    [parameterImpact],
+  );
 
   return (
     <table className="w-full text-sm">
@@ -24,12 +29,14 @@ export function InputsView() {
           <th>Source</th>
           <th>Confidence</th>
           <th className="text-right">Drives</th>
+          <th className="text-right">Reach</th>
         </tr>
       </thead>
       <tbody>
         {model.parameters.map((p: any) => {
           const cellId = `${p.sourceCell.sheet}!${p.sourceCell.ref}`;
           const isSelected = selection?.cellId === cellId;
+          const impact = impactByParam.get(p.id);
           return (
             <tr
               key={p.id}
@@ -53,6 +60,18 @@ export function InputsView() {
               <td className="text-xs text-slate-400">{p.source}</td>
               <td><ConfidenceBadge level={p.confidence} /></td>
               <td className="text-right text-xs font-mono text-slate-500">{fanOut.get(cellId) ?? 0}</td>
+              <td className="text-right text-xs font-mono">
+                {impact?.dead ? (
+                  <span className="text-blue-400" title="No downstream outputs — potential dead input">dead</span>
+                ) : (
+                  <span className="text-slate-400" title={impact?.sensitivityRank ? `Sensitivity rank #${impact.sensitivityRank}` : undefined}>
+                    {impact?.reachCount ?? '—'}
+                    {impact?.sensitivityRank != null && (
+                      <span className="text-indigo-400 ml-1">#{impact.sensitivityRank}</span>
+                    )}
+                  </span>
+                )}
+              </td>
             </tr>
           );
         })}

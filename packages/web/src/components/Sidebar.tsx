@@ -75,7 +75,10 @@ export function Sidebar() {
         },
         {
           title: 'Trace',
-          items: [{ to: `/models/${modelId}/provenance`, label: 'Provenance', icon: IconTrace }],
+          items: [
+            { to: `/models/${modelId}/provenance`, label: 'Provenance', icon: IconTrace },
+            { to: `/models/${modelId}/debug`, label: 'Debug', icon: IconGauge },
+          ],
         },
       ]
     : [];

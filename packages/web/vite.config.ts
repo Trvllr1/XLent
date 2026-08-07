@@ -18,6 +18,7 @@ export default defineConfig({
       '/understand': 'http://localhost:4100',
       '/sensitivity': 'http://localhost:4100',
       '/tests': 'http://localhost:4100',
+      '/findings': 'http://localhost:4100',
     },
   },
 });

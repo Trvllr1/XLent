@@ -14,6 +14,7 @@ const SECTION_LABELS: Record<string, string> = {
   compatibility: 'Compatibility',
   tests: 'Tests',
   provenance: 'Provenance',
+  debug: 'Debug',
 };
 
 export function Breadcrumb() {
