@@ -47,7 +47,9 @@ function persistMutation(
     modelVersion: committedModel.version,
     executedAt: committedAt,
     inputs: Object.fromEntries(committedModel.parameters.map((parameter) => [parameter.id, parameter.currentValue])),
-    overrides: request.operations.map((operation) => ({ parameterId: operation.parameterId, value: operation.value })),
+    overrides: request.operations
+      .filter((operation) => operation.type === 'setParameterValue')
+      .map((operation) => ({ parameterId: operation.parameterId, value: operation.value })),
     outputs: Object.fromEntries(committedModel.outputs.map((output) => [output.id, output.value])),
     tests: preview.testResults,
     contractFindings: preview.contractFindings,
@@ -63,6 +65,11 @@ function persistMutation(
 
   const committed = db.transaction(() => {
     if (!store.setModelIfVersion(committedModel, baseVersion)) return false;
+    for (const test of preview.proposedTests ?? []) {
+      if (!testStore.updateAssertion(model.id, test.id, test.assertion)) {
+        throw new Error(`Mutation test "${test.id}" could not be updated atomically.`);
+      }
+    }
     snapshotStore.create(snapshot);
     evidenceStore.store(evidence);
     return true;
@@ -186,16 +193,19 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
   const target = snapshotStore.get(parsed.data.targetSnapshotId);
   if (!target || target.modelId !== model.id) return c.json({ error: 'Target snapshot not found' }, 404);
   const targetParameters = new Map(target.data.parameters.map((parameter) => [parameter.id, parameter]));
-  if (model.parameters.some((parameter) => !targetParameters.has(parameter.id))) {
-    return c.json({ error: 'Snapshot structure is incompatible with parameter-only undo' }, 422);
+  if (model.parameters.some((parameter) => !targetParameters.has(parameter.id)) || target.data.parameters.some((parameter) => !model.parameters.some((current) => current.id === parameter.id))) {
+    return c.json({ error: 'Snapshot structure is incompatible with parameter undo' }, 422);
   }
-  const operations = model.parameters
-    .filter((parameter) => targetParameters.get(parameter.id)!.currentValue !== parameter.currentValue)
-    .map((parameter) => ({
-      type: 'setParameterValue' as const,
-      parameterId: parameter.id,
-      value: targetParameters.get(parameter.id)!.currentValue,
-    }));
+  const operations: MutationRequest['operations'] = [];
+  for (const parameter of model.parameters) {
+    const targetParameter = targetParameters.get(parameter.id)!;
+    if (targetParameter.name !== parameter.name) {
+      operations.push({ type: 'renameParameter', parameterId: parameter.id, name: targetParameter.name });
+    }
+    if (targetParameter.currentValue !== parameter.currentValue) {
+      operations.push({ type: 'setParameterValue', parameterId: parameter.id, value: targetParameter.currentValue });
+    }
+  }
   if (operations.length === 0) return c.json({ error: 'Target snapshot matches the current parameter state' }, 422);
 
   const request: MutationRequest = { actor: parsed.data.actor, rationale: parsed.data.rationale, operations };

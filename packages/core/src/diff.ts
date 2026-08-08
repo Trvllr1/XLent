@@ -1,26 +1,29 @@
-import type { Model, ModelDiff, DiffEntry, DiffChangeType, DiffSemantics, SuggestedBump } from './types.js';
+import type { Model, ModelDiff, DiffEntry, SuggestedBump } from './types.js';
 import { parseFormula, normalizeFormula } from './ast/index.js';
 
 export function diffModels(from: Model, to: Model): ModelDiff {
   const entries: DiffEntry[] = [];
 
   // Compare parameters
-  const fromParams = new Map(from.parameters.map((p) => [p.name, p]));
-  const toParams = new Map(to.parameters.map((p) => [p.name, p]));
+  const fromParams = new Map(from.parameters.map((p) => [p.id, p]));
+  const toParams = new Map(to.parameters.map((p) => [p.id, p]));
 
-  for (const [name, param] of toParams) {
-    if (!fromParams.has(name)) {
-      entries.push({ path: `parameters.${name}`, changeType: 'added', semantics: 'semantic', after: param.currentValue, description: `Parameter "${name}" added` });
+  for (const [id, param] of toParams) {
+    if (!fromParams.has(id)) {
+      entries.push({ path: `parameters.${param.name}`, changeType: 'added', semantics: 'semantic', after: param.currentValue, description: `Parameter "${param.name}" added` });
     } else {
-      const prev = fromParams.get(name)!;
+      const prev = fromParams.get(id)!;
+      if (prev.name !== param.name) {
+        entries.push({ path: `parameters.${prev.name}.name`, changeType: 'modified', semantics: 'semantic', before: prev.name, after: param.name, description: `Parameter "${prev.name}" renamed to "${param.name}"` });
+      }
       if (prev.currentValue !== param.currentValue) {
-        entries.push({ path: `parameters.${name}.value`, changeType: 'modified', semantics: 'semantic', before: prev.currentValue, after: param.currentValue, description: `Parameter "${name}" value changed` });
+        entries.push({ path: `parameters.${param.name}.value`, changeType: 'modified', semantics: 'semantic', before: prev.currentValue, after: param.currentValue, description: `Parameter "${param.name}" value changed` });
       }
     }
   }
-  for (const [name] of fromParams) {
-    if (!toParams.has(name)) {
-      entries.push({ path: `parameters.${name}`, changeType: 'removed', semantics: 'semantic', before: fromParams.get(name)!.currentValue, description: `Parameter "${name}" removed` });
+  for (const [id, param] of fromParams) {
+    if (!toParams.has(id)) {
+      entries.push({ path: `parameters.${param.name}`, changeType: 'removed', semantics: 'semantic', before: param.currentValue, description: `Parameter "${param.name}" removed` });
     }
   }
 

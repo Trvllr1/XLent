@@ -29,7 +29,9 @@ interface MutationPanelProps {
 }
 
 export function MutationPanel({ modelId, parameter, onClose, onCommitted }: MutationPanelProps) {
+  const [mode, setMode] = useState<'value' | 'name'>('value');
   const [value, setValue] = useState(String(parameter.currentValue ?? ''));
+  const [name, setName] = useState(parameter.name);
   const [rationale, setRationale] = useState('');
   const [preview, setPreview] = useState<MutationPreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,12 +40,20 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
   const request = () => ({
     actor: { id: 'web-user', type: 'human' as const },
     rationale,
-    operations: [{
-      type: 'setParameterValue' as const,
-      parameterId: parameter.id,
-      value: parameter.type === 'number' ? Number(value) : parameter.type === 'boolean' ? value === 'true' : value,
-    }],
+    operations: mode === 'value'
+      ? [{
+          type: 'setParameterValue' as const,
+          parameterId: parameter.id,
+          value: parameter.type === 'number' ? Number(value) : parameter.type === 'boolean' ? value === 'true' : value,
+        }]
+      : [{ type: 'renameParameter' as const, parameterId: parameter.id, name: name.trim() }],
   });
+
+  const revise = (update: () => void) => {
+    update();
+    setPreview(null);
+    setError(null);
+  };
 
   const call = async (path: string, body: object) => {
     const response = await fetch(`/models/${modelId}/mutations/${path}`, {
@@ -105,23 +115,39 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
         <button type="button" onClick={onClose} className="text-xs text-slate-400 hover:text-slate-100">Close</button>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-[minmax(10rem,0.5fr)_minmax(16rem,1fr)_auto] md:items-end">
+      <div className="mt-4 inline-flex rounded border border-slate-700 bg-slate-950 p-0.5" aria-label="Change type">
+        {(['value', 'name'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={mode === option}
+            onClick={() => revise(() => setMode(option))}
+            className={`px-3 py-1 text-xs font-medium capitalize ${mode === option ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(10rem,0.5fr)_minmax(16rem,1fr)_auto] xl:items-end">
         <label className="text-xs text-slate-400">
-          Proposed value
-          {parameter.type === 'boolean' ? (
-            <select value={value} onChange={(event) => setValue(event.target.value)} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100">
+          {mode === 'value' ? 'Proposed value' : 'Proposed name'}
+          {mode === 'name' ? (
+            <input type="text" value={name} onChange={(event) => revise(() => setName(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100" />
+          ) : parameter.type === 'boolean' ? (
+            <select value={value} onChange={(event) => revise(() => setValue(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100">
               <option value="true">True</option>
               <option value="false">False</option>
             </select>
           ) : (
-            <input type={parameter.type === 'number' ? 'number' : 'text'} value={value} onChange={(event) => setValue(event.target.value)} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 font-mono text-sm text-slate-100" />
+            <input type={parameter.type === 'number' ? 'number' : 'text'} value={value} onChange={(event) => revise(() => setValue(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 font-mono text-sm text-slate-100" />
           )}
         </label>
         <label className="text-xs text-slate-400">
           Rationale
-          <input type="text" value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder="Why should this model change?" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
+          <input type="text" value={rationale} onChange={(event) => revise(() => setRationale(event.target.value))} placeholder="Why should this model change?" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
         </label>
-        <button type="button" disabled={busy || !rationale.trim() || (parameter.type === 'number' && !Number.isFinite(Number(value)))} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="button" disabled={busy || !rationale.trim() || (mode === 'name' ? !name.trim() || name.trim() === parameter.name : parameter.type === 'number' && !Number.isFinite(Number(value)))} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
           {busy ? 'Evaluating…' : 'Preview change'}
         </button>
       </div>

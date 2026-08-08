@@ -8,5 +8,6 @@ export type {
   MutationRequest,
   MutationUndoRequest,
   MutationValidationIssue,
+  RenameParameterOperation,
   SetParameterValueOperation,
 } from './types.js';

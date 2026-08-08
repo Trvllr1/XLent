@@ -329,6 +329,76 @@ describe('Models API', () => {
     expect(snapshotsAfter).toHaveLength(snapshotsBefore.length);
   });
 
+  it('POST /models/:id/mutations/commit — renames a parameter and reverses its test references through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const priceParam = model.parameters.find((parameter: any) => parameter.name === 'Price');
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before semantic rename' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const createTestResponse = await app.request(`/tests/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Price remains non-negative',
+        category: 'business',
+        assertion: { type: 'non_negative', left: 'Price' },
+      }),
+    });
+    const createdTest = await createTestResponse.json();
+    const mutationRequest = {
+      actor: { id: 'agent-rename', type: 'agent' },
+      rationale: 'Adopt the approved commercial name',
+      operations: [{ type: 'renameParameter', parameterId: priceParam.id, name: 'Unit Price' }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.proposedTests).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: createdTest.testId, assertion: expect.objectContaining({ left: 'Unit Price' }) }),
+    ]));
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.parameters.find((parameter: any) => parameter.id === priceParam.id)).toEqual(
+      expect.objectContaining({ name: 'Unit Price', sourceCell: priceParam.sourceCell }),
+    );
+    const testsAfterCommit = await (await app.request(`/tests/${modelId}`)).json();
+    expect(testsAfterCommit.tests.find((test: any) => test.id === createdTest.testId).assertion.left).toBe('Unit Price');
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Reverse the semantic rename',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.version).toBe(committed.model.version + 1);
+    expect(undone.model.parameters.find((parameter: any) => parameter.id === priceParam.id).name).toBe('Price');
+    const testsAfterUndo = await (await app.request(`/tests/${modelId}`)).json();
+    expect(testsAfterUndo.tests.find((test: any) => test.id === createdTest.testId).assertion.left).toBe('Price');
+
+    const deleteTestResponse = await app.request(`/tests/${modelId}/${createdTest.testId}`, { method: 'DELETE' });
+    expect(deleteTestResponse.status).toBe(200);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

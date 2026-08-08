@@ -29,9 +29,17 @@ export function previewMutation(
   }
 
   const proposedModel = structuredClone(model);
+  const proposedTests = structuredClone(tests);
   for (const operation of request.operations) {
     const parameter = proposedModel.parameters.find((candidate) => candidate.id === operation.parameterId)!;
-    parameter.currentValue = operation.value;
+    if (operation.type === 'setParameterValue') {
+      parameter.currentValue = operation.value;
+    } else {
+      const previousName = parameter.name;
+      parameter.name = operation.name.trim();
+      renameContractReferences(proposedModel, previousName, parameter.name);
+      renameTestReferences(proposedTests, previousName, parameter.name);
+    }
   }
 
   const overrides = proposedModel.parameters.map((parameter) => ({
@@ -46,7 +54,7 @@ export function previewMutation(
 
   const initialDiff = diffModels(model, proposedModel);
   proposedModel.semver = bumpSemver(model.semver, initialDiff.suggestedBump);
-  const testResults = runModelTests(proposedModel, workbook, tests, overrides);
+  const testResults = runModelTests(proposedModel, workbook, proposedTests, overrides);
   const contractFindings = proposedModel.contract
     ? reconcileContract(proposedModel, proposedModel.contract)
     : [];
@@ -58,6 +66,7 @@ export function previewMutation(
     diff,
     affectedComponents: impact.components,
     affectedOutputs: impact.outputs,
+    proposedTests,
     testResults: testResults.map(({ executedAt: _, ...result }) => result),
     contractFindings,
   })).digest('hex');
@@ -67,6 +76,7 @@ export function previewMutation(
     baseVersion: model.version,
     previewId,
     proposedModel,
+    proposedTests,
     diff,
     affectedComponents: impact.components,
     affectedOutputs: impact.outputs,
@@ -85,9 +95,15 @@ function validateRequest(model: Model, request: MutationRequest): MutationValida
 
   const issues: MutationValidationIssue[] = [];
   const targets = new Set<string>();
+  const proposedNames = new Map(model.parameters.map((parameter) => [parameter.id, parameter.name.toLowerCase()]));
+
+  for (const operation of request.operations) {
+    if (operation.type === 'renameParameter') proposedNames.set(operation.parameterId, operation.name.trim().toLowerCase());
+  }
 
   request.operations.forEach((operation, operationIndex) => {
-    if (targets.has(operation.parameterId)) {
+    const target = `${operation.type}:${operation.parameterId}`;
+    if (targets.has(target)) {
       issues.push({
         code: 'duplicate_target',
         operationIndex,
@@ -95,7 +111,7 @@ function validateRequest(model: Model, request: MutationRequest): MutationValida
       });
       return;
     }
-    targets.add(operation.parameterId);
+    targets.add(target);
 
     const parameter = model.parameters.find((candidate) => candidate.id === operation.parameterId);
     if (!parameter) {
@@ -107,7 +123,16 @@ function validateRequest(model: Model, request: MutationRequest): MutationValida
       return;
     }
 
-    issues.push(...validateValue(parameter, operation.value, operationIndex));
+    if (operation.type === 'setParameterValue') {
+      issues.push(...validateValue(parameter, operation.value, operationIndex));
+    } else {
+      const name = operation.name.trim();
+      if (!name) {
+        issues.push({ code: 'invalid_name', operationIndex, message: 'Parameter name cannot be blank.' });
+      } else if ([...proposedNames].some(([parameterId, proposedName]) => parameterId !== parameter.id && proposedName === name.toLowerCase())) {
+        issues.push({ code: 'duplicate_name', operationIndex, message: `Parameter name "${name}" is already in use.` });
+      }
+    }
   });
 
   return issues;
@@ -164,4 +189,40 @@ function findImpact(model: Model, request: MutationRequest): { components: strin
     .filter((output) => visited.has(`${output.sourceCell.sheet}!${output.sourceCell.ref}`))
     .map((output) => output.id);
   return { components: [...visited], outputs };
+}
+
+function renameContractReferences(model: Model, previousName: string, nextName: string): void {
+  if (!model.contract) return;
+  const protectedNames = [
+    ...model.contract.declaredInputs.map((input) => input.name),
+    ...model.contract.declaredOutputs.map((output) => output.name),
+  ].filter((name) => name !== previousName && name.includes(previousName));
+  for (const input of model.contract.declaredInputs) {
+    if (input.name === previousName) input.name = nextName;
+  }
+  for (const invariant of model.contract.invariants) invariant.expression = replaceName(invariant.expression, previousName, nextName, protectedNames);
+  for (const rule of model.contract.rules) rule.expression = replaceName(rule.expression, previousName, nextName, protectedNames);
+  for (const behavior of model.contract.behaviors ?? []) behavior.statement = replaceName(behavior.statement, previousName, nextName, protectedNames);
+}
+
+function renameTestReferences(tests: ModelTestDefinition[], previousName: string, nextName: string): void {
+  for (const test of tests) {
+    if (test.assertion.left === previousName) test.assertion.left = nextName;
+    if (test.assertion.right === previousName) test.assertion.right = nextName;
+    if (test.assertion.consistencyPair) {
+      test.assertion.consistencyPair = test.assertion.consistencyPair.map((name) => name === previousName ? nextName : name) as [string, string];
+    }
+  }
+}
+
+function replaceName(value: string, previousName: string, nextName: string, protectedNames: string[]): string {
+  const replacements = protectedNames
+    .sort((left, right) => right.length - left.length)
+    .map((name, index) => ({ name, placeholder: `__XLENT_SYMBOL_${index}__` }));
+  let result = value;
+  for (const replacement of replacements) result = result.replaceAll(replacement.name, replacement.placeholder);
+  const escaped = previousName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  result = result.replace(new RegExp(`\\b${escaped}\\b`, 'g'), nextName);
+  for (const replacement of replacements) result = result.replaceAll(replacement.placeholder, replacement.name);
+  return result;
 }

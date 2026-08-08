@@ -90,11 +90,18 @@ const mutationRequestFields = {
     type: z.enum(['human', 'agent']),
   }).strict(),
   rationale: z.string().min(1).max(2000),
-  operations: z.array(z.object({
-    type: z.literal('setParameterValue'),
-    parameterId: z.string().uuid(),
-    value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
-  }).strict()).min(1).max(100),
+  operations: z.array(z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('setParameterValue'),
+      parameterId: z.string().uuid(),
+      value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+    }).strict(),
+    z.object({
+      type: z.literal('renameParameter'),
+      parameterId: z.string().uuid(),
+      name: z.string().min(1).max(200),
+    }).strict(),
+  ])).min(1).max(100),
 };
 
 export const mutationPreviewSchema = z.object(mutationRequestFields).strict();

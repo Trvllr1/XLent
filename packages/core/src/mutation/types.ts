@@ -1,4 +1,4 @@
-import type { DebugFinding, Model, ModelDiff, ModelTestResult } from '../types.js';
+import type { DebugFinding, Model, ModelDiff, ModelTestDefinition, ModelTestResult } from '../types.js';
 
 export interface MutationActor {
   id: string;
@@ -11,7 +11,13 @@ export interface SetParameterValueOperation {
   value: unknown;
 }
 
-export type MutationOperation = SetParameterValueOperation;
+export interface RenameParameterOperation {
+  type: 'renameParameter';
+  parameterId: string;
+  name: string;
+}
+
+export type MutationOperation = SetParameterValueOperation | RenameParameterOperation;
 
 export interface MutationRequest {
   actor: MutationActor;
@@ -32,7 +38,7 @@ export interface MutationUndoRequest {
 }
 
 export interface MutationValidationIssue {
-  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'invalid_type' | 'outside_allowed_range';
+  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name';
   operationIndex?: number;
   message: string;
 }
@@ -42,6 +48,7 @@ export interface MutationPreview {
   baseVersion: number;
   previewId?: string;
   proposedModel?: Model;
+  proposedTests?: ModelTestDefinition[];
   diff?: ModelDiff;
   affectedComponents: string[];
   affectedOutputs: string[];
