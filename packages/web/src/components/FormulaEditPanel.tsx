@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FormulaEditor } from './FormulaEditor.js';
 
 interface Preview {
   baseVersion: number;
@@ -17,10 +18,11 @@ interface FormulaEditPanelProps {
   modelId: string;
   cellId: string;
   currentFormula: string;
+  workbookSheets?: string[];
   onClose: () => void;
 }
 
-export function FormulaEditPanel({ modelId, cellId, currentFormula, onClose }: FormulaEditPanelProps) {
+export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookSheets = [], onClose }: FormulaEditPanelProps) {
   const [formula, setFormula] = useState(`=${currentFormula}`);
   const [rationale, setRationale] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -93,6 +95,12 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, onClose }: F
   const unchanged = formula.trim().replace(/^=+/, '') === currentFormula;
   const blocked = !preview?.allTestsPass || preview.contractFindings.some((finding) => finding.severity === 'critical');
 
+  const referencedSheets = formula.match(/(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_ ]*))!/g)?.map((match) => {
+    const quoted = /^'([^']+)'!$/.exec(match);
+    return quoted ? quoted[1] : match.slice(0, -1);
+  }) ?? [];
+  const unknownSheet = referencedSheets.find((sheet) => workbookSheets.length > 0 && !workbookSheets.includes(sheet));
+
   return (
     <section className="rounded border border-slate-700 bg-slate-950/60 p-3" aria-label={`Edit formula ${cellId}`}>
       <div className="flex items-start justify-between gap-2">
@@ -100,8 +108,9 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, onClose }: F
         <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300">Close</button>
       </div>
       <label className="mt-2 block text-xs text-slate-400">Proposed formula
-        <textarea value={formula} onChange={(event) => revise(() => setFormula(event.target.value))} rows={3} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 font-mono text-xs text-indigo-200" spellCheck={false} />
+        <FormulaEditor value={formula} onChange={(next) => revise(() => setFormula(next))} rows={3} ariaLabel="Proposed formula" />
       </label>
+      {unknownSheet && <p className="mt-1 text-xs text-amber-400">Unknown sheet "{unknownSheet}"</p>}
       <label className="mt-2 block text-xs text-slate-400">Rationale
         <input value={rationale} onChange={(event) => revise(() => setRationale(event.target.value))} placeholder="Why should this model change?" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
       </label>

@@ -9,6 +9,10 @@ interface Graph {
   edges: { from: string; to: string }[];
 }
 
+interface Workbook {
+  sheets: Array<{ name: string }>;
+}
+
 function trace(graph: Graph, start: string, direction: 'up' | 'down'): string[] {
   const visited = new Set<string>();
   const queue = [start];
@@ -28,6 +32,7 @@ function trace(graph: Graph, start: string, direction: 'up' | 'down'): string[] 
 export function ContextPanel() {
   const { selection, clear } = useSelection();
   const [graph, setGraph] = useState<Graph | null>(null);
+  const [workbook, setWorkbook] = useState<Workbook | null>(null);
   const [editingFormula, setEditingFormula] = useState(false);
 
   const modelId = selection?.modelId;
@@ -39,6 +44,15 @@ export function ContextPanel() {
       .then((r) => r.json())
       .then((d) => { if (!cancelled) setGraph(d.graph); })
       .catch(() => { if (!cancelled) setGraph(null); });
+    fetch(`/models/${modelId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const sheetNames = new Set<string>();
+        for (const node of d.model.graph?.nodes ?? []) sheetNames.add(node.split('!')[0]);
+        setWorkbook({ sheets: [...sheetNames].map((name) => ({ name })) });
+      })
+      .catch(() => { if (!cancelled) setWorkbook(null); });
     return () => { cancelled = true; };
   }, [modelId]);
   useEffect(() => { setEditingFormula(false); }, [cellId]);
@@ -81,7 +95,7 @@ export function ContextPanel() {
             </p>
             {editingFormula && modelId && (
               <div className="mt-2">
-                <FormulaEditPanel modelId={modelId} cellId={selection.cellId} currentFormula={selection.formula} onClose={() => setEditingFormula(false)} />
+                <FormulaEditPanel modelId={modelId} cellId={selection.cellId} currentFormula={selection.formula} workbookSheets={workbook?.sheets.map((sheet) => sheet.name)} onClose={() => setEditingFormula(false)} />
               </div>
             )}
           </section>
