@@ -21,6 +21,14 @@ export interface MutationRequest {
 
 export interface MutationCommitRequest extends MutationRequest {
   baseVersion: number;
+  previewId: string;
+}
+
+export interface MutationUndoRequest {
+  actor: MutationActor;
+  rationale: string;
+  baseVersion: number;
+  targetSnapshotId: string;
 }
 
 export interface MutationValidationIssue {
@@ -32,9 +40,12 @@ export interface MutationValidationIssue {
 export interface MutationPreview {
   valid: boolean;
   baseVersion: number;
+  previewId?: string;
   proposedModel?: Model;
   diff?: ModelDiff;
+  affectedComponents: string[];
   affectedOutputs: string[];
+  evidenceRefs: Array<{ kind: 'preview'; checksum: string }>;
   testResults: ModelTestResult[];
   allTestsPass: boolean;
   contractFindings: DebugFinding[];
@@ -44,6 +55,7 @@ export interface MutationPreview {
 export interface MutationCommitResult {
   model: Model;
   diff: ModelDiff;
+  affectedComponents: string[];
   affectedOutputs: string[];
   tests: ModelTestResult[];
   contractFindings: DebugFinding[];

@@ -6,6 +6,7 @@ export type {
   MutationOperation,
   MutationPreview,
   MutationRequest,
+  MutationUndoRequest,
   MutationValidationIssue,
   SetParameterValueOperation,
 } from './types.js';

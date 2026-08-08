@@ -16,6 +16,7 @@ import type {
   MutationCommitResult,
   MutationPreview,
   MutationRequest,
+  MutationUndoRequest,
 } from '@xlent/core';
 
 export interface XLentClientOptions {
@@ -91,6 +92,14 @@ export class XLentClient {
 
   async commitMutation(modelId: string, request: MutationCommitRequest): Promise<MutationCommitResult> {
     return this.post(`/models/${modelId}/mutations/commit`, request);
+  }
+
+  async rejectMutation(modelId: string, request: MutationCommitRequest): Promise<{ rejected: true; previewId: string; persisted: false }> {
+    return this.post(`/models/${modelId}/mutations/reject`, request);
+  }
+
+  async undoMutation(modelId: string, request: MutationUndoRequest): Promise<MutationCommitResult & { restoredFromSnapshotId: string }> {
+    return this.post(`/models/${modelId}/mutations/undo`, request);
   }
 
   async getPackage(modelId: string): Promise<ModelPackage> {

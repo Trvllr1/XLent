@@ -102,4 +102,14 @@ export const mutationPreviewSchema = z.object(mutationRequestFields).strict();
 export const mutationCommitSchema = z.object({
   ...mutationRequestFields,
   baseVersion: z.number().int().positive(),
+  previewId: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+
+export const mutationRejectSchema = mutationCommitSchema;
+
+export const mutationUndoSchema = z.object({
+  actor: mutationRequestFields.actor,
+  rationale: mutationRequestFields.rationale,
+  baseVersion: z.number().int().positive(),
+  targetSnapshotId: z.string().uuid(),
 }).strict();

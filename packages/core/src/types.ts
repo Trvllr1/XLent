@@ -397,6 +397,9 @@ export interface EvidenceRecord {
   reproducible: boolean;
   executedBy?: string;
   purpose?: 'scenario_run' | 'publish_gate' | 'delivery' | 'manual' | 'mutation_commit';
+  rationale?: string;
+  mutationOperations?: Array<{ type: string; parameterId?: string; value?: unknown }>;
+  restoredFromSnapshotId?: string;
 }
 
 // --- Model Package (E5) ---

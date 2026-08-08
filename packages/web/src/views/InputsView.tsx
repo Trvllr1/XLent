@@ -1,13 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ModelOutletContext } from './ModelView.js';
 import { useSelection } from '../selection.js';
 import { formatExcelValue } from '../format.js';
 import { ConfidenceBadge } from '../components/ConfidenceBadge.js';
+import { MutationPanel } from '../components/MutationPanel.js';
 
 export function InputsView() {
-  const { model, modelId, parameterImpact } = useOutletContext<ModelOutletContext>();
+  const { model, modelId, parameterImpact, refreshModel } = useOutletContext<ModelOutletContext>();
   const { selection, select } = useSelection();
+  const [editingParameterId, setEditingParameterId] = useState<string | null>(null);
+  const editingParameter = model.parameters.find((parameter: any) => parameter.id === editingParameterId);
 
   const fanOut = useMemo(() => {
     const map = new Map<string, number>();
@@ -21,7 +24,17 @@ export function InputsView() {
   );
 
   return (
-    <table className="w-full text-sm">
+    <>
+      {editingParameter && (
+        <MutationPanel
+          modelId={modelId}
+          parameter={editingParameter}
+          onClose={() => setEditingParameterId(null)}
+          onCommitted={refreshModel}
+        />
+      )}
+      <div className="max-w-full overflow-x-auto">
+      <table className="w-full min-w-[48rem] text-sm">
       <thead>
         <tr className="text-left text-slate-500 border-b border-slate-800">
           <th className="py-2">Name</th>
@@ -30,6 +43,7 @@ export function InputsView() {
           <th>Confidence</th>
           <th className="text-right">Drives</th>
           <th className="text-right">Reach</th>
+          <th><span className="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
@@ -72,10 +86,21 @@ export function InputsView() {
                   </span>
                 )}
               </td>
+              <td className="text-right">
+                <button
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); setEditingParameterId(p.id); }}
+                  className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-300"
+                >
+                  Edit
+                </button>
+              </td>
             </tr>
           );
         })}
       </tbody>
-    </table>
+      </table>
+      </div>
+    </>
   );
 }

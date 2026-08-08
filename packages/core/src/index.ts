@@ -29,6 +29,7 @@ export type {
 	MutationOperation,
 	MutationPreview,
 	MutationRequest,
+	MutationUndoRequest,
 	MutationValidationIssue,
 	SetParameterValueOperation,
 } from './mutation/index.js';

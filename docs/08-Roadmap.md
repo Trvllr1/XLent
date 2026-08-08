@@ -42,7 +42,7 @@ DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 | E9 | 📐 Next | Assurance Ladder (V&V semantics) |
 | E10 | 📐 Next | Behavioral Testing & Model CI |
 | E11 | 📐 Next | Test Corpus & Monitoring |
-| E12 | 📐 Next | Model IDE Capstone — sovereign canonical model + governed human/agent mutation (see doc 14) |
+| E12 | 🚧 In progress | E12.0 complete: governed preview/commit/reject/undo for human and agent clients (see doc 14) |
 | E13 | 📋 Planned | Model Review — judgment layer above E7–E11 (see doc 12) |
 | E14 | 📋 Planned | Programmatic Defect Corpus — XLent tests XLent (see doc 13) |
 | E15 | 📋 Planned | Graph Reasoning Surface — focus/trace, findings & materiality overlays, semantic diff |
@@ -533,13 +533,15 @@ These items have design notes in the blueprint but no scheduled implementation. 
 
 **Dependencies:** E0 (AST), E2 (version/diff), E7 (debug/findings), E8 (contracts), E9 (assurance), E10 (targeted tests/CI), E13 (review integration for the complete closed loop). E12 can begin before E13 is complete, but E12.4 cannot close without it.
 
-### E12.0 — Canonical Model Mutation Layer
+### E12.0 — Canonical Model Mutation Layer ✅
 
 | Field | Value |
 |---|---|
 | **Scope** | Establish the architectural boundary through which every human or agent edit passes. A mutation request produces a proposed state, validation, recalculation, affected-graph analysis, targeted tests, contract checks, semantic diff, evidence, then explicit commit or reject. No actor mutates XLSX or persisted XMR directly. |
 | **Files** | New: `packages/core/src/mutation/` (`types.ts`, `validate.ts`, `apply.ts`, `preview.ts`, `undo.ts`). New: `packages/api/src/routes/mutations.ts`. Modify model persistence/versioning. |
 | **Acceptance criteria** | (1) `POST /models/:id/mutations/preview` accepts an atomic operation batch and never persists it. (2) Preview returns semantic diff, affected components/outputs, test + contract results, and evidence refs. (3) Explicit commit creates a new immutable version; reject creates none. (4) The whole mutation transaction is reversible. (5) Human UI and agent API call the same core primitive. (6) Scenario overrides cannot be committed accidentally as mutations. |
+| **Implemented** | Parameter-value mutation primitive; deterministic preview identity; strict preview-bound commit/reject; optimistic concurrency; atomic model + snapshot + evidence transaction; governed snapshot undo; Inputs UI; typed SDK methods. |
+| **Verification** | Core mutation tests; API import/preview/reject/commit/undo/test-gate suite; core/API/SDK/web typechecks; live browser preview + reject against 22 model tests with unchanged canonical value. |
 | **Dependencies** | E0, E2, E8, E10 |
 
 ### E12.1 — Structure Editor & Semantic Refactoring
