@@ -15,6 +15,7 @@ function makeWorkbookBuffer(): Buffer {
     ['Quantity', 50],
     ['Total', { t: 'n', f: 'B1*B2' }],
     ['Memo', 7],
+    ['Combined input', { t: 'n', f: 'B1+B2' }],
   ]);
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
@@ -583,6 +584,59 @@ describe('Models API', () => {
 
     const deleteTestResponse = await app.request(`/tests/${modelId}/${createdTest.testId}`, { method: 'DELETE' });
     expect(deleteTestResponse.status).toBe(200);
+  });
+
+  it('POST /models/:id/mutations/commit — reorders outputs and restores exact order through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const originalOrder = model.outputs.map((output: any) => output.id);
+    const lastOutput = model.outputs[model.outputs.length - 1];
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before output reorder' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'user-output-order', type: 'human' },
+      rationale: 'Put the final output first for review',
+      operations: [{ type: 'moveOutput', outputId: lastOutput.id, toIndex: 0 }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.diff.entries).toEqual([expect.objectContaining({ path: 'outputs.order', semantics: 'cosmetic' })]);
+    expect(preview.affectedComponents).toEqual([]);
+    expect(preview.affectedOutputs).toEqual([]);
+    expect(preview.proposedModel.graph).toEqual(model.graph);
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.outputs[0].id).toBe(lastOutput.id);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the prior output review order',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.outputs.map((output: any) => output.id)).toEqual(originalOrder);
+    expect(undone.model.graph).toEqual(model.graph);
   });
 
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {

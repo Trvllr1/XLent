@@ -20,7 +20,7 @@ export function OutputsView() {
 
   return (
     <>
-    {editingOutput && <OutputRenamePanel modelId={modelId} output={editingOutput} onClose={() => setEditingOutputId(null)} onCommitted={refreshModel} />}
+    {editingOutput && <OutputRenamePanel modelId={modelId} output={editingOutput} outputIndex={model.outputs.findIndex((output: any) => output.id === editingOutput.id)} outputCount={model.outputs.length} onClose={() => setEditingOutputId(null)} onCommitted={refreshModel} />}
     <div className="max-w-full overflow-x-auto">
     <table className="w-full min-w-[36rem] text-sm">
       <thead>
@@ -58,7 +58,7 @@ export function OutputsView() {
               <td className="font-mono">{formatExcelValue(o.value, o.format)}</td>
               <td><ConfidenceBadge level={o.confidence} /></td>
               <td className="text-right text-xs font-mono text-slate-500">{fanIn.get(cellId) ?? 0}</td>
-              <td className="text-right"><button type="button" onClick={(event) => { event.stopPropagation(); setEditingOutputId(o.id); }} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-300">Rename</button></td>
+              <td className="text-right"><button type="button" onClick={(event) => { event.stopPropagation(); setEditingOutputId(o.id); }} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-300">Edit</button></td>
             </tr>
           );
         })}

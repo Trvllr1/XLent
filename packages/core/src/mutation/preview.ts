@@ -39,6 +39,12 @@ export function previewMutation(
       renameTestReferences(proposedTests, previousName, output.name);
       continue;
     }
+    if (operation.type === 'moveOutput') {
+      const fromIndex = proposedModel.outputs.findIndex((candidate) => candidate.id === operation.outputId);
+      const [moved] = proposedModel.outputs.splice(fromIndex, 1);
+      proposedModel.outputs.splice(operation.toIndex, 0, moved);
+      continue;
+    }
     if (operation.type === 'restoreParameter') {
       proposedModel.parameters.splice(operation.index, 0, structuredClone(operation.parameter));
       const cellId = `${operation.parameter.sourceCell.sheet}!${operation.parameter.sourceCell.ref}`;
@@ -150,17 +156,21 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
     }
     targets.add(target);
 
-    if (operation.type === 'renameOutput') {
+    if (operation.type === 'renameOutput' || operation.type === 'moveOutput') {
       const output = model.outputs.find((candidate) => candidate.id === operation.outputId);
       if (!output) {
         issues.push({ code: 'output_not_found', operationIndex, message: `Output "${operation.outputId}" was not found.` });
         return;
       }
-      const name = operation.name.trim();
-      if (!name) {
-        issues.push({ code: 'invalid_name', operationIndex, message: 'Output name cannot be blank.' });
-      } else if ([...proposedOutputNames].some(([outputId, proposedName]) => outputId !== output.id && proposedName === name.toLowerCase())) {
-        issues.push({ code: 'duplicate_name', operationIndex, message: `Output name "${name}" is already in use.` });
+      if (operation.type === 'renameOutput') {
+        const name = operation.name.trim();
+        if (!name) {
+          issues.push({ code: 'invalid_name', operationIndex, message: 'Output name cannot be blank.' });
+        } else if ([...proposedOutputNames].some(([outputId, proposedName]) => outputId !== output.id && proposedName === name.toLowerCase())) {
+          issues.push({ code: 'duplicate_name', operationIndex, message: `Output name "${name}" is already in use.` });
+        }
+      } else if (!Number.isInteger(operation.toIndex) || operation.toIndex < 0 || operation.toIndex >= model.outputs.length) {
+        issues.push({ code: 'invalid_index', operationIndex, message: `Output position must be between 0 and ${model.outputs.length - 1}.` });
       }
       return;
     }
@@ -246,7 +256,7 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
 }
 
 function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
-  const queue = request.operations.filter((operation) => operation.type !== 'moveParameter').map((operation) => {
+  const queue = request.operations.filter((operation) => operation.type !== 'moveParameter' && operation.type !== 'moveOutput').map((operation) => {
     if (operation.type === 'renameOutput') {
       const output = model.outputs.find((candidate) => candidate.id === operation.outputId)!;
       return `${output.sourceCell.sheet}!${output.sourceCell.ref}`;
@@ -332,5 +342,5 @@ function testReferencesParameter(test: ModelTestDefinition, parameter: Parameter
 }
 
 function operationTargetId(operation: MutationRequest['operations'][number]): string {
-  return operation.type === 'renameOutput' ? operation.outputId : operation.parameterId;
+  return operation.type === 'renameOutput' || operation.type === 'moveOutput' ? operation.outputId : operation.parameterId;
 }

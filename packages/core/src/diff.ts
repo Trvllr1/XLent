@@ -58,6 +58,14 @@ export function diffModels(from: Model, to: Model): ModelDiff {
     }
   }
 
+  const fromOutputOrder = from.outputs.map((output) => output.id);
+  const toOutputOrder = to.outputs.map((output) => output.id);
+  if (fromOutputOrder.length === toOutputOrder.length
+    && fromOutputOrder.every((id) => toOutputs.has(id))
+    && fromOutputOrder.some((id, index) => toOutputOrder[index] !== id)) {
+    entries.push({ path: 'outputs.order', changeType: 'modified', semantics: 'cosmetic', before: fromOutputOrder, after: toOutputOrder, description: 'Output display order changed' });
+  }
+
   // Compare calculations (AST-canonical formula comparison, E0.4)
   const calcKey = (c: { sourceCell: { sheet: string; ref: string } }) => `${c.sourceCell.sheet}!${c.sourceCell.ref}`;
   const fromCalcs = new Map(from.calculations.map((c) => [calcKey(c), c]));

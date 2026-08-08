@@ -23,6 +23,12 @@ export interface RenameOutputOperation {
   name: string;
 }
 
+export interface MoveOutputOperation {
+  type: 'moveOutput';
+  outputId: string;
+  toIndex: number;
+}
+
 export interface RemoveParameterOperation {
   type: 'removeParameter';
   parameterId: string;
@@ -42,7 +48,7 @@ export interface RestoreParameterOperation {
   graphIndex: number;
 }
 
-export type MutationOperation = SetParameterValueOperation | RenameParameterOperation | RenameOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
+export type MutationOperation = SetParameterValueOperation | RenameParameterOperation | RenameOutputOperation | MoveOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
 
 export interface MutationRequest {
   actor: MutationActor;

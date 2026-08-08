@@ -31,6 +31,7 @@ export type {
 	MutationRequest,
 	MutationUndoRequest,
 	MutationValidationIssue,
+	MoveOutputOperation,
 	MoveParameterOperation,
 	RemoveParameterOperation,
 	RenameParameterOperation,

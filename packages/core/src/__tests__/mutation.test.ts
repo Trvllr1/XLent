@@ -297,4 +297,27 @@ describe('previewMutation', () => {
     ]);
     expect(model.outputs[0].name).toBe('Double Revenue');
   });
+
+  it('reorders outputs without changing graph identity or execution', () => {
+    const { model, workbook } = buildFixture();
+    model.outputs.push({ ...model.outputs[0], id: 'reported-revenue', name: 'Reported Revenue' });
+    const originalGraph = structuredClone(model.graph);
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Put reported revenue before the derived output',
+      operations: [{ type: 'moveOutput', outputId: 'reported-revenue', toIndex: 0 }],
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel?.outputs.map((output) => output.id)).toEqual(['reported-revenue', 'double-revenue']);
+    expect(preview.proposedModel?.outputs.map((output) => output.value)).toEqual([20, 20]);
+    expect(preview.proposedModel?.graph).toEqual(originalGraph);
+    expect(preview.proposedModel?.semver).toBe('1.0.1');
+    expect(preview.affectedComponents).toEqual([]);
+    expect(preview.affectedOutputs).toEqual([]);
+    expect(preview.diff?.entries).toEqual([
+      expect.objectContaining({ path: 'outputs.order', semantics: 'cosmetic' }),
+    ]);
+  });
 });

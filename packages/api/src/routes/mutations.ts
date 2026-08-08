@@ -232,6 +232,15 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
       operations.push({ type: 'renameOutput', outputId: output.id, name: targetOutput.name });
     }
   }
+  const workingOutputOrder = model.outputs.map((output) => output.id);
+  target.data.outputs.forEach((output, toIndex) => {
+    const fromIndex = workingOutputOrder.indexOf(output.id);
+    if (fromIndex !== toIndex) {
+      operations.push({ type: 'moveOutput', outputId: output.id, toIndex });
+      workingOutputOrder.splice(fromIndex, 1);
+      workingOutputOrder.splice(toIndex, 0, output.id);
+    }
+  });
   if (operations.length === 0) return c.json({ error: 'Target snapshot matches the current model state' }, 422);
 
   const request: MutationRequest = { actor: parsed.data.actor, rationale: parsed.data.rationale, operations };
