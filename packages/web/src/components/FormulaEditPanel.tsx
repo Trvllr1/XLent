@@ -67,6 +67,7 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
   const [historyIndex, setHistoryIndex] = useState(0);
   const [versions, setVersions] = useState<SnapshotEntry[]>([]);
   const [selectedVersion, setSelectedVersion] = useState('');
+  const [modelVersion, setModelVersion] = useState<number | null>(null);
   const [breakpointKind, setBreakpointKind] = useState<'none' | 'value' | 'assumptionChanged'>('none');
   const [breakpointCell, setBreakpointCell] = useState(cellId);
   const [breakpointOperator, setBreakpointOperator] = useState('<');
@@ -81,6 +82,10 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
       .then((r) => r.json())
       .then((d) => setVersions(d.snapshots ?? []))
       .catch(() => setVersions([]));
+    fetch(`/models/${modelId}`)
+      .then((r) => r.json())
+      .then((d) => setModelVersion(d.model?.version ?? null))
+      .catch(() => setModelVersion(null));
   }, [modelId]);
 
   useEffect(() => {
@@ -221,6 +226,28 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
     }
   };
 
+  const restoreVersion = async () => {
+    const snapshot = versions.find((entry) => entry.id === selectedVersion);
+    if (!snapshot || modelVersion === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await call('undo', {
+        actor: { id: 'web-user', type: 'human' },
+        rationale: rationale.trim() || `Restore from v${snapshot.semver}`,
+        baseVersion: modelVersion,
+        targetSnapshotId: snapshot.id,
+      });
+      window.dispatchEvent(new Event('xlent:model-changed'));
+      onCommitted?.();
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Version restore failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const unchanged = formula.trim().replace(/^=+/, '') === currentFormula;
   const blocked = !preview?.allTestsPass || preview.contractFindings.some((finding) => finding.severity === 'critical');
 
@@ -236,15 +263,26 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Edit formula</h4>
         <div className="flex items-center gap-1">
           {versions.length > 0 && (
-            <select value={selectedVersion} onChange={(event) => loadVersion(event.target.value)} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] text-slate-400">
-              <option value="">History…</option>
-              {versions.map((snapshot) => <option key={snapshot.id} value={snapshot.id}>{snapshot.semver}{snapshot.message ? ` · ${snapshot.message.slice(0, 24)}` : ''}</option>)}
-            </select>
+            <>
+              <select aria-label="Version history" value={selectedVersion} onChange={(event) => { setSelectedVersion(event.target.value); loadVersion(event.target.value); }} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] text-slate-400">
+                <option value="">History…</option>
+                {versions.map((snapshot) => <option key={snapshot.id} value={snapshot.id}>{snapshot.semver}{snapshot.message ? ` · ${snapshot.message.slice(0, 24)}` : ''}</option>)}
+              </select>
+              <button
+                type="button"
+                disabled={busy || !selectedVersion || modelVersion === null}
+                onClick={restoreVersion}
+                title="Restore this version through the governed mutation path (creates a new version with evidence)"
+                className="rounded border border-amber-700 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-950/40 disabled:opacity-40"
+              >
+                Restore
+              </button>
+            </>
           )}
           <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300">Close</button>
         </div>
       </div>
-      <p className="mt-1 text-[10px] text-slate-600">Ctrl+Z undo · Ctrl+Shift+Z redo</p>
+      <p className="mt-1 text-[10px] text-slate-600">Ctrl+Z edit undo · Ctrl+Shift+Z redo · Restore returns the model to a prior version through governed mutation</p>
       <label className="mt-2 block text-xs text-slate-400">Proposed formula
         <FormulaEditor value={formula} onChange={(next) => revise(() => setFormula(next))} onBlur={commitHistory} rows={3} ariaLabel="Proposed formula" />
       </label>

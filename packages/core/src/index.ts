@@ -61,8 +61,8 @@ export type {
 	SetParameterSourceOperation,
 	SetParameterValueOperation,
 } from './mutation/index.js';
-export { parseFormula, normalizeFormula, collectFunctionCalls } from './ast/index.js';
-export type { ASTNode } from './ast/index.js';
+export { parseFormula, normalizeFormula, collectFunctionCalls, FormulaInterpreter } from './ast/index.js';
+export type { ASTNode, CellValue, InterpreterContext } from './ast/index.js';
 export * from './functions/index.js';
 export { XLentClient } from './client.js';
 export type { XLentClientOptions } from './client.js';

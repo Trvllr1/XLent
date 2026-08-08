@@ -21,6 +21,8 @@ export default defineConfig({
       '/findings': 'http://localhost:4100',
       '/contract': 'http://localhost:4100',
       '/assurance': 'http://localhost:4100',
+      '/snapshots': 'http://localhost:4100',
+      '/diff': 'http://localhost:4100',
     },
   },
 });

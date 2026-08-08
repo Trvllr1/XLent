@@ -584,6 +584,10 @@ These items have design notes in the blueprint but no scheduled implementation. 
 | **Acceptance criteria** | (1) Highlight functions, refs, operators, numbers, strings. (2) Immediate unsupported-function, broken-ref, and introduced-cycle feedback. (3) Dependency arrows and affected outputs update in preview. (4) Relevant tests/contracts run before commit. (5) Accepted formula edit creates a versioned mutation with evidence; failed preview cannot silently persist. |
 | **Implemented (tokenized editor increment)** | Client-side tokenizer classifies numbers, strings, booleans, errors, cell refs, sheet refs, functions, and operators; a transparent `<textarea>` overlays a syntax-highlighted `<pre>` with identical layout; live sheet-reference validation flags unknown sheets against the canonical graph; the editor is wired into the Context Panel for any selected formula cell; preview/commit/reject uses the existing governed `setCellFormula` path with full diff, impact, and test evidence. |
 | **Verification (tokenized editor increment)** | Web build passes; live browser edit of `Value Effect!B31` `B8` → `=$B$8` produced one cosmetic change, patch bump, 24 affected components, 11 outputs, and 22/22 tests; reject left version, semver, and formula unchanged; focused screenshot verified the highlighted editor and evidence. Autocomplete, in-editor dependency arrows, and semantic undo/redo history are next E12.2 increments. |
+| **Implemented (autocomplete increment)** | `formulaFunctions.ts` catalogs every function the canonical interpreter executes with signature, description, and category; `FormulaEditor` detects the identifier at the caret, ranks prefix suggestions, and inserts `NAME(` via keyboard (ArrowUp/Down, Tab/Enter, Esc) or pointer with an accessible listbox and signature hint; cell references, sheet references, and strings never trigger suggestions. |
+| **Verification (autocomplete increment)** | Web suite passes 7/7: metadata integrity, prefix detection at the caret, cell/sheet/string exclusion, ranking, bounds, and an engine-authority probe that evaluates every cataloged name through the real `FormulaInterpreter` and rejects any `#UNSUPPORTED:` result. Web typecheck passes. Live browser check renders the suggestion list with signatures while typing. |
+| **Implemented (governed version restore increment)** | The formula panel's version history now distinguishes text-level Ctrl+Z/Ctrl+Shift+Z edit history from model-level restore: selecting a snapshot still loads its formula for re-preview, and the new **Restore** action calls the governed `POST /models/:id/mutations/undo` path with actor, rationale, current base version, and target snapshot — creating a new immutable version with evidence through the same test/contract gates rather than silently rewriting state. |
+| **Verification (governed version restore increment)** | API suite already covers governed undo acceptance (21 commit/undo cases); web typecheck passes; live browser validation restores a native model snapshot from the editor and confirms a new version with restore evidence. |
 | **Dependencies** | E12.1 (formula edit primitive), E0 (AST) |
 
 ### E12.3 — Model Debugger, Watches & Breakpoints
@@ -596,24 +600,6 @@ These items have design notes in the blueprint but no scheduled implementation. 
 | **Implemented** | Mutation previews execute one base runtime and one proposed runtime to produce exact before/after watches. Optional typed breakpoints support numeric or boolean cell comparisons (`<`, `<=`, `>`, `>=`, `==`, `!=`) and any/specific assumption-change conditions. Affected outputs include deterministic upstream traces, explicit root causes, and before/after values. Watches, breakpoint results, and traces are included in the preview checksum, replayed unchanged by commit/reject, and retained in immutable mutation evidence. The formula editor provides breakpoint controls, hit status, compact watches, and expandable trace-to-root details. |
 | **Verification** | Focused core mutation suite passes 25/25, including repeat-run checksum equality, value and assumption-change breakpoint hits, root identification, and removed-output tracing. Core, API, and web builds pass. Live browser preview changed `Value Effect!B48` from `2000` to `2001`; `Value Effect!B48 > 2000` hit, 3 before/after watches rendered, the affected output traced through 42 dependencies to 15 roots, and 22/22 model tests passed. The debugger panel had no horizontal overflow at its 274px width. Reject closed the preview while version remained `1.0.0` and the formula remained `(B45-B46)*B47`. |
 | **Dependencies** | E12.1 (formula edit primitive), E12.2 (editor surface) |
-
-### E12.2 — Formula Editor
-
-| Field | Value |
-|---|---|
-| **Scope** | Model-component formula editing with syntax highlighting, function signatures/autocomplete, AST/reference validation, live dependency + impact preview, test/contract status, semantic undo/redo, and version tracking. This is not a generic cell editor. |
-| **Files** | New: `packages/web/src/components/FormulaEditor.tsx`. Modify mutation operations and AST serializer. |
-| **Acceptance criteria** | (1) Highlight functions, refs, operators, numbers, strings. (2) Immediate unsupported-function, broken-ref, and introduced-cycle feedback. (3) Dependency arrows and affected outputs update in preview. (4) Relevant tests/contracts run before commit. (5) Accepted formula edit creates a versioned mutation with evidence; failed preview cannot silently persist. |
-| **Dependencies** | E12.0, E0, E7, E8, E10 |
-
-### E12.3 — Model Debugger, Watches & Breakpoints
-
-| Field | Value |
-|---|---|
-| **Scope** | Native debugger: trace output to root causes, watch model components across proposed/committed states, compare formulas/states, identify suspicious dependencies, and inspect breakpoint-like conditions. |
-| **Files** | New debugger/watch views and core debug-condition evaluator; integrate E15 Graph focus/trace when available. |
-| **Acceptance criteria** | (1) Watch list reports before/after values and causal input/assumption changes for a mutation preview. (2) Breakpoints support numeric/boolean conditions (e.g. Debt < 0) and assumption-change conditions. (3) Trace explains an output through dependencies to root causes. (4) Breakpoint/watch evaluation is deterministic and retained as evidence. |
-| **Dependencies** | E12.0, E7; E15 enhances visualization but is not required for core semantics |
 
 ### E12.4 — Closed-Loop Review, Testing, Contracts & Evidence
 
