@@ -90,7 +90,7 @@ It makes spreadsheet models behave like software — without requiring users to 
 | 36 | Semantic Refactoring | 📐 Designed → E12 | Rename/extract/replace/rewire/introduce/remove with impact preview and atomic undo |
 | 37 | Model Debugger | 📐 Designed → E12 | Trace, watches, impact/state comparison, deterministic model breakpoints |
 | 38 | Native Model Creation & Templates | 📐 Designed → E12 | Create governed models without Excel; templates include contracts/tests/review rules |
-| 39 | Model Interaction Protocol | 📐 Designed → E12 | Human-agent parity over equivalent governed mutation primitives |
+| 39 | Model Interaction Protocol | 📐 Designed → E12 | Agent-agnostic human/agent parity over governed mutation primitives; the engine remains computational authority |
 
 ---
 

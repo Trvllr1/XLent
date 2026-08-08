@@ -529,7 +529,7 @@ These items have design notes in the blueprint but no scheduled implementation. 
 
 **Primary thesis:** `.xlsx ≠ Model`. Excel remains a first-class authoring/interchange surface, but the canonical model (XMR + AST + Graph + Runtime) is the authoritative editable, executable, testable, versionable, and deployable object.
 
-**Constitutional status:** M-01–M-10 in doc 14 are proposed amendments, not binding until separately adopted. E12 implementation must nevertheless preserve current constitutional invariants: deterministic execution, inference ≠ authority, execution ≠ validity, no silent mutation, and evidence before judgment.
+**Constitutional status:** M-01–M-12 in doc 14 are proposed amendments, not binding until separately adopted. E12 implementation must nevertheless preserve current constitutional invariants: deterministic execution, inference ≠ authority, execution ≠ validity, no silent mutation, and evidence before judgment.
 
 **Dependencies:** E0 (AST), E2 (version/diff), E7 (debug/findings), E8 (contracts), E9 (assurance), E10 (targeted tests/CI), E13 (review integration for the complete closed loop). E12 can begin before E13 is complete, but E12.4 cannot close without it.
 
@@ -593,7 +593,7 @@ These items have design notes in the blueprint but no scheduled implementation. 
 |---|---|
 | **Scope** | Expose the canonical mutation loop as a model interaction protocol. Agents inspect, hypothesize, propose, execute preview, test, review evidence, accept/reject, commit; failure supports undo/revise/alternative. No direct XLSX mutation or privileged bypass. |
 | **Files** | Extend mutation API + `XLentClient`; agent tool schemas; permission/policy checks. |
-| **Acceptance criteria** | (1) Agent and UI produce byte-equivalent mutation requests for the same operation. (2) Agent receives semantic diff, impact, test/contract outcomes, and evidence before requesting commit. (3) Agent cannot approve its own consequential review unless policy explicitly grants a human-equivalent role. (4) Failed proposal can be rejected and replaced without altering canonical state. (5) Audit trail identifies actor, rationale, proposal, decision, and resulting version. |
+| **Acceptance criteria** | (1) Agent and UI produce byte-equivalent mutation requests for the same operation. (2) Agent receives semantic diff, impact, test/contract outcomes, and evidence before requesting commit. (3) Agent cannot approve its own consequential review unless policy explicitly grants a human-equivalent role. (4) Failed proposal can be rejected and replaced without altering canonical state. (5) Audit trail identifies actor, rationale, proposal, decision, and resulting version. (6) First-party and third-party agents use the same governed interfaces and authorization model; no native-agent-only integrity capability is required. (7) The engine, not an agent, computes mutation validity, execution results, tests, and evidence. |
 | **Dependencies** | E12.0, E12.4 |
 
 ### E12.7 — Excel Export, Publish & Deploy

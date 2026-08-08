@@ -20,11 +20,13 @@ For any implementation decision, apply these tests:
 
 2. **Can a spreadsheet model move from authoring → testing → validation → versioning → publication → deployment → execution → monitoring without losing its spreadsheet-native semantics?** If yes → likely ModelOps.
 
-3. **AI reasons; XLent executes.** The runtime produces deterministic, reproducible results with evidence. AI systems (Sil, agents) consume and interpret those results. XLent never hallucinates arithmetic.
+3. **Agents reason and propose; the XLent Model Engine governs and executes.** The engine remains authoritative over model mutation, execution, validation, integrity, testing, and evidence. Agents consume results and propose actions; they never become computational authority.
 
 4. **.xlsx ≠ Model.** An xlsx is one serialization. The XMR canonical representation is the model. Source formats are acquisition paths, not architectural boundaries. XLent can also produce xlsx as an export of the model.
 
 5. **Sil is the first customer, not a dependency.** XLent must stand alone. Neither product should be technically coupled to the other.
+
+6. **XLent is agent-agnostic.** Any authorized, sufficiently capable agent can become a model engineer through XLent's governed model interfaces. The native agent is a first-party experience, not a required dependency or privileged integrity path.
 
 ---
 
@@ -88,6 +90,8 @@ Before adding any feature, ask:
 5. Does it respect the **parse ≠ execute** boundary? (Parsing gives visibility; execution gives results. Both are valuable independently.)
 6. Does it distinguish **execution from validity**? (A model that runs is not necessarily correct — Constitution Rule 8.)
 7. Does it preserve the **inference ≠ authority** boundary? (AI-derived or workbook-inferred rules must not silently become requirements — Constitution Rule 12.)
+8. Does it preserve **agent agnosticism**? (A governed model capability must not require XLent's native agent when another authorized agent can use the same interface.)
+9. Does it preserve **engine sovereignty**? (Agents may reason and propose, but only the XLent Model Engine determines mutation validity, execution results, tests, and evidence.)
 
 ---
 

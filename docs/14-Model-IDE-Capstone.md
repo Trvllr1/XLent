@@ -4,7 +4,7 @@
 **Epic:** E12
 **Designation:** XLent Capstone
 **Source of record:** `docs/source/XLent-Model-IDE-Capstone.txt`
-**Constitutional impact:** Proposed amendments M-01–M-10; not binding until adopted into the Engineering Constitution
+**Constitutional impact:** Proposed amendments M-01–M-12; not binding until adopted into the Engineering Constitution
 
 > XLent is not merely a place to inspect models. It is where models are built, understood, debugged, changed, tested, reviewed, assured, versioned, and deployed.
 
@@ -79,6 +79,20 @@ The Formula Editor provides syntax highlighting, AST validation, dependency and 
 
 Humans and agents use equivalent governed mutation primitives wherever practical. Agents propose changes; the deterministic model engine evaluates them. Agents receive no privileged mutation pathway.
 
+> Any sufficiently capable agent can become a model engineer because XLent gives it a governed computational environment.
+
+### Agent Agnosticism
+
+> XLent shall not require users to adopt a particular agent. Any authorized agent may interact with XLent through governed model interfaces, while XLent's native agent may provide a first-party agentic experience.
+
+Agent choice is a product-layer decision, not a model-integrity dependency. Authentication, authorization, policy, mutation controls, and evidence requirements apply consistently to first-party and third-party agents.
+
+### Engine Sovereignty
+
+> Agents may reason about and propose changes to models, but the XLent Model Engine remains authoritative over model mutation, execution, validation, integrity, testing, and evidence.
+
+No agent may substitute its own arithmetic, validation claims, test outcomes, or evidence for deterministic engine results. Agent reasoning can inform a proposal; it cannot become computational authority.
+
 ```text
 Goal → Inspect → Hypothesis → Propose Mutation → Execute → Test
      → Review Evidence → Accept / Reject → Commit
@@ -134,6 +148,8 @@ The source document proposes, but does not itself enact:
 8. **M-08 Reversibility** — material mutations are traceable and reversible.
 9. **M-09 Evidence Continuity** — editing never severs tests, contracts, findings, provenance, or review state.
 10. **M-10 Execution Is Not Validation** — successful execution remains insufficient evidence of validity.
+11. **M-11 Agent Agnosticism** — any authorized agent may use governed model interfaces; XLent does not require adoption of a particular agent.
+12. **M-12 Engine Sovereignty** — agents reason and propose; the XLent Model Engine remains authoritative over mutation, execution, validation, integrity, testing, and evidence.
 
 ## Final Definition
 
