@@ -8,6 +8,7 @@ export type {
   MutationRequest,
   MutationUndoRequest,
   MutationValidationIssue,
+  MoveParameterOperation,
   RemoveParameterOperation,
   RenameParameterOperation,
   RestoreParameterOperation,

@@ -235,4 +235,28 @@ describe('previewMutation', () => {
       expect.objectContaining({ code: 'parameter_has_test_refs' }),
     ]));
   });
+
+  it('reorders parameters without changing graph identity or execution', () => {
+    const { model, workbook } = buildFixture();
+    model.parameters.push({ ...model.parameters[0], id: 'cost', name: 'Cost', sourceCell: { sheet: 'Model', ref: 'A3' } });
+    const originalGraph = structuredClone(model.graph);
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Put cost assumptions before revenue assumptions',
+      operations: [{ type: 'moveParameter', parameterId: 'cost', toIndex: 0 }],
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel?.parameters.map((parameter) => parameter.id)).toEqual(['cost', 'revenue']);
+    expect(preview.proposedModel?.graph).toEqual(originalGraph);
+    expect(preview.proposedModel?.outputs[0].value).toBe(20);
+    expect(preview.proposedModel?.semver).toBe('1.0.1');
+    expect(preview.affectedComponents).toEqual([]);
+    expect(preview.affectedOutputs).toEqual([]);
+    expect(preview.diff?.entries).toEqual([
+      expect.objectContaining({ path: 'parameters.order', semantics: 'cosmetic' }),
+    ]);
+    expect(model.parameters.map((parameter) => parameter.id)).toEqual(['revenue', 'cost']);
+  });
 });

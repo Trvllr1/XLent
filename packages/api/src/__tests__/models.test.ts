@@ -462,6 +462,60 @@ describe('Models API', () => {
     expect(undone.restoredFromSnapshotId).toBe(baselineSnapshot.id);
   });
 
+  it('POST /models/:id/mutations/commit — reorders parameters and restores exact order through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const memoParameter = model.parameters.find((parameter: any) => parameter.name === 'Memo');
+    const originalOrder = model.parameters.map((parameter: any) => parameter.id);
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before parameter reorder' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'user-order', type: 'human' },
+      rationale: 'Put the memo input first for review',
+      operations: [{ type: 'moveParameter', parameterId: memoParameter.id, toIndex: 0 }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.diff.entries).toEqual([expect.objectContaining({ path: 'parameters.order', semantics: 'cosmetic' })]);
+    expect(preview.affectedComponents).toEqual([]);
+    expect(preview.affectedOutputs).toEqual([]);
+    expect(preview.proposedModel.graph).toEqual(model.graph);
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.parameters[0].id).toBe(memoParameter.id);
+    expect(committed.model.graph).toEqual(model.graph);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the prior review order',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.parameters.map((parameter: any) => parameter.id)).toEqual(originalOrder);
+    expect(undone.model.graph).toEqual(model.graph);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

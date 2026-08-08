@@ -27,6 +27,14 @@ export function diffModels(from: Model, to: Model): ModelDiff {
     }
   }
 
+  const fromParameterOrder = from.parameters.map((parameter) => parameter.id);
+  const toParameterOrder = to.parameters.map((parameter) => parameter.id);
+  if (fromParameterOrder.length === toParameterOrder.length
+    && fromParameterOrder.every((id) => toParams.has(id))
+    && fromParameterOrder.some((id, index) => toParameterOrder[index] !== id)) {
+    entries.push({ path: 'parameters.order', changeType: 'modified', semantics: 'cosmetic', before: fromParameterOrder, after: toParameterOrder, description: 'Parameter display order changed' });
+  }
+
   // Compare outputs
   const fromOutputs = new Map(from.outputs.map((o) => [o.name, o]));
   const toOutputs = new Map(to.outputs.map((o) => [o.name, o]));

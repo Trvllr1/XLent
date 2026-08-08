@@ -213,6 +213,19 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
       operations.push({ type: 'setParameterValue', parameterId: parameter.id, value: targetParameter.currentValue });
     }
   }
+  const workingOrder = model.parameters.map((parameter) => parameter.id);
+  for (const operation of operations) {
+    if (operation.type === 'restoreParameter') workingOrder.splice(operation.index, 0, operation.parameterId);
+    if (operation.type === 'removeParameter') workingOrder.splice(workingOrder.indexOf(operation.parameterId), 1);
+  }
+  target.data.parameters.forEach((parameter, toIndex) => {
+    const fromIndex = workingOrder.indexOf(parameter.id);
+    if (fromIndex !== toIndex) {
+      operations.push({ type: 'moveParameter', parameterId: parameter.id, toIndex });
+      workingOrder.splice(fromIndex, 1);
+      workingOrder.splice(toIndex, 0, parameter.id);
+    }
+  });
   if (operations.length === 0) return c.json({ error: 'Target snapshot matches the current parameter state' }, 422);
 
   const request: MutationRequest = { actor: parsed.data.actor, rationale: parsed.data.rationale, operations };

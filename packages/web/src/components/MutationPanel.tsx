@@ -24,14 +24,17 @@ interface MutationPreview {
 interface MutationPanelProps {
   modelId: string;
   parameter: Parameter;
+  parameterIndex: number;
+  parameterCount: number;
   onClose: () => void;
   onCommitted: () => void;
 }
 
-export function MutationPanel({ modelId, parameter, onClose, onCommitted }: MutationPanelProps) {
-  const [mode, setMode] = useState<'value' | 'name' | 'remove'>('value');
+export function MutationPanel({ modelId, parameter, parameterIndex, parameterCount, onClose, onCommitted }: MutationPanelProps) {
+  const [mode, setMode] = useState<'value' | 'name' | 'position' | 'remove'>('value');
   const [value, setValue] = useState(String(parameter.currentValue ?? ''));
   const [name, setName] = useState(parameter.name);
+  const [position, setPosition] = useState(String(parameterIndex + 1));
   const [rationale, setRationale] = useState('');
   const [preview, setPreview] = useState<MutationPreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +51,9 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
         }]
       : mode === 'name'
         ? [{ type: 'renameParameter' as const, parameterId: parameter.id, name: name.trim() }]
-        : [{ type: 'removeParameter' as const, parameterId: parameter.id }],
+        : mode === 'position'
+          ? [{ type: 'moveParameter' as const, parameterId: parameter.id, toIndex: Number(position) - 1 }]
+          : [{ type: 'removeParameter' as const, parameterId: parameter.id }],
   });
 
   const revise = (update: () => void) => {
@@ -121,7 +126,7 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
       </div>
 
       <div className="mt-4 inline-flex rounded border border-slate-700 bg-slate-950 p-0.5" aria-label="Change type">
-        {(['value', 'name', 'remove'] as const).map((option) => (
+        {(['value', 'name', 'position', 'remove'] as const).map((option) => (
           <button
             key={option}
             type="button"
@@ -136,9 +141,13 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
 
       <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(10rem,0.5fr)_minmax(16rem,1fr)_auto] xl:items-end">
         <label className="text-xs text-slate-400">
-          {mode === 'value' ? 'Proposed value' : mode === 'name' ? 'Proposed name' : 'Proposed change'}
+          {mode === 'value' ? 'Proposed value' : mode === 'name' ? 'Proposed name' : mode === 'position' ? 'Proposed position' : 'Proposed change'}
           {mode === 'remove' ? (
             <span className="mt-1 flex min-h-9 items-center rounded border border-red-900/70 bg-red-950/30 px-2.5 py-2 text-sm text-red-300">Remove {parameter.name}</span>
+          ) : mode === 'position' ? (
+            <select value={position} onChange={(event) => revise(() => setPosition(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100">
+              {Array.from({ length: parameterCount }, (_, index) => <option key={index} value={index + 1}>{index + 1}</option>)}
+            </select>
           ) : mode === 'name' ? (
             <input type="text" value={name} onChange={(event) => revise(() => setName(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100" />
           ) : parameter.type === 'boolean' ? (
@@ -154,7 +163,7 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
           Rationale
           <input type="text" value={rationale} onChange={(event) => revise(() => setRationale(event.target.value))} placeholder="Why should this model change?" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
         </label>
-        <button type="button" disabled={busy || !rationale.trim() || (mode === 'name' ? !name.trim() || name.trim() === parameter.name : mode === 'value' && parameter.type === 'number' && !Number.isFinite(Number(value)))} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="button" disabled={busy || !rationale.trim() || (mode === 'name' ? !name.trim() || name.trim() === parameter.name : mode === 'position' ? Number(position) === parameterIndex + 1 : mode === 'value' && parameter.type === 'number' && !Number.isFinite(Number(value)))} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
           {busy ? 'Evaluating…' : 'Preview change'}
         </button>
       </div>

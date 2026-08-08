@@ -29,6 +29,8 @@ export function InputsView() {
         <MutationPanel
           modelId={modelId}
           parameter={editingParameter}
+          parameterIndex={model.parameters.findIndex((parameter: any) => parameter.id === editingParameter.id)}
+          parameterCount={model.parameters.length}
           onClose={() => setEditingParameterId(null)}
           onCommitted={refreshModel}
         />

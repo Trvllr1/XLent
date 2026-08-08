@@ -105,6 +105,11 @@ const mutationRequestFields = {
       type: z.literal('removeParameter'),
       parameterId: z.string().uuid(),
     }).strict(),
+    z.object({
+      type: z.literal('moveParameter'),
+      parameterId: z.string().uuid(),
+      toIndex: z.number().int().min(0),
+    }).strict(),
   ])).min(1).max(100),
 };
 

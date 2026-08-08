@@ -45,11 +45,15 @@ export function previewMutation(
       parameter.name = operation.name.trim();
       renameContractReferences(proposedModel, previousName, parameter.name);
       renameTestReferences(proposedTests, previousName, parameter.name);
-    } else {
+    } else if (operation.type === 'removeParameter') {
       const cellId = `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
       proposedModel.parameters = proposedModel.parameters.filter((candidate) => candidate.id !== parameter.id);
       proposedModel.graph.nodes = proposedModel.graph.nodes.filter((node) => node !== cellId);
       proposedModel.graph.edges = proposedModel.graph.edges.filter((edge) => edge.from !== cellId && edge.to !== cellId);
+    } else {
+      const fromIndex = proposedModel.parameters.findIndex((candidate) => candidate.id === parameter.id);
+      const [moved] = proposedModel.parameters.splice(fromIndex, 1);
+      proposedModel.parameters.splice(operation.toIndex, 0, moved);
     }
   }
 
@@ -164,7 +168,7 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
       } else if ([...proposedNames].some(([parameterId, proposedName]) => parameterId !== parameter.id && proposedName === name.toLowerCase())) {
         issues.push({ code: 'duplicate_name', operationIndex, message: `Parameter name "${name}" is already in use.` });
       }
-    } else {
+    } else if (operation.type === 'removeParameter') {
       const cellId = `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
       const consumers = model.graph.edges.filter((edge) => edge.from === cellId).map((edge) => edge.to);
       const isOutput = model.outputs.some((output) => `${output.sourceCell.sheet}!${output.sourceCell.ref}` === cellId);
@@ -177,6 +181,8 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
       if (tests.some((test) => testReferencesParameter(test, parameter))) {
         issues.push({ code: 'parameter_has_test_refs', operationIndex, message: `Parameter "${parameter.name}" cannot be removed while model tests reference it.` });
       }
+    } else if (!Number.isInteger(operation.toIndex) || operation.toIndex < 0 || operation.toIndex >= model.parameters.length) {
+      issues.push({ code: 'invalid_index', operationIndex, message: `Parameter position must be between 0 and ${model.parameters.length - 1}.` });
     }
   });
 
@@ -214,7 +220,7 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
 }
 
 function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
-  const queue = request.operations.map((operation) => {
+  const queue = request.operations.filter((operation) => operation.type !== 'moveParameter').map((operation) => {
     const parameter = operation.type === 'restoreParameter'
       ? operation.parameter
       : model.parameters.find((candidate) => candidate.id === operation.parameterId)!;
