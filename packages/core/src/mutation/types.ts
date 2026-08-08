@@ -143,6 +143,7 @@ export interface MutationRequest {
   rationale: string;
   operations: MutationOperation[];
   breakpoints?: MutationBreakpoint[];
+  findingId?: string;
 }
 
 export interface MutationCommitRequest extends MutationRequest {
@@ -179,6 +180,8 @@ export interface MutationPreview {
   outputTraces?: MutationOutputTrace[];
   evidenceRefs: Array<{ kind: 'preview'; checksum: string }>;
   testResults: ModelTestResult[];
+  relevantTestIds?: string[];
+  relevantTestResults?: ModelTestResult[];
   allTestsPass: boolean;
   contractFindings: DebugFinding[];
   validationIssues: MutationValidationIssue[];

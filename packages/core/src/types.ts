@@ -404,6 +404,12 @@ export interface EvidenceRecord {
     breakpointResults: unknown[];
     outputTraces: unknown[];
   };
+  sourceFindingId?: string;
+  mutationReview?: {
+    relevantTestIds: string[];
+    fullTestIds: string[];
+    contractFindingIds: string[];
+  };
   restoredFromSnapshotId?: string;
 }
 

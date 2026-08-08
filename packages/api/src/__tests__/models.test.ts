@@ -174,6 +174,7 @@ describe('Models API', () => {
     const mutationRequest = {
       actor: { id: 'agent-1', type: 'agent' },
       rationale: 'Commit a governed price update',
+      findingId: 'finding-total-price-impact',
       operations: [{ type: 'setParameterValue', parameterId: priceParam.id, value: 200 }],
       breakpoints: [{
         id: 'total-review-threshold',
@@ -242,6 +243,12 @@ describe('Models API', () => {
         watchValues: preview.watchValues,
         breakpointResults: preview.breakpointResults,
         outputTraces: preview.outputTraces,
+      },
+      sourceFindingId: mutationRequest.findingId,
+      mutationReview: {
+        relevantTestIds: preview.relevantTestIds,
+        fullTestIds: preview.testResults.map((result: any) => result.testId),
+        contractFindingIds: preview.contractFindings.map((finding: any) => finding.id),
       },
     }));
 

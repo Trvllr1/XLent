@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import type { ModelOutletContext } from './ModelView.js';
 import { useSelection } from '../selection.js';
 import { formatExcelValue } from '../format.js';
+import { FormulaEditPanel } from '../components/FormulaEditPanel.js';
 
 interface ImpactEstimate {
   outputId: string;
@@ -48,6 +49,8 @@ export function FindingsView() {
   const [loading, setLoading] = useState(true);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [catFilter, setCatFilter] = useState<string>('all');
+  const [fixing, setFixing] = useState<Finding | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const addRegressionTest = async (f: Finding) => {
     if (!f.regressionTest) return;
@@ -70,7 +73,7 @@ export function FindingsView() {
       .catch((e) => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [modelId]);
+  }, [modelId, refreshKey]);
 
   if (loading) return <p className="text-slate-400">Analyzing model…</p>;
   if (error) return <p className="text-red-400">{error}</p>;
@@ -130,16 +133,33 @@ export function FindingsView() {
               finding={f}
               onInspect={() => f.sourceRef && select({ modelId, cellId: f.sourceRef, label: f.sourceRef, value: undefined })}
               onAddTest={() => addRegressionTest(f)}
+              onFix={() => setFixing(f)}
               added={added.has(f.id)}
             />
           ))}
+        </div>
+      )}
+      {fixing?.sourceRef && fixing.expectedFormula && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-6">
+          <div className="w-full max-w-2xl rounded border border-slate-700 bg-slate-900 p-3 shadow-2xl">
+            <FormulaEditPanel
+              modelId={modelId}
+              cellId={fixing.sourceRef}
+              currentFormula={fixing.observedFormula ?? ''}
+              proposedFormula={fixing.expectedFormula}
+              initialRationale={`Resolve finding: ${fixing.explanation}`}
+              findingId={fixing.id}
+              onClose={() => setFixing(null)}
+              onCommitted={() => setRefreshKey((value) => value + 1)}
+            />
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function FindingCard({ finding: f, onInspect, onAddTest, added }: { finding: Finding; onInspect: () => void; onAddTest: () => void; added: boolean }) {
+function FindingCard({ finding: f, onInspect, onAddTest, onFix, added }: { finding: Finding; onInspect: () => void; onAddTest: () => void; onFix: () => void; added: boolean }) {
   const style = SEV_STYLE[f.severity];
   const rich = f.expectedFormula || f.likelyCause || f.impactChain?.length || f.impactEstimates?.length;
 
@@ -218,6 +238,11 @@ function FindingCard({ finding: f, onInspect, onAddTest, added }: { finding: Fin
               </button>
               <span className="ml-2 text-[10px] text-slate-600">Rule 7 — protect against recurrence</span>
             </div>
+          )}
+          {f.sourceRef && f.expectedFormula && (
+            <button onClick={onFix} className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500">
+              Fix with governed preview
+            </button>
           )}
         </div>
       )}

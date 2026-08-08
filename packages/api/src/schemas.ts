@@ -178,6 +178,7 @@ const mutationRequestFields = {
       parameterId: z.string().uuid().optional(),
     }).strict(),
   ])).max(50).optional(),
+  findingId: z.string().min(1).max(200).optional(),
 };
 
 export const mutationPreviewSchema = z.object(mutationRequestFields).strict();

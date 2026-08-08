@@ -233,11 +233,14 @@ export function previewMutation(
 
   const initialDiff = diffModels(baseForDiff, proposedModel);
   proposedModel.semver = bumpSemver(model.semver, initialDiff.suggestedBump);
+  const impact = findImpact(model, request, proposedModel.graph);
   const testResults = runModelTests(proposedModel, effectiveWorkbook, proposedTests, overrides);
+  const relevantTestIds = selectRelevantTestIds(model, proposedModel, proposedTests, impact.components, impact.outputs);
+  const relevantTestIdSet = new Set(relevantTestIds);
+  const relevantTestResults = testResults.filter((result) => relevantTestIdSet.has(result.testId));
   const contractFindings = proposedModel.contract
     ? reconcileContract(proposedModel, proposedModel.contract)
     : [];
-  const impact = findImpact(model, request, proposedModel.graph);
   const diff = diffModels(baseForDiff, proposedModel);
   const baseRuntime = new ModelRuntime(model, workbook);
   baseRuntime.run();
@@ -275,6 +278,7 @@ export function previewMutation(
     affectedComponents: impact.components,
     affectedOutputs: impact.outputs,
     proposedTests,
+    relevantTestIds,
     testResults: testResults.map(({ executedAt: _, ...result }) => result),
     contractFindings,
     watchValues,
@@ -298,10 +302,45 @@ export function previewMutation(
     outputTraces,
     evidenceRefs: [{ kind: 'preview', checksum: previewId }],
     testResults,
+    relevantTestIds,
+    relevantTestResults,
     allTestsPass: testResults.every((result) => result.status === 'pass' || result.status === 'skip'),
     contractFindings,
     validationIssues: [],
   };
+}
+
+function selectRelevantTestIds(
+  model: Model,
+  proposedModel: Model,
+  tests: ModelTestDefinition[],
+  affectedComponents: string[],
+  affectedOutputs: string[],
+): string[] {
+  const affected = new Set<string>([...affectedComponents, ...affectedOutputs]);
+  for (const output of [...model.outputs, ...proposedModel.outputs]) {
+    if (affectedOutputs.includes(output.id) || affectedComponents.includes(`${output.sourceCell.sheet}!${output.sourceCell.ref}`)) {
+      affected.add(output.id);
+      affected.add(output.name);
+    }
+  }
+  for (const parameter of [...model.parameters, ...proposedModel.parameters]) {
+    if (affectedComponents.includes(`${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`)) {
+      affected.add(parameter.id);
+      affected.add(parameter.name);
+    }
+  }
+
+  return tests.filter((test) => testReferences(test).some((reference) => affected.has(reference))).map((test) => test.id);
+}
+
+function testReferences(test: ModelTestDefinition): string[] {
+  const references = [test.assertion.left];
+  if (test.assertion.type === 'balance' && typeof test.assertion.right === 'string') references.push(test.assertion.right);
+  references.push(...Object.keys(test.assertion.baseline ?? {}));
+  references.push(...(test.assertion.boundaryParams ?? []).map((parameter) => parameter.parameterId));
+  references.push(...(test.assertion.consistencyPair ?? []));
+  return references;
 }
 
 function splitCellId(cellId: string): [string, string] {

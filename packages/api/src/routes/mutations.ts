@@ -29,12 +29,18 @@ function persistMutation(
   const modelChecksum = crypto.createHash('sha256').update(JSON.stringify(committedModel)).digest('hex');
   const evidenceChecksum = crypto.createHash('sha256').update(JSON.stringify({
     modelChecksum,
+    sourceFindingId: request.findingId,
     tests: preview.testResults,
     contractFindings: preview.contractFindings,
     mutationDebugger: {
       watchValues: preview.watchValues ?? {},
       breakpointResults: preview.breakpointResults ?? [],
       outputTraces: preview.outputTraces ?? [],
+    },
+    mutationReview: {
+      relevantTestIds: preview.relevantTestIds ?? [],
+      fullTestIds: preview.testResults.map((result) => result.testId),
+      contractFindingIds: preview.contractFindings.map((finding) => finding.id),
     },
   })).digest('hex');
   const snapshot: Snapshot = {
@@ -65,6 +71,12 @@ function persistMutation(
     purpose: 'mutation_commit',
     rationale: request.rationale,
     mutationOperations: request.operations,
+    sourceFindingId: request.findingId,
+    mutationReview: {
+      relevantTestIds: preview.relevantTestIds ?? [],
+      fullTestIds: preview.testResults.map((result) => result.testId),
+      contractFindingIds: preview.contractFindings.map((finding) => finding.id),
+    },
     mutationDebugger: {
       watchValues: preview.watchValues ?? {},
       breakpointResults: preview.breakpointResults ?? [],
@@ -132,6 +144,7 @@ mutationsRouter.post('/:id/mutations/commit', async (c) => {
     rationale: parsed.data.rationale,
     operations: parsed.data.operations,
     breakpoints: parsed.data.breakpoints,
+    findingId: parsed.data.findingId,
   };
   const tests = testStore.listTests(model.id) as ModelTestDefinition[];
   const preview = previewMutation(model, workbook, request, tests);
@@ -181,6 +194,7 @@ mutationsRouter.post('/:id/mutations/reject', async (c) => {
     rationale: parsed.data.rationale,
     operations: parsed.data.operations,
     breakpoints: parsed.data.breakpoints,
+    findingId: parsed.data.findingId,
   };
   const tests = testStore.listTests(model.id) as ModelTestDefinition[];
   const preview = previewMutation(model, workbook, request, tests);

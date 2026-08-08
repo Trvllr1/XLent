@@ -16,6 +16,7 @@ interface MutationPreview {
   affectedOutputs: string[];
   evidenceRefs: Array<{ kind: 'preview'; checksum: string }>;
   testResults: Array<{ name: string; status: string; message?: string }>;
+  relevantTestIds?: string[];
   allTestsPass: boolean;
   contractFindings: Array<{ id: string; severity: string; explanation: string }>;
   validationIssues: Array<{ code: string; message: string }>;
@@ -189,6 +190,7 @@ export function MutationPanel({ modelId, parameter, parameterIndex, parameterCou
               Tests: {preview.testResults.filter((test) => test.status === 'pass').length}/{preview.testResults.length} passed
             </p>
           )}
+          {preview.testResults.length > 0 && <p className="mt-1 text-slate-500">Relevant: {preview.relevantTestIds?.length ?? 0} · Full gate: {preview.testResults.length}</p>}
           {preview.contractFindings.map((finding) => <p key={finding.id} className={finding.severity === 'critical' ? 'mt-2 text-red-400' : 'mt-2 text-amber-400'}>{finding.explanation}</p>)}
           <div className="mt-4 flex gap-2">
             <button type="button" disabled={busy || blocked} onClick={() => handleDecision('commit')} className="rounded bg-emerald-500 px-3 py-1.5 font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">Commit</button>

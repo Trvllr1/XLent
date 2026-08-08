@@ -15,6 +15,7 @@ interface Preview {
   affectedComponents: string[];
   affectedOutputs: string[];
   affectedComponentValues?: Record<string, unknown>;
+  relevantTestIds?: string[];
   watchValues?: Record<string, { before: unknown; after: unknown }>;
   breakpointResults?: Array<{
     breakpoint: { id: string; kind: 'value' | 'assumptionChanged'; cellId?: string; operator?: string; value?: number | boolean };
@@ -42,7 +43,11 @@ interface FormulaEditPanelProps {
   cellId: string;
   currentFormula: string;
   workbookSheets?: string[];
+  proposedFormula?: string;
+  initialRationale?: string;
+  findingId?: string;
   onClose: () => void;
+  onCommitted?: () => void;
 }
 
 function formatDebugValue(value: unknown): string {
@@ -52,13 +57,13 @@ function formatDebugValue(value: unknown): string {
   return Number.isInteger(value) ? value.toLocaleString('en-US') : Number(value.toPrecision(8)).toString();
 }
 
-export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookSheets = [], onClose }: FormulaEditPanelProps) {
-  const [formula, setFormula] = useState(`=${currentFormula}`);
-  const [rationale, setRationale] = useState('');
+export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookSheets = [], proposedFormula, initialRationale = '', findingId, onClose, onCommitted }: FormulaEditPanelProps) {
+  const [formula, setFormula] = useState(`=${(proposedFormula ?? currentFormula).replace(/^=+/, '')}`);
+  const [rationale, setRationale] = useState(initialRationale);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{ formula: string; rationale: string }>>([{ formula: `=${currentFormula}`, rationale: '' }]);
+  const [history, setHistory] = useState<Array<{ formula: string; rationale: string }>>([{ formula: `=${(proposedFormula ?? currentFormula).replace(/^=+/, '')}`, rationale: initialRationale }]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [versions, setVersions] = useState<SnapshotEntry[]>([]);
   const [selectedVersion, setSelectedVersion] = useState('');
@@ -121,6 +126,7 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
     actor: { id: 'web-user', type: 'human' as const },
     rationale,
     operations: [{ type: 'setCellFormula' as const, sourceCell, formula }],
+    findingId,
     breakpoints: breakpointKind === 'value'
       ? [{ id: 'formula-debugger', kind: 'value' as const, cellId: breakpointCell, operator: breakpointOperator, value: parsedBreakpointValue }]
       : breakpointKind === 'assumptionChanged'
@@ -203,7 +209,10 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
     setError(null);
     try {
       await call(decision, { ...request(), baseVersion: preview.baseVersion, previewId: preview.previewId });
-      if (decision === 'commit') window.dispatchEvent(new Event('xlent:model-changed'));
+      if (decision === 'commit') {
+        window.dispatchEvent(new Event('xlent:model-changed'));
+        onCommitted?.();
+      }
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `${decision} failed`);
@@ -273,6 +282,7 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
             <span className="font-mono">Evidence {preview.previewId?.slice(0, 12)}</span>
           </div>
           {preview.testResults.length > 0 && <p className={`mt-2 ${preview.allTestsPass ? 'text-emerald-400' : 'text-red-400'}`}>Tests: {preview.testResults.filter((test) => test.status === 'pass').length}/{preview.testResults.length} passed</p>}
+          {preview.testResults.length > 0 && <p className="mt-1 text-slate-500">Relevant: {preview.relevantTestIds?.length ?? 0} · Full gate: {preview.testResults.length}</p>}
           {preview.testResults.filter((test) => test.status === 'fail' || test.status === 'error').map((test) => <p key={test.name} className="mt-1 text-red-300"><span className="font-medium">{test.name}:</span> {test.message ?? test.status}</p>)}
           {preview.breakpointResults?.map((result) => (
             <div key={result.breakpoint.id} className={`mt-3 rounded border px-2 py-1.5 ${result.hit ? 'border-amber-700 bg-amber-950/30 text-amber-300' : 'border-slate-800 bg-slate-950/60 text-slate-400'}`}>
