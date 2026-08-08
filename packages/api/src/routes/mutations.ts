@@ -210,6 +210,9 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
     if (targetParameter.name !== parameter.name) {
       operations.push({ type: 'renameParameter', parameterId: parameter.id, name: targetParameter.name });
     }
+    if (targetParameter.source !== parameter.source) {
+      operations.push({ type: 'restoreParameterSource', parameterId: parameter.id });
+    }
     if (targetParameter.currentValue !== parameter.currentValue) {
       operations.push({ type: 'setParameterValue', parameterId: parameter.id, value: targetParameter.currentValue });
     }
@@ -261,7 +264,14 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
   for (const targetCalculation of target.data.calculations) {
     const key = `${targetCalculation.sourceCell.sheet}!${targetCalculation.sourceCell.ref}`;
     const current = currentCalculations.get(key);
-    if (current && current.originalFormula !== targetCalculation.originalFormula) {
+    if (!current) {
+      const targetParameter = target.data.parameters.find((parameter) => `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}` === key);
+      if (targetParameter) {
+        operations.push({ type: 'setParameterSource', parameterId: targetParameter.id, formula: targetCalculation.originalFormula });
+      }
+      continue;
+    }
+    if (current.originalFormula !== targetCalculation.originalFormula) {
       operations.push({ type: 'setCellFormula', sourceCell: targetCalculation.sourceCell, formula: targetCalculation.originalFormula });
     }
   }

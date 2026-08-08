@@ -33,9 +33,25 @@ export function previewMutation(
 
   const proposedModel = structuredClone(model);
   const proposedTests = structuredClone(tests);
-  const hasFormulaOps = request.operations.some((operation) => operation.type === 'setCellFormula');
+  const hasFormulaOps = request.operations.some((operation) => operation.type === 'setCellFormula' || operation.type === 'setParameterSource' || operation.type === 'restoreParameterSource');
   const proposedWorkbook = hasFormulaOps ? structuredClone(workbook) : undefined;
   for (const operation of request.operations) {
+    if (operation.type === 'restoreParameterSource') {
+      const parameter = proposedModel.parameters.find((candidate) => candidate.id === operation.parameterId)!;
+      const sheet = proposedWorkbook!.sheets.find((candidate) => candidate.name === parameter.sourceCell.sheet)!;
+      const cell = sheet.cells.find((candidate) => candidate.address.ref === parameter.sourceCell.ref)!;
+      delete cell.formula;
+      parameter.source = 'CLIENT_MODEL';
+      continue;
+    }
+    if (operation.type === 'setParameterSource') {
+      const parameter = proposedModel.parameters.find((candidate) => candidate.id === operation.parameterId)!;
+      const sheet = proposedWorkbook!.sheets.find((candidate) => candidate.name === parameter.sourceCell.sheet)!;
+      const cell = sheet.cells.find((candidate) => candidate.address.ref === parameter.sourceCell.ref)!;
+      cell.formula = operation.formula.trim().replace(/^=+/, '');
+      parameter.source = 'EXTERNAL_DATA';
+      continue;
+    }
     if (operation.type === 'setCellFormula') {
       const sheet = proposedWorkbook!.sheets.find((candidate) => candidate.name === operation.sourceCell.sheet)!;
       const cell = sheet.cells.find((candidate) => candidate.address.ref === operation.sourceCell.ref)!;
@@ -155,10 +171,30 @@ export function previewMutation(
     ? { ...model, calculations: buildCalculations(workbook, model.graph) }
     : model;
 
-  const overrides = proposedModel.parameters.map((parameter) => ({
-    parameterId: parameter.id,
-    value: parameter.currentValue,
-  }));
+  // Source replacement moves the parameter's value authority to the formula;
+  // its currentValue must follow the proposed computation, not the old constant.
+  const overriddenParameters = new Set(request.operations
+    .filter((operation) => operation.type === 'setParameterValue' || operation.type === 'addParameter')
+    .map((operation) => operation.parameterId));
+  const overrides = proposedModel.parameters
+    .filter((parameter) => overriddenParameters.has(parameter.id))
+    .map((parameter) => ({
+      parameterId: parameter.id,
+      value: parameter.currentValue,
+    }));
+  const runtime = new ModelRuntime(proposedModel, effectiveWorkbook);
+  runtime.run(overrides);
+  for (const operation of request.operations) {
+    if (operation.type === 'setParameterSource') {
+      const parameter = proposedModel.parameters.find((candidate) => candidate.id === operation.parameterId)!;
+      parameter.currentValue = runtime.getCellValue(parameter.sourceCell.sheet, parameter.sourceCell.ref);
+    }
+    if (operation.type === 'restoreParameterSource') {
+      const parameter = proposedModel.parameters.find((candidate) => candidate.id === operation.parameterId)!;
+      const setValue = request.operations.find((candidate) => candidate.type === 'setParameterValue' && candidate.parameterId === operation.parameterId);
+      parameter.currentValue = setValue?.type === 'setParameterValue' ? setValue.value : parameter.currentValue;
+    }
+  }
   const results = new ModelRuntime(proposedModel, effectiveWorkbook).run(overrides);
   proposedModel.outputs = proposedModel.outputs.map((output) => ({
     ...output,
@@ -210,8 +246,9 @@ function validateRequest(model: Model, workbook: ParsedWorkbook, request: Mutati
   const issues: MutationValidationIssue[] = [];
   const targets = new Set<string>();
   const structuralConflicts = new Set(request.operations
-    .filter((operation) => ['addParameter', 'removeParameter', 'restoreParameter', 'addOutput', 'removeOutput', 'restoreOutput'].includes(operation.type)
-      && request.operations.some((candidate) => candidate !== operation && operationTargetId(candidate) === operationTargetId(operation)))
+    .filter((operation) => ['addParameter', 'removeParameter', 'restoreParameter', 'restoreParameterSource', 'addOutput', 'removeOutput', 'restoreOutput'].includes(operation.type)
+      && request.operations.some((candidate) => candidate !== operation && operationTargetId(candidate) === operationTargetId(operation)
+        && !(operation.type === 'restoreParameterSource' && candidate.type === 'setParameterValue')))
     .map(operationTargetId));
   const proposedNames = new Map(model.parameters.map((parameter) => [parameter.id, parameter.name.toLowerCase()]));
   const proposedOutputNames = new Map(model.outputs.map((output) => [output.id, output.name.toLowerCase()]));
@@ -247,6 +284,53 @@ function validateRequest(model: Model, workbook: ParsedWorkbook, request: Mutati
       return;
     }
     targets.add(target);
+
+    if (operation.type === 'restoreParameterSource') {
+      const parameter = model.parameters.find((candidate) => candidate.id === operation.parameterId);
+      if (!parameter) {
+        issues.push({ code: 'parameter_not_found', operationIndex, message: `Parameter "${operation.parameterId}" was not found.` });
+        return;
+      }
+      const cell = workbook.sheets.find((sheet) => sheet.name === parameter.sourceCell.sheet)?.cells.find((candidate) => candidate.address.ref === parameter.sourceCell.ref);
+      if (!cell?.formula) {
+        issues.push({ code: 'formula_cell_not_formula', operationIndex, message: `Parameter "${parameter.name}" is not currently formula-driven.` });
+      }
+      return;
+    }
+
+    if (operation.type === 'setParameterSource') {
+      const parameter = model.parameters.find((candidate) => candidate.id === operation.parameterId);
+      if (!parameter) {
+        issues.push({ code: 'parameter_not_found', operationIndex, message: `Parameter "${operation.parameterId}" was not found.` });
+        return;
+      }
+      const cellId = `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
+      const cell = workbook.sheets.find((sheet) => sheet.name === parameter.sourceCell.sheet)?.cells.find((candidate) => candidate.address.ref === parameter.sourceCell.ref);
+      if (!cell) {
+        issues.push({ code: 'formula_cell_not_found', operationIndex, message: `Parameter source "${cellId}" was not found in the canonical workbook.` });
+        return;
+      }
+      if (cell.formula) {
+        issues.push({ code: 'parameter_source_already_formula', operationIndex, message: `Parameter "${parameter.name}" is already formula-driven; use formula edit instead.` });
+        return;
+      }
+      const formula = operation.formula.trim().replace(/^=+/, '');
+      try {
+        const unsupported = collectFunctionCalls(parseFormula(formula)).filter((name) => isUnsupportedFunction(name));
+        if (unsupported.length > 0) {
+          issues.push({ code: 'unsupported_function', operationIndex, message: `Formula uses unsupported function(s): ${unsupported.join(', ')}.` });
+        }
+        const unknownSheet = extractDependencies(formula, parameter.sourceCell.sheet)
+          .map((ref) => ref.split('!')[0])
+          .find((sheet) => !workbook.sheets.some((candidate) => candidate.name === sheet));
+        if (unknownSheet) {
+          issues.push({ code: 'invalid_formula', operationIndex, message: `Formula references unknown sheet "${unknownSheet}".` });
+        }
+      } catch {
+        issues.push({ code: 'invalid_formula', operationIndex, message: `Formula could not be parsed: ${operation.formula.slice(0, 60)}.` });
+      }
+      return;
+    }
 
     if (operation.type === 'setCellFormula') {
       const cellId = `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
@@ -544,6 +628,7 @@ function testReferencesOutput(test: ModelTestDefinition, output: Model['outputs'
 
 function operationTargetId(operation: MutationRequest['operations'][number]): string {
   if (operation.type === 'setCellFormula') return `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
+  if (operation.type === 'setParameterSource' || operation.type === 'restoreParameterSource') return operation.parameterId;
   return operation.type === 'addOutput' || operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput'
     ? operation.outputId
     : operation.parameterId;

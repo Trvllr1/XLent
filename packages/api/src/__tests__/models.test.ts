@@ -898,6 +898,72 @@ describe('Models API', () => {
     expect(Object.values(runAfterUndo.results)).toContain(51);
   });
 
+  it('POST /models/:id/mutations/commit — replaces a parameter source and restores it through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const quantityParameter = model.parameters.find((parameter: any) => parameter.name === 'Quantity');
+    expect(quantityParameter.currentValue).toBe(50);
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before source replacement' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'user-source', type: 'human' },
+      rationale: 'Drive quantity from the price input for review',
+      operations: [{ type: 'setParameterSource', parameterId: quantityParameter.id, formula: '=B1/2' }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.proposedModel.parameters.find((parameter: any) => parameter.id === quantityParameter.id)).toEqual(expect.objectContaining({
+      currentValue: 50,
+      source: 'EXTERNAL_DATA',
+    }));
+    expect(preview.proposedModel.outputs.find((output: any) => output.name === 'Total').value).toBe(5000);
+    expect(preview.proposedModel.graph.edges).toEqual(expect.arrayContaining([{ from: 'Sheet1!B1', to: 'Sheet1!B2' }]));
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.parameters.find((parameter: any) => parameter.id === quantityParameter.id).source).toBe('EXTERNAL_DATA');
+    expect(committed.model.calculations.some((calculation: any) => calculation.sourceCell.ref === 'B2')).toBe(true);
+    const runAfterReplace = await (await app.request(`/models/${modelId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    expect(Object.values(runAfterReplace.results)).toContain(5000);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the hardcoded quantity assumption',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.parameters.find((parameter: any) => parameter.id === quantityParameter.id)).toEqual(expect.objectContaining({
+      currentValue: 50,
+      source: 'CLIENT_MODEL',
+    }));
+    expect(undone.model.calculations.some((calculation: any) => calculation.sourceCell.ref === 'B2')).toBe(false);
+    expect(undone.model.graph).toEqual(model.graph);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

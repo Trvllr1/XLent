@@ -614,4 +614,56 @@ describe('previewMutation', () => {
     expect(cycle.validationIssues).toEqual([expect.objectContaining({ code: 'formula_introduces_cycle' })]);
     expect(cycle.proposedModel).toBeUndefined();
   });
+
+  it('converts a hardcoded input to a formula-driven source and recomputes dependents', () => {
+    const source = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(source, XLSX.utils.aoa_to_sheet([[10], [4], [{ t: 'n', f: 'A1*A2' }]]), 'Model');
+    const workbook = parseWorkbook(Buffer.from(XLSX.write(source, { type: 'buffer', bookType: 'xlsx' })), 'source-replace.xlsx');
+    const { model } = buildFixture();
+    model.graph = buildGraph(workbook);
+    model.calculations = [];
+    model.parameters.push({ ...model.parameters[0], id: 'growth', name: 'Growth', sourceCell: { sheet: 'Model', ref: 'A2' }, currentValue: 4, originalValue: 4 });
+    model.outputs[0] = { ...model.outputs[0], sourceCell: { sheet: 'Model', ref: 'A3' }, value: 40 };
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Replace the hardcoded growth assumption with a formula source',
+      operations: [{ type: 'setParameterSource', parameterId: 'growth', formula: '=A1/5' }],
+    });
+
+    expect(preview.valid).toBe(true);
+    const proposedGrowth = preview.proposedModel?.parameters.find((parameter) => parameter.id === 'growth');
+    expect(proposedGrowth).toEqual(expect.objectContaining({
+      currentValue: 2,
+      source: 'EXTERNAL_DATA',
+    }));
+    expect(preview.proposedModel?.outputs[0].value).toBe(20);
+    expect(preview.proposedModel?.graph.edges).toEqual(expect.arrayContaining([
+      { from: 'Model!A1', to: 'Model!A2' },
+      { from: 'Model!A2', to: 'Model!A3' },
+    ]));
+    expect(preview.proposedModel?.graph.edges.filter((edge) => edge.from === 'Model!A2')).toEqual([{ from: 'Model!A2', to: 'Model!A3' }]);
+    expect(preview.proposedModel?.calculations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourceCell: { sheet: 'Model', ref: 'A2' }, originalFormula: 'A1/5' }),
+    ]));
+    expect(preview.proposedModel?.semver).toBe('1.1.0');
+    expect(preview.affectedComponents).toEqual(expect.arrayContaining(['Model!A2', 'Model!A3']));
+    expect(preview.diff?.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'parameters.Growth.value', before: 4, after: 2 }),
+      expect.objectContaining({ path: 'outputs.Double Revenue.value', before: 40, after: 20 }),
+    ]));
+    expect(model.parameters.find((parameter) => parameter.id === 'growth')?.currentValue).toBe(4);
+  });
+
+  it('rejects source replacement on an already formula-driven parameter', () => {
+    const { model, workbook } = buildFixture();
+    workbook.sheets[0].cells.find((cell) => cell.address.ref === 'A1')!.formula = '1+1';
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt to replace an already formula-driven input',
+      operations: [{ type: 'setParameterSource', parameterId: 'revenue', formula: '=A2*2' }],
+    });
+    expect(preview.valid).toBe(false);
+    expect(preview.validationIssues).toEqual([expect.objectContaining({ code: 'parameter_source_already_formula' })]);
+  });
 });

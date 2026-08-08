@@ -117,6 +117,11 @@ const mutationRequestFields = {
       formula: z.string().min(1).max(2000),
     }).strict(),
     z.object({
+      type: z.literal('setParameterSource'),
+      parameterId: z.string().uuid(),
+      formula: z.string().min(1).max(2000),
+    }).strict(),
+    z.object({
       type: z.literal('renameOutput'),
       outputId: z.string().uuid(),
       name: z.string().min(1).max(200),
