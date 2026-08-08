@@ -102,6 +102,13 @@ const mutationRequestFields = {
       name: z.string().min(1).max(200),
     }).strict(),
     z.object({
+      type: z.literal('addParameter'),
+      parameterId: z.string().uuid(),
+      name: z.string().min(1).max(200),
+      parameterType: z.enum(['number', 'string', 'date', 'boolean', 'error', 'blank']),
+      value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+    }).strict(),
+    z.object({
       type: z.literal('renameOutput'),
       outputId: z.string().uuid(),
       name: z.string().min(1).max(200),

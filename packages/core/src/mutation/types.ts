@@ -1,4 +1,4 @@
-import type { DebugFinding, Model, ModelDiff, ModelTestDefinition, ModelTestResult, Output, Parameter } from '../types.js';
+import type { CellType, DebugFinding, Model, ModelDiff, ModelTestDefinition, ModelTestResult, Output, Parameter } from '../types.js';
 
 export interface MutationActor {
   id: string;
@@ -15,6 +15,14 @@ export interface RenameParameterOperation {
   type: 'renameParameter';
   parameterId: string;
   name: string;
+}
+
+export interface AddParameterOperation {
+  type: 'addParameter';
+  parameterId: string;
+  name: string;
+  parameterType: CellType;
+  value: unknown;
 }
 
 export interface RenameOutputOperation {
@@ -67,7 +75,7 @@ export interface RestoreParameterOperation {
   graphIndex: number;
 }
 
-export type MutationOperation = SetParameterValueOperation | RenameParameterOperation | AddOutputOperation | RenameOutputOperation | MoveOutputOperation | RemoveOutputOperation | RestoreOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
+export type MutationOperation = SetParameterValueOperation | AddParameterOperation | RenameParameterOperation | AddOutputOperation | RenameOutputOperation | MoveOutputOperation | RemoveOutputOperation | RestoreOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
 
 export interface MutationRequest {
   actor: MutationActor;

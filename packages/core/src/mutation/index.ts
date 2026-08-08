@@ -1,5 +1,6 @@
 export { previewMutation } from './preview.js';
 export type {
+  AddParameterOperation,
   AddOutputOperation,
   MutationActor,
   MutationCommitRequest,

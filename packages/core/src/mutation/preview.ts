@@ -32,6 +32,22 @@ export function previewMutation(
   const proposedModel = structuredClone(model);
   const proposedTests = structuredClone(tests);
   for (const operation of request.operations) {
+    if (operation.type === 'addParameter') {
+      const sourceCell = nextVirtualParameterCell(proposedModel);
+      proposedModel.parameters.push({
+        id: operation.parameterId,
+        name: operation.name.trim(),
+        type: operation.parameterType,
+        currentValue: operation.value,
+        originalValue: operation.value,
+        sourceCell,
+        source: 'USER_OVERRIDE',
+        confidence: 'HIGH',
+        confirmed: true,
+      });
+      proposedModel.graph.nodes.push(`${sourceCell.sheet}!${sourceCell.ref}`);
+      continue;
+    }
     if (operation.type === 'addOutput') {
       const source = workbook.sheets.find((sheet) => sheet.name === operation.sourceCell.sheet)?.cells.find((cell) => cell.address.ref === operation.sourceCell.ref)!;
       const upstream = new Set(traceUpstream(proposedModel.graph, `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`));
@@ -149,7 +165,7 @@ function validateRequest(model: Model, workbook: ParsedWorkbook, request: Mutati
   const issues: MutationValidationIssue[] = [];
   const targets = new Set<string>();
   const structuralConflicts = new Set(request.operations
-    .filter((operation) => ['removeParameter', 'restoreParameter', 'addOutput', 'removeOutput', 'restoreOutput'].includes(operation.type)
+    .filter((operation) => ['addParameter', 'removeParameter', 'restoreParameter', 'addOutput', 'removeOutput', 'restoreOutput'].includes(operation.type)
       && request.operations.some((candidate) => candidate !== operation && operationTargetId(candidate) === operationTargetId(operation)))
     .map(operationTargetId));
   const proposedNames = new Map(model.parameters.map((parameter) => [parameter.id, parameter.name.toLowerCase()]));
@@ -157,6 +173,7 @@ function validateRequest(model: Model, workbook: ParsedWorkbook, request: Mutati
   const proposedOutputSources = new Map(model.outputs.map((output) => [output.id, `${output.sourceCell.sheet}!${output.sourceCell.ref}`]));
 
   for (const operation of request.operations) {
+    if (operation.type === 'addParameter') proposedNames.set(operation.parameterId, operation.name.trim().toLowerCase());
     if (operation.type === 'renameParameter') proposedNames.set(operation.parameterId, operation.name.trim().toLowerCase());
     if (operation.type === 'restoreParameter') proposedNames.set(operation.parameterId, operation.parameter.name.toLowerCase());
     if (operation.type === 'renameOutput') proposedOutputNames.set(operation.outputId, operation.name.trim().toLowerCase());
@@ -185,6 +202,23 @@ function validateRequest(model: Model, workbook: ParsedWorkbook, request: Mutati
       return;
     }
     targets.add(target);
+
+    if (operation.type === 'addParameter') {
+      const name = operation.name.trim();
+      if (model.parameters.some((candidate) => candidate.id === operation.parameterId)) {
+        issues.push({ code: 'parameter_already_exists', operationIndex, message: `Parameter "${operation.parameterId}" already exists.` });
+      }
+      if (!name) {
+        issues.push({ code: 'invalid_name', operationIndex, message: 'Parameter name cannot be blank.' });
+      } else if ([...proposedNames].some(([parameterId, proposedName]) => parameterId !== operation.parameterId && proposedName === name.toLowerCase())) {
+        issues.push({ code: 'duplicate_name', operationIndex, message: `Parameter name "${name}" is already in use.` });
+      }
+      const expectedType = operation.parameterType === 'date' ? 'string' : operation.parameterType;
+      if (expectedType !== 'blank' && expectedType !== 'error' && typeof operation.value !== expectedType) {
+        issues.push({ code: 'invalid_type', operationIndex, message: `Parameter "${operation.parameterId}" requires a ${expectedType} value.` });
+      }
+      return;
+    }
 
     if (operation.type === 'addOutput') {
       const name = operation.name.trim();
@@ -329,7 +363,12 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
 }
 
 function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
+  let virtualParameterOffset = 0;
   const queue = request.operations.filter((operation) => operation.type !== 'moveParameter' && operation.type !== 'moveOutput').map((operation) => {
+    if (operation.type === 'addParameter') {
+      const sourceCell = nextVirtualParameterCell(model, virtualParameterOffset++);
+      return `${sourceCell.sheet}!${sourceCell.ref}`;
+    }
     if (operation.type === 'addOutput') return `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
     if (operation.type === 'renameOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput') {
       const output = operation.type === 'restoreOutput'
@@ -432,4 +471,13 @@ function operationTargetId(operation: MutationRequest['operations'][number]): st
   return operation.type === 'addOutput' || operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput'
     ? operation.outputId
     : operation.parameterId;
+}
+
+function nextVirtualParameterCell(model: Model, offset = 0): Parameter['sourceCell'] {
+  const highestRow = model.parameters.reduce((highest, parameter) => {
+    if (parameter.sourceCell.sheet !== 'XLent Inputs') return highest;
+    const match = /^A(\d+)$/.exec(parameter.sourceCell.ref);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0);
+  return { sheet: 'XLent Inputs', ref: `A${highestRow + offset + 1}` };
 }

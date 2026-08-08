@@ -5,11 +5,13 @@ import { useSelection } from '../selection.js';
 import { formatExcelValue } from '../format.js';
 import { ConfidenceBadge } from '../components/ConfidenceBadge.js';
 import { MutationPanel } from '../components/MutationPanel.js';
+import { AddInputPanel } from '../components/AddInputPanel.js';
 
 export function InputsView() {
   const { model, modelId, parameterImpact, refreshModel } = useOutletContext<ModelOutletContext>();
   const { selection, select } = useSelection();
   const [editingParameterId, setEditingParameterId] = useState<string | null>(null);
+  const [addingInput, setAddingInput] = useState(false);
   const editingParameter = model.parameters.find((parameter: any) => parameter.id === editingParameterId);
 
   const fanOut = useMemo(() => {
@@ -25,6 +27,7 @@ export function InputsView() {
 
   return (
     <>
+      {addingInput && <AddInputPanel modelId={modelId} onClose={() => setAddingInput(false)} onCommitted={refreshModel} />}
       {editingParameter && (
         <MutationPanel
           modelId={modelId}
@@ -35,6 +38,7 @@ export function InputsView() {
           onCommitted={refreshModel}
         />
       )}
+      <div className="mb-3 flex justify-end"><button type="button" onClick={() => { setEditingParameterId(null); setAddingInput(true); }} className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-emerald-500 hover:text-emerald-300">Add input</button></div>
       <div className="max-w-full overflow-x-auto">
       <table className="w-full min-w-[48rem] text-sm">
       <thead>

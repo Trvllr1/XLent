@@ -760,6 +760,77 @@ describe('Models API', () => {
     expect(undone.model.graph).toEqual(model.graph);
   });
 
+  it('POST /models/:id/mutations/commit — adds a native input and removes it through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const originalParameterOrder = model.parameters.map((parameter: any) => parameter.id);
+    const nativeParameterId = '22222222-3333-4444-8555-666666666666';
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before native input creation' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'user-input-add', type: 'human' },
+      rationale: 'Introduce a governed native assumption',
+      operations: [{
+        type: 'addParameter',
+        parameterId: nativeParameterId,
+        name: 'Review Tax Rate',
+        parameterType: 'number',
+        value: 0.25,
+      }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.diff.entries).toEqual([expect.objectContaining({ path: 'parameters.Review Tax Rate', changeType: 'added' })]);
+    expect(preview.proposedModel.parameters.at(-1)).toEqual(expect.objectContaining({
+      id: nativeParameterId,
+      name: 'Review Tax Rate',
+      currentValue: 0.25,
+      sourceCell: { sheet: 'XLent Inputs', ref: 'A1' },
+    }));
+    expect(preview.affectedOutputs).toEqual([]);
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.parameters.at(-1).id).toBe(nativeParameterId);
+    expect(committed.model.graph.nodes).toContain('XLent Inputs!A1');
+    const runAfterAdd = await (await app.request(`/models/${modelId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrides: [{ parameterId: nativeParameterId, value: 0.3 }] }),
+    })).json();
+    expect(Object.values(runAfterAdd.results)).toContain(5000);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Retire the native assumption',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.parameters.map((parameter: any) => parameter.id)).toEqual(originalParameterOrder);
+    expect(undone.model.graph.nodes).not.toContain('XLent Inputs!A1');
+    expect(undone.model.graph).toEqual(model.graph);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

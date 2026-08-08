@@ -23,6 +23,7 @@ export type { LabeledCell, ModelUnderstanding, ModelSection } from './understand
 export { buildModelPackage } from './package.js';
 export { previewMutation } from './mutation/index.js';
 export type {
+	AddParameterOperation,
 	AddOutputOperation,
 	MutationActor,
 	MutationCommitRequest,

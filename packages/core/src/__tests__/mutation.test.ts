@@ -437,4 +437,74 @@ describe('previewMutation', () => {
       expect.objectContaining({ code: 'output_source_already_exposed' }),
     ]));
   });
+
+  it('adds an isolated native parameter with a deterministic virtual root node', () => {
+    const { model, workbook } = buildFixture();
+    const originalOutput = structuredClone(model.outputs[0]);
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Introduce a governed native assumption',
+      operations: [{ type: 'addParameter', parameterId: 'tax-rate', name: 'Tax Rate', parameterType: 'number', value: 0.21 }],
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel?.parameters.at(-1)).toEqual(expect.objectContaining({
+      id: 'tax-rate',
+      name: 'Tax Rate',
+      type: 'number',
+      currentValue: 0.21,
+      sourceCell: { sheet: 'XLent Inputs', ref: 'A1' },
+      source: 'USER_OVERRIDE',
+      confidence: 'HIGH',
+      confirmed: true,
+    }));
+    expect(preview.proposedModel?.graph.nodes).toContain('XLent Inputs!A1');
+    expect(preview.proposedModel?.graph.edges).toEqual(model.graph.edges);
+    expect(preview.proposedModel?.outputs[0]).toEqual(originalOutput);
+    expect(preview.proposedModel?.semver).toBe('1.1.0');
+    expect(preview.affectedComponents).toEqual(['XLent Inputs!A1']);
+    expect(preview.affectedOutputs).toEqual([]);
+    expect(preview.diff?.entries).toEqual([expect.objectContaining({ path: 'parameters.Tax Rate', changeType: 'added' })]);
+    expect(model.parameters).toHaveLength(1);
+  });
+
+  it('assigns sequential virtual cells to multiple native inputs in one batch', () => {
+    const { model, workbook } = buildFixture();
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Introduce two governed native assumptions',
+      operations: [
+        { type: 'addParameter', parameterId: 'tax-rate', name: 'Tax Rate', parameterType: 'number', value: 0.21 },
+        { type: 'addParameter', parameterId: 'exit-year', name: 'Exit Year', parameterType: 'number', value: 2030 },
+      ],
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel?.parameters.map((parameter) => parameter.sourceCell)).toEqual(expect.arrayContaining([
+      { sheet: 'XLent Inputs', ref: 'A1' },
+      { sheet: 'XLent Inputs', ref: 'A2' },
+    ]));
+    expect(preview.affectedComponents).toEqual(['XLent Inputs!A1', 'XLent Inputs!A2']);
+  });
+
+  it('rejects a native input with a duplicate name or mismatched type', () => {
+    const { model, workbook } = buildFixture();
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt invalid native inputs',
+      operations: [
+        { type: 'addParameter', parameterId: 'dup', name: 'Revenue', parameterType: 'number', value: 1 },
+        { type: 'addParameter', parameterId: 'bad-type', name: 'Flag', parameterType: 'number', value: 'yes' },
+      ],
+    });
+
+    expect(preview.valid).toBe(false);
+    expect(preview.validationIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'duplicate_name' }),
+      expect.objectContaining({ code: 'invalid_type' }),
+    ]));
+  });
 });
