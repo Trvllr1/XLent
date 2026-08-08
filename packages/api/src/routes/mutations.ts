@@ -31,6 +31,11 @@ function persistMutation(
     modelChecksum,
     tests: preview.testResults,
     contractFindings: preview.contractFindings,
+    mutationDebugger: {
+      watchValues: preview.watchValues ?? {},
+      breakpointResults: preview.breakpointResults ?? [],
+      outputTraces: preview.outputTraces ?? [],
+    },
   })).digest('hex');
   const snapshot: Snapshot = {
     id: crypto.randomUUID(),
@@ -60,6 +65,11 @@ function persistMutation(
     purpose: 'mutation_commit',
     rationale: request.rationale,
     mutationOperations: request.operations,
+    mutationDebugger: {
+      watchValues: preview.watchValues ?? {},
+      breakpointResults: preview.breakpointResults ?? [],
+      outputTraces: preview.outputTraces ?? [],
+    },
     restoredFromSnapshotId,
   };
 
@@ -121,6 +131,7 @@ mutationsRouter.post('/:id/mutations/commit', async (c) => {
     actor: parsed.data.actor,
     rationale: parsed.data.rationale,
     operations: parsed.data.operations,
+    breakpoints: parsed.data.breakpoints,
   };
   const tests = testStore.listTests(model.id) as ModelTestDefinition[];
   const preview = previewMutation(model, workbook, request, tests);
@@ -169,6 +180,7 @@ mutationsRouter.post('/:id/mutations/reject', async (c) => {
     actor: parsed.data.actor,
     rationale: parsed.data.rationale,
     operations: parsed.data.operations,
+    breakpoints: parsed.data.breakpoints,
   };
   const tests = testStore.listTests(model.id) as ModelTestDefinition[];
   const preview = previewMutation(model, workbook, request, tests);

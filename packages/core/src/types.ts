@@ -399,6 +399,11 @@ export interface EvidenceRecord {
   purpose?: 'scenario_run' | 'publish_gate' | 'delivery' | 'manual' | 'mutation_commit';
   rationale?: string;
   mutationOperations?: Array<{ type: string; parameterId?: string; value?: unknown }>;
+  mutationDebugger?: {
+    watchValues: Record<string, { before: unknown; after: unknown }>;
+    breakpointResults: unknown[];
+    outputTraces: unknown[];
+  };
   restoredFromSnapshotId?: string;
 }
 

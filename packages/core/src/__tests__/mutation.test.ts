@@ -72,6 +72,10 @@ describe('previewMutation', () => {
     expect(preview.evidenceRefs).toEqual([{ kind: 'preview', checksum: preview.previewId }]);
     expect(preview.affectedComponents).toEqual(['Model!A1', 'Model!A2']);
     expect(preview.affectedOutputs).toEqual(['double-revenue']);
+    expect(preview.watchValues).toEqual({
+      'Model!A1': { before: 10, after: 25 },
+      'Model!A2': { before: 20, after: 50 },
+    });
     expect(preview.testResults).toEqual([
       expect.objectContaining({ name: 'Mutation output is recalculated', status: 'pass', actual: 50 }),
     ]);
@@ -84,6 +88,41 @@ describe('previewMutation', () => {
     expect(model.parameters[0].currentValue).toBe(10);
     expect(model.outputs[0].value).toBe(20);
     expect(model.semver).toBe('1.0.0');
+  });
+
+  it('evaluates value and assumption-change breakpoints from preview runtime evidence', () => {
+    const { model, workbook } = buildFixture();
+    const request = {
+      actor: { id: 'user-1', type: 'human' as const },
+      rationale: 'Pause when revenue crosses the review threshold',
+      operations: [{ type: 'setParameterValue' as const, parameterId: 'revenue', value: 25 }],
+      breakpoints: [
+        { id: 'high-output', kind: 'value' as const, cellId: 'Model!A2', operator: '>=' as const, value: 50 },
+        { id: 'revenue-change', kind: 'assumptionChanged' as const, parameterId: 'revenue' },
+        { id: 'false-condition', kind: 'value' as const, cellId: 'Model!A2', operator: '<' as const, value: 0 },
+      ],
+    };
+
+    const first = previewMutation(model, workbook, request);
+    const second = previewMutation(model, workbook, request);
+
+    expect(first.breakpointResults).toEqual([
+      expect.objectContaining({ hit: true, before: 20, after: 50 }),
+      expect.objectContaining({ hit: true, changedParameters: ['revenue'] }),
+      expect.objectContaining({ hit: false, before: 20, after: 50 }),
+    ]);
+    expect(second.breakpointResults).toEqual(first.breakpointResults);
+    expect(first.outputTraces).toEqual([{
+      outputId: 'double-revenue',
+      outputCell: 'Model!A2',
+      dependencies: ['Model!A1'],
+      rootCauses: ['Model!A1'],
+      values: {
+        'Model!A1': { before: 10, after: 25 },
+        'Model!A2': { before: 20, after: 50 },
+      },
+    }]);
+    expect(second.previewId).toBe(first.previewId);
   });
 
   it('rejects the entire batch when a value violates the parameter contract', () => {

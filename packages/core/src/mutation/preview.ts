@@ -8,7 +8,7 @@ import type { ParsedWorkbook } from '../parser.js';
 import { ModelRuntime } from '../runtime.js';
 import { runModelTests } from '../testRunner.js';
 import type { DependencyGraph, Model, ModelTestDefinition, Parameter } from '../types.js';
-import type { MutationPreview, MutationRequest, MutationValidationIssue } from './types.js';
+import type { BreakpointOperator, MutationBreakpointResult, MutationPreview, MutationRequest, MutationValidationIssue } from './types.js';
 
 export function previewMutation(
   model: Model,
@@ -239,6 +239,35 @@ export function previewMutation(
     : [];
   const impact = findImpact(model, request, proposedModel.graph);
   const diff = diffModels(baseForDiff, proposedModel);
+  const baseRuntime = new ModelRuntime(model, workbook);
+  baseRuntime.run();
+  const proposedRuntime = new ModelRuntime(proposedModel, effectiveWorkbook);
+  proposedRuntime.run(overrides);
+  const watchValues = Object.fromEntries(impact.components.map((cellId) => {
+    const [sheet, ref] = splitCellId(cellId);
+    return [cellId, {
+      before: baseRuntime.getCellValue(sheet, ref),
+      after: proposedRuntime.getCellValue(sheet, ref),
+    }];
+  }));
+  const breakpointResults = evaluateBreakpoints(request, model, proposedModel, baseRuntime, proposedRuntime);
+  const outputTraces = impact.outputs.map((outputId) => {
+    const output = proposedModel.outputs.find((candidate) => candidate.id === outputId)
+      ?? model.outputs.find((candidate) => candidate.id === outputId)!;
+    const outputCell = `${output.sourceCell.sheet}!${output.sourceCell.ref}`;
+    const dependencies = traceUpstream(proposedModel.graph, outputCell);
+    const traceCells = [...dependencies, outputCell];
+    return {
+      outputId,
+      outputCell,
+      dependencies,
+      rootCauses: dependencies.filter((cellId) => !proposedModel.graph.edges.some((edge) => edge.to === cellId)),
+      values: Object.fromEntries(traceCells.map((cellId) => {
+        const [sheet, ref] = splitCellId(cellId);
+        return [cellId, { before: baseRuntime.getCellValue(sheet, ref), after: proposedRuntime.getCellValue(sheet, ref) }];
+      })),
+    };
+  });
   const previewId = crypto.createHash('sha256').update(JSON.stringify({
     baseVersion: model.version,
     request,
@@ -248,6 +277,9 @@ export function previewMutation(
     proposedTests,
     testResults: testResults.map(({ executedAt: _, ...result }) => result),
     contractFindings,
+    watchValues,
+    breakpointResults,
+    outputTraces,
   })).digest('hex');
 
   return {
@@ -260,20 +292,61 @@ export function previewMutation(
     diff,
     affectedComponents: impact.components,
     affectedOutputs: impact.outputs,
-    affectedComponentValues: Object.fromEntries(
-      impact.components.map((cellId) => {
-        const [sheet, ref] = cellId.split('!');
-        const runtime = new ModelRuntime(proposedModel, effectiveWorkbook);
-        runtime.run(overrides);
-        return [cellId, runtime.getCellValue(sheet, ref)];
-      }),
-    ),
+    affectedComponentValues: Object.fromEntries(Object.entries(watchValues).map(([cellId, values]) => [cellId, values.after])),
+    watchValues,
+    breakpointResults,
+    outputTraces,
     evidenceRefs: [{ kind: 'preview', checksum: previewId }],
     testResults,
     allTestsPass: testResults.every((result) => result.status === 'pass' || result.status === 'skip'),
     contractFindings,
     validationIssues: [],
   };
+}
+
+function splitCellId(cellId: string): [string, string] {
+  const separator = cellId.lastIndexOf('!');
+  return [cellId.slice(0, separator), cellId.slice(separator + 1)];
+}
+
+function evaluateBreakpoints(
+  request: MutationRequest,
+  model: Model,
+  proposedModel: Model,
+  baseRuntime: ModelRuntime,
+  proposedRuntime: ModelRuntime,
+): MutationBreakpointResult[] {
+  const changedParameters = proposedModel.parameters
+    .filter((parameter) => {
+      const before = model.parameters.find((candidate) => candidate.id === parameter.id);
+      return !before || before.currentValue !== parameter.currentValue || before.source !== parameter.source;
+    })
+    .map((parameter) => parameter.id)
+    .concat(model.parameters.filter((parameter) => !proposedModel.parameters.some((candidate) => candidate.id === parameter.id)).map((parameter) => parameter.id));
+
+  return (request.breakpoints ?? []).map((breakpoint) => {
+    if (breakpoint.kind === 'assumptionChanged') {
+      const matches = breakpoint.parameterId
+        ? changedParameters.filter((parameterId) => parameterId === breakpoint.parameterId)
+        : changedParameters;
+      return { breakpoint, hit: matches.length > 0, changedParameters: matches };
+    }
+    const [sheet, ref] = splitCellId(breakpoint.cellId);
+    const before = baseRuntime.getCellValue(sheet, ref);
+    const after = proposedRuntime.getCellValue(sheet, ref);
+    return { breakpoint, hit: compareBreakpoint(after, breakpoint.operator, breakpoint.value), before, after };
+  });
+}
+
+function compareBreakpoint(actual: unknown, operator: BreakpointOperator, expected: number | boolean): boolean {
+  if (typeof actual !== typeof expected) return false;
+  if (operator === '==') return actual === expected;
+  if (operator === '!=') return actual !== expected;
+  if (typeof actual !== 'number' || typeof expected !== 'number') return false;
+  if (operator === '<') return actual < expected;
+  if (operator === '<=') return actual <= expected;
+  if (operator === '>') return actual > expected;
+  return actual >= expected;
 }
 
 function validateRequest(model: Model, workbook: ParsedWorkbook, request: MutationRequest, tests: ModelTestDefinition[]): MutationValidationIssue[] {

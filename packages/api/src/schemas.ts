@@ -164,6 +164,20 @@ const mutationRequestFields = {
       toIndex: z.number().int().min(0),
     }).strict(),
   ])).min(1).max(100),
+  breakpoints: z.array(z.discriminatedUnion('kind', [
+    z.object({
+      id: z.string().min(1).max(200),
+      kind: z.literal('value'),
+      cellId: z.string().regex(/^.+![A-Z]+\d+$/),
+      operator: z.enum(['<', '<=', '>', '>=', '==', '!=']),
+      value: z.union([z.number(), z.boolean()]),
+    }).strict(),
+    z.object({
+      id: z.string().min(1).max(200),
+      kind: z.literal('assumptionChanged'),
+      parameterId: z.string().uuid().optional(),
+    }).strict(),
+  ])).max(50).optional(),
 };
 
 export const mutationPreviewSchema = z.object(mutationRequestFields).strict();

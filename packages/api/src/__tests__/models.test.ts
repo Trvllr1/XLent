@@ -168,12 +168,20 @@ describe('Models API', () => {
     const beforeModelResponse = await app.request(`/models/${modelId}`);
     const beforeModel = (await beforeModelResponse.json()).model;
     const priceParam = beforeModel.parameters.find((parameter: any) => parameter.name === 'Price');
+    const totalOutput = beforeModel.outputs.find((output: any) => output.name === 'Total');
     const beforeSnapshotsResponse = await app.request(`/snapshots/${modelId}`);
     const beforeSnapshots = (await beforeSnapshotsResponse.json()).snapshots;
     const mutationRequest = {
       actor: { id: 'agent-1', type: 'agent' },
       rationale: 'Commit a governed price update',
       operations: [{ type: 'setParameterValue', parameterId: priceParam.id, value: 200 }],
+      breakpoints: [{
+        id: 'total-review-threshold',
+        kind: 'value',
+        cellId: `${totalOutput.sourceCell.sheet}!${totalOutput.sourceCell.ref}`,
+        operator: '>',
+        value: 9000,
+      }],
     };
     const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
       method: 'POST',
@@ -181,6 +189,9 @@ describe('Models API', () => {
       body: JSON.stringify(mutationRequest),
     });
     const preview = await previewResponse.json();
+    expect(preview.breakpointResults).toEqual([
+      expect.objectContaining({ hit: true, after: 10000 }),
+    ]);
     const mutation = {
       ...mutationRequest,
       baseVersion: beforeModel.version,
@@ -227,6 +238,11 @@ describe('Models API', () => {
       executedBy: 'agent:agent-1',
       purpose: 'mutation_commit',
       reproducible: true,
+      mutationDebugger: {
+        watchValues: preview.watchValues,
+        breakpointResults: preview.breakpointResults,
+        outputTraces: preview.outputTraces,
+      },
     }));
 
     const staleResponse = await app.request(`/models/${modelId}/mutations/commit`, {

@@ -6,6 +6,41 @@ export interface MutationActor {
   type: 'human' | 'agent';
 }
 
+export type BreakpointOperator = '<' | '<=' | '>' | '>=' | '==' | '!=';
+
+export type MutationBreakpoint = {
+  id: string;
+  kind: 'value';
+  cellId: string;
+  operator: BreakpointOperator;
+  value: number | boolean;
+} | {
+  id: string;
+  kind: 'assumptionChanged';
+  parameterId?: string;
+};
+
+export interface MutationBreakpointResult {
+  breakpoint: MutationBreakpoint;
+  hit: boolean;
+  before?: unknown;
+  after?: unknown;
+  changedParameters?: string[];
+}
+
+export interface MutationWatchValue {
+  before: unknown;
+  after: unknown;
+}
+
+export interface MutationOutputTrace {
+  outputId: string;
+  outputCell: string;
+  dependencies: string[];
+  rootCauses: string[];
+  values: Record<string, MutationWatchValue>;
+}
+
 export interface SetParameterValueOperation {
   type: 'setParameterValue';
   parameterId: string;
@@ -107,6 +142,7 @@ export interface MutationRequest {
   actor: MutationActor;
   rationale: string;
   operations: MutationOperation[];
+  breakpoints?: MutationBreakpoint[];
 }
 
 export interface MutationCommitRequest extends MutationRequest {
@@ -138,6 +174,9 @@ export interface MutationPreview {
   affectedComponents: string[];
   affectedOutputs: string[];
   affectedComponentValues?: Record<string, unknown>;
+  watchValues?: Record<string, MutationWatchValue>;
+  breakpointResults?: MutationBreakpointResult[];
+  outputTraces?: MutationOutputTrace[];
   evidenceRefs: Array<{ kind: 'preview'; checksum: string }>;
   testResults: ModelTestResult[];
   allTestsPass: boolean;

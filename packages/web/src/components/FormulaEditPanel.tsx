@@ -15,6 +15,21 @@ interface Preview {
   affectedComponents: string[];
   affectedOutputs: string[];
   affectedComponentValues?: Record<string, unknown>;
+  watchValues?: Record<string, { before: unknown; after: unknown }>;
+  breakpointResults?: Array<{
+    breakpoint: { id: string; kind: 'value' | 'assumptionChanged'; cellId?: string; operator?: string; value?: number | boolean };
+    hit: boolean;
+    before?: unknown;
+    after?: unknown;
+    changedParameters?: string[];
+  }>;
+  outputTraces?: Array<{
+    outputId: string;
+    outputCell: string;
+    dependencies: string[];
+    rootCauses: string[];
+    values: Record<string, { before: unknown; after: unknown }>;
+  }>;
   allTestsPass: boolean;
   testResults: Array<{ name: string; status: string; message?: string }>;
   contractFindings: Array<{ id: string; severity: string; explanation: string }>;
@@ -30,6 +45,13 @@ interface FormulaEditPanelProps {
   onClose: () => void;
 }
 
+function formatDebugValue(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value !== 'number') return String(value);
+  if (!Number.isFinite(value)) return String(value);
+  return Number.isInteger(value) ? value.toLocaleString('en-US') : Number(value.toPrecision(8)).toString();
+}
+
 export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookSheets = [], onClose }: FormulaEditPanelProps) {
   const [formula, setFormula] = useState(`=${currentFormula}`);
   const [rationale, setRationale] = useState('');
@@ -40,6 +62,10 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
   const [historyIndex, setHistoryIndex] = useState(0);
   const [versions, setVersions] = useState<SnapshotEntry[]>([]);
   const [selectedVersion, setSelectedVersion] = useState('');
+  const [breakpointKind, setBreakpointKind] = useState<'none' | 'value' | 'assumptionChanged'>('none');
+  const [breakpointCell, setBreakpointCell] = useState(cellId);
+  const [breakpointOperator, setBreakpointOperator] = useState('<');
+  const [breakpointExpected, setBreakpointExpected] = useState('0');
   const historyRef = useRef(history);
   const historyIndexRef = useRef(historyIndex);
 
@@ -84,10 +110,22 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
   const separator = cellId.lastIndexOf('!');
   const sourceCell = { sheet: cellId.slice(0, separator), ref: cellId.slice(separator + 1) };
 
+  const parsedBreakpointValue = breakpointExpected.trim().toLowerCase() === 'true'
+    ? true
+    : breakpointExpected.trim().toLowerCase() === 'false'
+      ? false
+      : Number(breakpointExpected);
+  const breakpointValueValid = typeof parsedBreakpointValue === 'boolean' || Number.isFinite(parsedBreakpointValue);
+
   const request = () => ({
     actor: { id: 'web-user', type: 'human' as const },
     rationale,
     operations: [{ type: 'setCellFormula' as const, sourceCell, formula }],
+    breakpoints: breakpointKind === 'value'
+      ? [{ id: 'formula-debugger', kind: 'value' as const, cellId: breakpointCell, operator: breakpointOperator, value: parsedBreakpointValue }]
+      : breakpointKind === 'assumptionChanged'
+        ? [{ id: 'formula-debugger', kind: 'assumptionChanged' as const }]
+        : undefined,
   });
 
   const revise = (update: () => void) => {
@@ -205,7 +243,26 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
       <label className="mt-2 block text-xs text-slate-400">Rationale
         <input value={rationale} onChange={(event) => revise(() => setRationale(event.target.value))} placeholder="Why should this model change?" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
       </label>
-      <button type="button" disabled={busy || unchanged || !rationale.trim()} onClick={handlePreview} className="mt-3 w-full rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Evaluating…' : 'Preview change'}</button>
+      <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-2">
+        <div className="flex items-center justify-between gap-2">
+          <h5 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Breakpoint</h5>
+          <select value={breakpointKind} onChange={(event) => revise(() => setBreakpointKind(event.target.value as typeof breakpointKind))} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-1 text-[11px] text-slate-300">
+            <option value="none">None</option>
+            <option value="value">Cell condition</option>
+            <option value="assumptionChanged">Any assumption changes</option>
+          </select>
+        </div>
+        {breakpointKind === 'value' && (
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(4rem,0.6fr)] gap-1.5">
+            <input aria-label="Breakpoint cell" value={breakpointCell} onChange={(event) => revise(() => setBreakpointCell(event.target.value))} className="min-w-0 rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-[11px] text-slate-300" />
+            <select aria-label="Breakpoint operator" value={breakpointOperator} onChange={(event) => revise(() => setBreakpointOperator(event.target.value))} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-1 font-mono text-[11px] text-slate-300">
+              {['<', '<=', '>', '>=', '==', '!='].map((operator) => <option key={operator}>{operator}</option>)}
+            </select>
+            <input aria-label="Breakpoint value" value={breakpointExpected} onChange={(event) => revise(() => setBreakpointExpected(event.target.value))} placeholder="0 or true" className="min-w-0 rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-[11px] text-slate-300" />
+          </div>
+        )}
+      </div>
+      <button type="button" disabled={busy || unchanged || !rationale.trim() || (breakpointKind === 'value' && (!breakpointCell.match(/^.+![A-Z]+\d+$/) || !breakpointValueValid))} onClick={handlePreview} className="mt-3 w-full rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Evaluating…' : 'Preview change'}</button>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
       {preview && (
         <div className="mt-3 border-t border-slate-800 pt-3 text-xs">
@@ -217,19 +274,39 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
           </div>
           {preview.testResults.length > 0 && <p className={`mt-2 ${preview.allTestsPass ? 'text-emerald-400' : 'text-red-400'}`}>Tests: {preview.testResults.filter((test) => test.status === 'pass').length}/{preview.testResults.length} passed</p>}
           {preview.testResults.filter((test) => test.status === 'fail' || test.status === 'error').map((test) => <p key={test.name} className="mt-1 text-red-300"><span className="font-medium">{test.name}:</span> {test.message ?? test.status}</p>)}
-          {preview.affectedComponentValues && Object.keys(preview.affectedComponentValues).length > 0 && (
+          {preview.breakpointResults?.map((result) => (
+            <div key={result.breakpoint.id} className={`mt-3 rounded border px-2 py-1.5 ${result.hit ? 'border-amber-700 bg-amber-950/30 text-amber-300' : 'border-slate-800 bg-slate-950/60 text-slate-400'}`}>
+              <span className="font-semibold">Breakpoint {result.hit ? 'hit' : 'not hit'}</span>
+              {result.breakpoint.kind === 'value'
+                ? <span className="ml-2 font-mono">{result.breakpoint.cellId} {result.breakpoint.operator} {formatDebugValue(result.breakpoint.value)} · {formatDebugValue(result.before)} → {formatDebugValue(result.after)}</span>
+                : <span className="ml-2">{result.changedParameters?.length ? `${result.changedParameters.length} assumption(s) changed` : 'No assumptions changed'}</span>}
+            </div>
+          ))}
+          {preview.watchValues && Object.keys(preview.watchValues).length > 0 && (
             <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-2">
               <h5 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Watch — before → after</h5>
               <div className="space-y-1 max-h-32 overflow-y-auto">
-                {Object.entries(preview.affectedComponentValues).map(([cellId, value]) => (
-                  <div key={cellId} className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="font-mono text-slate-400 truncate">{cellId}</span>
-                    <span className="font-mono text-slate-300 shrink-0">→ {String(value ?? '—')}</span>
+                {Object.entries(preview.watchValues).map(([cellId, values]) => (
+                  <div key={cellId} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-2 text-[11px]">
+                    <span className="min-w-0 break-all font-mono text-slate-400">{cellId}</span>
+                    <span className="min-w-0 break-words text-right font-mono text-slate-300">{formatDebugValue(values.before)} → {formatDebugValue(values.after)}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
+          {preview.outputTraces?.map((trace) => (
+            <details key={trace.outputId} className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-2">
+              <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wider text-slate-500">Trace to root · {trace.outputCell}</summary>
+              <div className="mt-2 space-y-1 text-[11px]">
+                <p className="text-slate-500">{trace.dependencies.length} upstream dependencies · {trace.rootCauses.length} root causes</p>
+                {trace.rootCauses.map((root) => <p key={root} className="break-words font-mono text-emerald-400">Root {root}: {formatDebugValue(trace.values[root]?.before)} → {formatDebugValue(trace.values[root]?.after)}</p>)}
+                <div className="max-h-24 overflow-y-auto border-l border-slate-800 pl-2">
+                  {[...trace.dependencies, trace.outputCell].map((dependency) => <p key={dependency} className="break-words font-mono text-slate-400">{dependency}: {formatDebugValue(trace.values[dependency]?.before)} → {formatDebugValue(trace.values[dependency]?.after)}</p>)}
+                </div>
+              </div>
+            </details>
+          ))}
           {preview.contractFindings.map((finding) => <p key={finding.id} className={finding.severity === 'critical' ? 'mt-2 text-red-400' : 'mt-2 text-amber-400'}>{finding.explanation}</p>)}
           <div className="mt-3 flex gap-2">
             <button type="button" disabled={busy || blocked} onClick={() => handleDecision('commit')} className="rounded bg-emerald-500 px-3 py-1.5 font-medium text-slate-950 disabled:opacity-40">Commit</button>
