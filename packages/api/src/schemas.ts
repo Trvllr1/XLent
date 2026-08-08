@@ -107,6 +107,15 @@ const mutationRequestFields = {
       name: z.string().min(1).max(200),
     }).strict(),
     z.object({
+      type: z.literal('addOutput'),
+      outputId: z.string().uuid(),
+      name: z.string().min(1).max(200),
+      sourceCell: z.object({
+        sheet: z.string().min(1).max(200),
+        ref: z.string().regex(/^[A-Z]+\d+$/),
+      }).strict(),
+    }).strict(),
+    z.object({
       type: z.literal('moveOutput'),
       outputId: z.string().uuid(),
       toIndex: z.number().int().min(0),

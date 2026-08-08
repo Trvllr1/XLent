@@ -374,4 +374,67 @@ describe('previewMutation', () => {
       expect.objectContaining({ code: 'output_has_test_refs' }),
     ]));
   });
+
+  it('promotes an existing formula component to an output without changing the graph', () => {
+    const source = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(source, XLSX.utils.aoa_to_sheet([[10], [{ t: 'n', f: 'A1*2' }], [{ t: 'n', f: 'A2+5' }]]), 'Model');
+    const workbook = parseWorkbook(Buffer.from(XLSX.write(source, { type: 'buffer', bookType: 'xlsx' })), 'promotion.xlsx');
+    const { model } = buildFixture();
+    model.graph = buildGraph(workbook);
+    model.outputs[0] = { ...model.outputs[0], id: 'final-revenue', name: 'Final Revenue', value: 25, sourceCell: { sheet: 'Model', ref: 'A3' } };
+    const originalGraph = structuredClone(model.graph);
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Expose an approved intermediate result',
+      operations: [{ type: 'addOutput', outputId: 'double-revenue', name: 'Double Revenue', sourceCell: { sheet: 'Model', ref: 'A2' } }],
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel?.outputs[1]).toEqual(expect.objectContaining({
+      id: 'double-revenue',
+      name: 'Double Revenue',
+      value: 20,
+      dependsOn: ['revenue'],
+      confirmed: true,
+    }));
+    expect(preview.proposedModel?.graph).toEqual(originalGraph);
+    expect(preview.proposedModel?.semver).toBe('1.1.0');
+    expect(preview.affectedOutputs).toEqual(expect.arrayContaining(['final-revenue', 'double-revenue']));
+    expect(preview.diff?.entries).toEqual([
+      expect.objectContaining({ path: 'outputs.Double Revenue', changeType: 'added' }),
+    ]);
+    expect(model.outputs).toHaveLength(1);
+
+    const duplicateSource = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt duplicate output aliases',
+      operations: [
+        { type: 'addOutput', outputId: 'double-revenue', name: 'Double Revenue', sourceCell: { sheet: 'Model', ref: 'A2' } },
+        { type: 'addOutput', outputId: 'double-revenue-copy', name: 'Double Revenue Copy', sourceCell: { sheet: 'Model', ref: 'A2' } },
+      ],
+    });
+    expect(duplicateSource.valid).toBe(false);
+    expect(duplicateSource.validationIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'output_source_already_exposed' }),
+    ]));
+  });
+
+  it('rejects output promotion from a non-formula or already exposed component', () => {
+    const { model, workbook } = buildFixture();
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt invalid promotions',
+      operations: [
+        { type: 'addOutput', outputId: 'raw-output', name: 'Raw Revenue', sourceCell: { sheet: 'Model', ref: 'A1' } },
+        { type: 'addOutput', outputId: 'duplicate-output', name: 'Duplicate Revenue', sourceCell: { sheet: 'Model', ref: 'A2' } },
+      ],
+    });
+
+    expect(preview.valid).toBe(false);
+    expect(preview.validationIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'output_source_not_formula' }),
+      expect.objectContaining({ code: 'output_source_already_exposed' }),
+    ]));
+  });
 });

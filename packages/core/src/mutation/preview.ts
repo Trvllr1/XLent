@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { bumpSemver, diffModels } from '../diff.js';
 import { reconcileContract } from '../contractReconcile.js';
+import { traceUpstream } from '../graph.js';
 import type { ParsedWorkbook } from '../parser.js';
 import { ModelRuntime } from '../runtime.js';
 import { runModelTests } from '../testRunner.js';
@@ -13,7 +14,7 @@ export function previewMutation(
   request: MutationRequest,
   tests: ModelTestDefinition[] = [],
 ): MutationPreview {
-  const validationIssues = validateRequest(model, request, tests);
+  const validationIssues = validateRequest(model, workbook, request, tests);
   if (validationIssues.length > 0) {
     return {
       valid: false,
@@ -31,6 +32,21 @@ export function previewMutation(
   const proposedModel = structuredClone(model);
   const proposedTests = structuredClone(tests);
   for (const operation of request.operations) {
+    if (operation.type === 'addOutput') {
+      const source = workbook.sheets.find((sheet) => sheet.name === operation.sourceCell.sheet)?.cells.find((cell) => cell.address.ref === operation.sourceCell.ref)!;
+      const upstream = new Set(traceUpstream(proposedModel.graph, `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`));
+      proposedModel.outputs.push({
+        id: operation.outputId,
+        name: operation.name.trim(),
+        value: source.value,
+        format: source.format,
+        sourceCell: structuredClone(operation.sourceCell),
+        dependsOn: proposedModel.parameters.filter((parameter) => upstream.has(`${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`)).map((parameter) => parameter.id),
+        confidence: 'HIGH',
+        confirmed: true,
+      });
+      continue;
+    }
     if (operation.type === 'renameOutput') {
       const output = proposedModel.outputs.find((candidate) => candidate.id === operation.outputId)!;
       const previousName = output.name;
@@ -125,7 +141,7 @@ export function previewMutation(
   };
 }
 
-function validateRequest(model: Model, request: MutationRequest, tests: ModelTestDefinition[]): MutationValidationIssue[] {
+function validateRequest(model: Model, workbook: ParsedWorkbook, request: MutationRequest, tests: ModelTestDefinition[]): MutationValidationIssue[] {
   if (request.operations.length === 0) {
     return [{ code: 'empty_batch', message: 'A mutation request must contain at least one operation.' }];
   }
@@ -133,16 +149,21 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
   const issues: MutationValidationIssue[] = [];
   const targets = new Set<string>();
   const structuralConflicts = new Set(request.operations
-    .filter((operation) => ['removeParameter', 'restoreParameter', 'removeOutput', 'restoreOutput'].includes(operation.type)
+    .filter((operation) => ['removeParameter', 'restoreParameter', 'addOutput', 'removeOutput', 'restoreOutput'].includes(operation.type)
       && request.operations.some((candidate) => candidate !== operation && operationTargetId(candidate) === operationTargetId(operation)))
     .map(operationTargetId));
   const proposedNames = new Map(model.parameters.map((parameter) => [parameter.id, parameter.name.toLowerCase()]));
   const proposedOutputNames = new Map(model.outputs.map((output) => [output.id, output.name.toLowerCase()]));
+  const proposedOutputSources = new Map(model.outputs.map((output) => [output.id, `${output.sourceCell.sheet}!${output.sourceCell.ref}`]));
 
   for (const operation of request.operations) {
     if (operation.type === 'renameParameter') proposedNames.set(operation.parameterId, operation.name.trim().toLowerCase());
     if (operation.type === 'restoreParameter') proposedNames.set(operation.parameterId, operation.parameter.name.toLowerCase());
     if (operation.type === 'renameOutput') proposedOutputNames.set(operation.outputId, operation.name.trim().toLowerCase());
+    if (operation.type === 'addOutput') {
+      proposedOutputNames.set(operation.outputId, operation.name.trim().toLowerCase());
+      proposedOutputSources.set(operation.outputId, `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`);
+    }
     if (operation.type === 'restoreOutput') proposedOutputNames.set(operation.outputId, operation.output.name.toLowerCase());
   }
 
@@ -164,6 +185,29 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
       return;
     }
     targets.add(target);
+
+    if (operation.type === 'addOutput') {
+      const name = operation.name.trim();
+      const cellId = `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
+      const source = workbook.sheets.find((sheet) => sheet.name === operation.sourceCell.sheet)?.cells.find((cell) => cell.address.ref === operation.sourceCell.ref);
+      if (model.outputs.some((candidate) => candidate.id === operation.outputId)) {
+        issues.push({ code: 'output_already_exists', operationIndex, message: `Output "${operation.outputId}" already exists.` });
+      }
+      if (!name) {
+        issues.push({ code: 'invalid_name', operationIndex, message: 'Output name cannot be blank.' });
+      } else if ([...proposedOutputNames].some(([outputId, proposedName]) => outputId !== operation.outputId && proposedName === name.toLowerCase())) {
+        issues.push({ code: 'duplicate_name', operationIndex, message: `Output name "${name}" is already in use.` });
+      }
+      if (!source || !model.graph.nodes.includes(cellId)) {
+        issues.push({ code: 'output_source_not_found', operationIndex, message: `Output source "${cellId}" was not found in the canonical model.` });
+      } else if (!source.formula) {
+        issues.push({ code: 'output_source_not_formula', operationIndex, message: `Output source "${cellId}" must be an existing formula component.` });
+      }
+      if ([...proposedOutputSources].some(([outputId, sourceCell]) => outputId !== operation.outputId && sourceCell === cellId)) {
+        issues.push({ code: 'output_source_already_exposed', operationIndex, message: `Formula component "${cellId}" is already exposed as an output.` });
+      }
+      return;
+    }
 
     if (operation.type === 'restoreOutput') {
       if (model.outputs.some((candidate) => candidate.id === operation.outputId)) {
@@ -286,6 +330,7 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
 
 function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
   const queue = request.operations.filter((operation) => operation.type !== 'moveParameter' && operation.type !== 'moveOutput').map((operation) => {
+    if (operation.type === 'addOutput') return `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
     if (operation.type === 'renameOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput') {
       const output = operation.type === 'restoreOutput'
         ? operation.output
@@ -312,6 +357,9 @@ function findImpact(model: Model, request: MutationRequest): { components: strin
   const outputs = model.outputs
     .filter((output) => visited.has(`${output.sourceCell.sheet}!${output.sourceCell.ref}`))
     .map((output) => output.id);
+  for (const operation of request.operations) {
+    if (operation.type === 'addOutput' && visited.has(`${operation.sourceCell.sheet}!${operation.sourceCell.ref}`)) outputs.push(operation.outputId);
+  }
   return { components: [...visited], outputs };
 }
 
@@ -381,7 +429,7 @@ function testReferencesOutput(test: ModelTestDefinition, output: Model['outputs'
 }
 
 function operationTargetId(operation: MutationRequest['operations'][number]): string {
-  return operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput'
+  return operation.type === 'addOutput' || operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput'
     ? operation.outputId
     : operation.parameterId;
 }

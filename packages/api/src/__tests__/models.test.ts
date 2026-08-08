@@ -16,6 +16,8 @@ function makeWorkbookBuffer(): Buffer {
     ['Total', { t: 'n', f: 'B1*B2' }],
     ['Memo', 7],
     ['Combined input', { t: 'n', f: 'B1+B2' }],
+    ['Spread intermediate', { t: 'n', f: 'B1-B2' }],
+    ['Spread result', { t: 'n', f: 'B6+1' }],
   ]);
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
@@ -692,6 +694,69 @@ describe('Models API', () => {
     const undone = await undoResponse.json();
     expect(undone.model.outputs.map((output: any) => output.id)).toEqual(originalOrder);
     expect(undone.model.outputs[removedIndex]).toEqual(removedOutput);
+    expect(undone.model.graph).toEqual(model.graph);
+  });
+
+  it('POST /models/:id/mutations/commit — promotes a formula component and removes it through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const originalOrder = model.outputs.map((output: any) => output.id);
+    const promotedOutputId = '11111111-2222-4333-8444-555555555555';
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before output promotion' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'agent-output-add', type: 'agent' },
+      rationale: 'Expose the reviewed spread component',
+      operations: [{
+        type: 'addOutput',
+        outputId: promotedOutputId,
+        name: 'Spread intermediate',
+        sourceCell: { sheet: 'Sheet1', ref: 'B6' },
+      }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.diff.entries).toEqual([expect.objectContaining({ path: 'outputs.Spread intermediate', changeType: 'added' })]);
+    expect(preview.proposedModel.outputs.at(-1)).toEqual(expect.objectContaining({
+      id: promotedOutputId,
+      name: 'Spread intermediate',
+      value: 50,
+      sourceCell: { sheet: 'Sheet1', ref: 'B6' },
+    }));
+    expect(preview.proposedModel.graph).toEqual(model.graph);
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.outputs.at(-1).id).toBe(promotedOutputId);
+    expect(committed.model.graph).toEqual(model.graph);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Remove the promoted output declaration',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.outputs.map((output: any) => output.id)).toEqual(originalOrder);
     expect(undone.model.graph).toEqual(model.graph);
   });
 

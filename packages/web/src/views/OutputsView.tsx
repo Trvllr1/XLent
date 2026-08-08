@@ -5,11 +5,13 @@ import { useSelection } from '../selection.js';
 import { formatExcelValue } from '../format.js';
 import { ConfidenceBadge } from '../components/ConfidenceBadge.js';
 import { OutputRenamePanel } from '../components/OutputRenamePanel.js';
+import { AddOutputPanel } from '../components/AddOutputPanel.js';
 
 export function OutputsView() {
-  const { model, modelId, refreshModel } = useOutletContext<ModelOutletContext>();
+  const { model, modelId, refreshModel, understanding } = useOutletContext<ModelOutletContext>();
   const { selection, select } = useSelection();
   const [editingOutputId, setEditingOutputId] = useState<string | null>(null);
+  const [addingOutput, setAddingOutput] = useState(false);
   const editingOutput = model.outputs.find((output: any) => output.id === editingOutputId);
 
   const fanIn = useMemo(() => {
@@ -17,10 +19,17 @@ export function OutputsView() {
     for (const e of model.graph?.edges ?? []) map.set(e.to, (map.get(e.to) ?? 0) + 1);
     return map;
   }, [model.graph]);
+  const outputCandidates = useMemo(() => {
+    const exposed = new Set(model.outputs.map((output: any) => `${output.sourceCell.sheet}!${output.sourceCell.ref}`));
+    const candidates = [...(understanding?.sections.flatMap((section) => section.cells) ?? []), ...(understanding?.keyIntermediates ?? [])];
+    return [...new Map(candidates.filter((cell) => cell.formula && !exposed.has(cell.cellId)).map((cell) => [cell.cellId, cell])).values()];
+  }, [model.outputs, understanding]);
 
   return (
     <>
+    {addingOutput && <AddOutputPanel modelId={modelId} candidates={outputCandidates} onClose={() => setAddingOutput(false)} onCommitted={refreshModel} />}
     {editingOutput && <OutputRenamePanel modelId={modelId} output={editingOutput} outputIndex={model.outputs.findIndex((output: any) => output.id === editingOutput.id)} outputCount={model.outputs.length} onClose={() => setEditingOutputId(null)} onCommitted={refreshModel} />}
+    <div className="mb-3 flex justify-end"><button type="button" onClick={() => { setEditingOutputId(null); setAddingOutput(true); }} className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:border-emerald-500 hover:text-emerald-300">Add output</button></div>
     <div className="max-w-full overflow-x-auto">
     <table className="w-full min-w-[36rem] text-sm">
       <thead>
