@@ -13,6 +13,7 @@ import { findingsRouter } from './routes/findings.js';
 import { contractRouter } from './routes/contract.js';
 import { assuranceRouter } from './routes/assurance.js';
 import { monitoringRouter } from './routes/monitoring.js';
+import { mutationsRouter } from './routes/mutations.js';
 import { v1Router } from './routes/v1/models.js';
 import { authMiddleware } from './middleware/auth.js';
 
@@ -35,6 +36,7 @@ app.route('/findings', findingsRouter);
 app.route('/contract', contractRouter);
 app.route('/assurance', assuranceRouter);
 app.route('/models', monitoringRouter);
+app.route('/models', mutationsRouter);
 app.route('/v1', v1Router);
 
 const port = parseInt(process.env.PORT || '4100', 10);

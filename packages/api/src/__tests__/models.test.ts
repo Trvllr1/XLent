@@ -110,6 +110,39 @@ describe('Models API', () => {
     expect(row.percentDelta).toBeCloseTo(100, 0);
   });
 
+  it('POST /models/:id/mutations/preview — recalculates without persisting', async () => {
+    const beforeModelResponse = await app.request(`/models/${modelId}`);
+    const beforeModel = (await beforeModelResponse.json()).model;
+    const priceParam = beforeModel.parameters.find((parameter: any) => parameter.name === 'Price');
+
+    const beforeSnapshotsResponse = await app.request(`/snapshots/${modelId}`);
+    const beforeSnapshots = (await beforeSnapshotsResponse.json()).snapshots;
+    const response = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Preview a governed price update',
+        operations: [{ type: 'setParameterValue', parameterId: priceParam.id, value: 200 }],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const preview = await response.json();
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel.parameters.find((parameter: any) => parameter.id === priceParam.id).currentValue).toBe(200);
+    expect(Object.values(preview.proposedModel.outputs).map((output: any) => output.value)).toContain(10000);
+    expect(preview.affectedOutputs.length).toBeGreaterThan(0);
+
+    const afterModelResponse = await app.request(`/models/${modelId}`);
+    const afterModel = (await afterModelResponse.json()).model;
+    expect(afterModel).toEqual(beforeModel);
+
+    const afterSnapshotsResponse = await app.request(`/snapshots/${modelId}`);
+    const afterSnapshots = (await afterSnapshotsResponse.json()).snapshots;
+    expect(afterSnapshots).toHaveLength(beforeSnapshots.length);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

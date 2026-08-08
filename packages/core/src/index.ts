@@ -21,6 +21,15 @@ export { traceDownstream, computeParameterImpact } from './impact.js';
 export { resolveLabels, findSignificantIntermediates, understandModel } from './understand.js';
 export type { LabeledCell, ModelUnderstanding, ModelSection } from './understand.js';
 export { buildModelPackage } from './package.js';
+export { previewMutation } from './mutation/index.js';
+export type {
+	MutationActor,
+	MutationOperation,
+	MutationPreview,
+	MutationRequest,
+	MutationValidationIssue,
+	SetParameterValueOperation,
+} from './mutation/index.js';
 export { parseFormula, normalizeFormula, collectFunctionCalls } from './ast/index.js';
 export type { ASTNode } from './ast/index.js';
 export * from './functions/index.js';
