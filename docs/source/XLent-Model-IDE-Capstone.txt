@@ -1,0 +1,1473 @@
+
+
+# XLent: Model IDE — Capstone
+
+## Native Development Environment for Computational Models
+
+**Package:** Model IDE
+**Epic:** E12
+**Designation:** XLent Capstone
+**Status:** Strategic Product / Architecture Package
+**Constitutional Impact:** Proposed Amendment
+**Primary Thesis:** XLent is not merely a place to inspect models. It is ultimately the place where models are built, understood, debugged, changed, tested, reviewed, assured, versioned, and deployed.
+
+---
+
+# 1. Executive Thesis
+
+XLent begins with a powerful premise:
+
+> **`.xlsx ≠ Model`.**
+
+A spreadsheet is one representation of a computational model.
+
+The model itself contains:
+
+* inputs
+* assumptions
+* formulas
+* dependencies
+* business logic
+* constraints
+* outputs
+* tests
+* contracts
+* scenarios
+* state
+* provenance
+
+Historically, the spreadsheet has been both the representation **and** the place where the model is authored.
+
+XLent breaks that coupling.
+
+The **Model IDE** is the environment in which the underlying computational model becomes a first-class object.
+
+The spreadsheet remains an important interface and interchange format.
+
+It is no longer required to be the model's native development environment.
+
+---
+
+# 2. Why Model IDE Exists
+
+Prior XLent capabilities create a powerful asymmetry.
+
+XLent can:
+
+* import a workbook
+* reconstruct its model
+* understand dependencies
+* identify defects
+* trace root causes
+* quantify impact
+* execute calculations
+* run tests
+* evaluate contracts
+* conduct Model Review
+* produce evidence
+
+But without native editing, the user eventually reaches a boundary:
+
+> **XLent knows what is wrong, but the user must leave XLent to fix it.**
+
+The workflow becomes:
+
+```text
+XLent
+  ↓
+Understand
+  ↓
+Find Defect
+  ↓
+Explain Defect
+  ↓
+Export Insight
+  ↓
+Open Excel
+  ↓
+Find Cell
+  ↓
+Edit
+  ↓
+Save
+  ↓
+Re-import
+  ↓
+Re-analyze
+```
+
+This is the **round-trip problem**.
+
+It creates:
+
+* friction
+* context loss
+* version ambiguity
+* repeated imports
+* opportunity for new errors
+* broken provenance
+* duplicated work
+
+Model IDE closes that loop.
+
+---
+
+# 3. The Capstone
+
+The Model IDE introduces the missing capability:
+
+> **Act on what XLent understands.**
+
+The progression becomes:
+
+```text id="qz6b6r"
+IMPORT
+   ↓
+UNDERSTAND
+   ↓
+DEBUG
+   ↓
+REVIEW
+   ↓
+EDIT
+   ↓
+TEST
+   ↓
+VALIDATE
+   ↓
+VERSION
+   ↓
+ASSURE
+   ↓
+PUBLISH
+   ↓
+DEPLOY
+   ↓
+OPERATE
+```
+
+The model is no longer merely observed.
+
+It becomes **editable, executable, and governable**.
+
+That is why Model IDE is the XLent Capstone.
+
+---
+
+# 4. The Fundamental Shift
+
+### Before Model IDE
+
+> XLent is a powerful environment for understanding spreadsheets.
+
+### After Model IDE
+
+> **XLent is the development environment for computational models.**
+
+This is not merely a feature expansion.
+
+It changes the category XLent can occupy.
+
+---
+
+# 5. Model Sovereignty
+
+The Model IDE establishes the principle of **Model Sovereignty**.
+
+> **The canonical computational model—not its spreadsheet representation—is the primary editable, executable, testable, versionable, and deployable object.**
+
+The architecture therefore becomes:
+
+```text id="d9f7yb"
+                    CANONICAL MODEL
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+         XMR            AST           GRAPH
+          │              │              │
+          └──────────────┼──────────────┘
+                         ▼
+                  MODEL RUNTIME
+                         │
+        ┌────────────────┼────────────────┐
+        ▼                ▼                ▼
+    Spreadsheet        Model IDE         API
+    Representation       │              /Agent
+                         │
+                         ▼
+                      ModelOps
+```
+
+Excel is therefore one representation of the model.
+
+It is not the authoritative computational object.
+
+---
+
+# 6. Native Authoring
+
+The ultimate Model IDE must allow a model to be created without Excel.
+
+A user can define:
+
+```text id="pkj7g4"
+Inputs
+Assumptions
+Parameters
+Formulas
+Constraints
+Outputs
+Tests
+Contracts
+```
+
+and construct the model directly.
+
+For example:
+
+```text id="b8n4k0"
+INPUT
+Units
+
+INPUT
+Price
+
+FORMULA
+Revenue = Units × Price
+
+INPUT
+Operating Cost
+
+FORMULA
+EBITDA = Revenue − Operating Cost
+
+OUTPUT
+IRR
+```
+
+Excel can then become an export format:
+
+```text id="u2c8ay"
+Native Model
+     ↓
+XLent Runtime
+     ↓
+Excel Export
+```
+
+This realizes the deeper meaning of:
+
+> **`.xlsx ≠ Model`.**
+
+---
+
+# 7. The Model IDE Is Not "Excel in a Browser"
+
+This distinction is mandatory.
+
+XLent must not become another spreadsheet application.
+
+Excel answers:
+
+> **What is in this cell?**
+
+Model IDE answers:
+
+> **What is this component of the model, what does it mean, what depends on it, what depends upon it, what rules govern it, and what happens when it changes?**
+
+The Model IDE is model-native rather than cell-native.
+
+---
+
+# 8. E12.1 — Structure Editor
+
+The Structure Editor enables semantic modification of the model.
+
+Users can:
+
+* add inputs
+* remove inputs
+* rename parameters
+* add outputs
+* remove outputs
+* reorganize components
+* modify relationships
+* restructure model sections
+
+The key requirement is **semantic safety**.
+
+For example:
+
+> Rename `Exit Multiple` → `Terminal Multiple`
+
+XLent identifies:
+
+```text id="lym6fi"
+Exit Multiple
+   │
+   ├── DCF
+   ├── Terminal Value
+   ├── Equity Value
+   ├── IRR
+   ├── MOIC
+   ├── Tests
+   └── Scenarios
+```
+
+The rename can then propagate through the canonical model.
+
+This is analogous to **refactoring in software engineering**.
+
+---
+
+# 9. E12.2 — Formula Editor
+
+The Formula Editor allows formulas to be edited directly inside XLent.
+
+It must provide:
+
+* syntax highlighting
+* formula validation
+* AST representation
+* dependency preview
+* reference validation
+* impact preview
+* test status
+* contract status
+* undo/redo
+* version tracking
+
+The important distinction is:
+
+```text id="p2b1r6"
+Spreadsheet Editing
+
+Cell
+ ↓
+Formula String
+ ↓
+Recalculate
+
+
+Model Editing
+
+Model Component
+ ↓
+Formula
+ ↓
+AST
+ ↓
+Dependency Graph
+ ↓
+Contracts
+ ↓
+Tests
+ ↓
+Impact
+ ↓
+Evidence
+```
+
+A formula edit is therefore a **model mutation**, not merely a text edit.
+
+---
+
+# 10. Semantic Refactoring
+
+One of the strongest potential capabilities of Model IDE is model refactoring.
+
+Examples:
+
+### Rename
+
+`Revenue Growth` → `Organic Revenue Growth`
+
+### Extract
+
+Move a repeated calculation into a reusable model component.
+
+### Replace
+
+Swap an assumption source.
+
+### Rewire
+
+Change a dependency.
+
+### Introduce
+
+Create a new parameter.
+
+### Remove
+
+Delete a model component and identify all affected consumers.
+
+XLent should understand the semantic consequences of these changes before committing them.
+
+---
+
+# 11. Model Mutation
+
+All edits should pass through a canonical mutation layer.
+
+```text id="5z1zxy"
+User / Agent
+     │
+     ▼
+Mutation Request
+     │
+     ▼
+Canonical Model
+     │
+     ├── Validate
+     ├── Recalculate
+     ├── Test
+     ├── Review
+     └── Impact Analysis
+     │
+     ▼
+Proposed State
+     │
+     ▼
+Commit / Reject
+```
+
+This becomes one of the most important architectural boundaries in XLent.
+
+No trusted actor—human or AI—should bypass it.
+
+---
+
+# 12. E12.3 — Agent-Mediated Editing
+
+Agents interact with XLent through the same mutation system as humans.
+
+An agent should not directly mutate an XLSX file.
+
+Instead:
+
+```text id="xgbm9e"
+Agent
+  ↓
+Propose Change
+  ↓
+Mutation API
+  ↓
+Validate
+  ↓
+Execute
+  ↓
+Test
+  ↓
+Review
+  ↓
+Compare
+  ↓
+Evidence
+  ↓
+Approve / Reject
+```
+
+Example:
+
+> "Change the exit multiple from 10x to 8x."
+
+XLent responds:
+
+```text id="q0q0yi"
+Change Proposed
+
+Exit Multiple
+10.0x → 8.0x
+
+Affected Components:
+14
+
+Tests:
+23 passed
+0 failed
+
+Contracts:
+12 passed
+0 failed
+
+IRR:
+28.4% → 21.7%
+
+Model Integrity:
+PASS
+```
+
+The agent has not merely changed a number.
+
+It has performed an **auditable model mutation**.
+
+---
+
+# 13. Agent Safety
+
+The Model IDE establishes a crucial rule:
+
+> **Agents may propose model changes; the model engine determines whether those changes are acceptable.**
+
+This creates a controlled loop:
+
+```text id="0m8f0f"
+AGENT INTENT
+     ↓
+MODEL MUTATION
+     ↓
+EXECUTION
+     ↓
+TESTING
+     ↓
+ASSURANCE
+     ↓
+EVIDENCE
+     ↓
+DECISION
+```
+
+This is substantially safer than allowing an LLM to manipulate spreadsheet cells directly.
+
+---
+
+# 14. E12.4 — Excel Export
+
+The direction of authority changes.
+
+### Traditional
+
+```text
+Excel
+ ↓
+Model
+```
+
+### XLent
+
+```text
+Model
+ ↓
+Excel
+```
+
+Excel becomes:
+
+* delivery format
+* stakeholder interface
+* interchange format
+* familiar reporting artifact
+
+while XLent retains the authoritative model representation.
+
+Export should preserve, where possible:
+
+* formulas
+* structure
+* metadata
+* provenance
+* model version
+* selected evidence
+* assumptions
+
+---
+
+# 15. Model Debugger
+
+The Model IDE incorporates the debugging wedge that originally made XLent compelling.
+
+A user can ask:
+
+> Why is IRR 28%?
+
+or:
+
+> Why did IRR fall from 28% to 19%?
+
+or:
+
+> What changed between these model versions?
+
+XLent can traverse:
+
+```text id="bqj5i3"
+Output
+  ↓
+Dependencies
+  ↓
+Root Causes
+  ↓
+Inputs / Assumptions
+```
+
+The debugger should support:
+
+* trace
+* watches
+* impact analysis
+* suspicious dependency detection
+* formula comparison
+* state comparison
+* breakpoint-like conditions
+
+---
+
+# 16. Model Breakpoints
+
+Model IDE introduces the concept of **Model Breakpoints**.
+
+Examples:
+
+> Stop when Revenue exceeds $100M.
+
+> Pause when EBITDA margin falls below 15%.
+
+> Trace all calculations contributing to IRR.
+
+> Stop when Debt Balance becomes negative.
+
+> Inspect the model when a specified assumption changes.
+
+This adapts familiar software-debugging concepts to computational models.
+
+---
+
+# 17. Model Watch
+
+Users can watch important model components.
+
+```text id="b93qg1"
+WATCH
+
+Revenue
+EBITDA
+FCF
+Debt
+IRR
+MOIC
+```
+
+When a change occurs:
+
+```text id="31d9kd"
+IRR
+28.4% → 24.1%
+
+Cause:
+Exit Multiple
+10x → 8x
+
+Affected:
+Enterprise Value
+Equity Value
+IRR
+MOIC
+```
+
+The model becomes observable rather than opaque.
+
+---
+
+# 18. Model Review Integration
+
+Model Review becomes a native workspace inside Model IDE.
+
+A finding can be acted upon immediately.
+
+```text id="a6m6tu"
+FINDING
+
+Revenue!H82
+
+Expected:
+=D82+E81
+
+Observed:
+=D82+B81
+
+Impact:
+Revenue
+EBITDA
+FCF
+IRR
+```
+
+The user selects:
+
+> **Fix**
+
+The editor proposes the mutation.
+
+Tests run.
+
+The finding disappears if the defect is genuinely resolved.
+
+The review state is updated.
+
+This closes the loop:
+
+```text id="j6z1qf"
+Find
+ ↓
+Understand
+ ↓
+Fix
+ ↓
+Test
+ ↓
+Re-review
+ ↓
+Validate
+```
+
+---
+
+# 19. Model Testing Integration
+
+Every material edit can trigger relevant tests.
+
+For example:
+
+```text id="pxk4tg"
+Formula Change
+     ↓
+Affected Graph
+     ↓
+Relevant Tests
+     ↓
+Execute
+     ↓
+PASS / FAIL
+```
+
+XLent should favor **targeted testing** where possible rather than blindly executing every test after every change.
+
+---
+
+# 20. Model Contract Integration
+
+Model Contracts express intended behavior.
+
+Examples:
+
+```text id="r8opj7"
+Revenue = Units × Price
+
+Debt Balance >= 0
+
+Tax Rate ∈ [0%, 50%]
+
+Revenue Growth ∈ [-20%, 100%]
+```
+
+When a user or agent changes the model, contracts are re-evaluated.
+
+Thus:
+
+> **Intended business logic becomes executable during editing.**
+
+This is critical to Model Validity.
+
+---
+
+# 21. Versioning
+
+Every meaningful model mutation should produce a traceable state.
+
+Instead of:
+
+```text
+final.xlsx
+final_v2.xlsx
+final_FINAL.xlsx
+```
+
+the Model IDE provides:
+
+```text id="70ub13"
+MODEL
+
+v1
+v2
+v3
+v4
+```
+
+Each version may retain:
+
+* author
+* timestamp
+* mutation
+* rationale
+* diff
+* tests
+* review status
+* contract status
+* evidence
+
+---
+
+# 22. Undo / Redo
+
+Undo must operate at the model level.
+
+Not simply:
+
+> Ctrl+Z changed a cell.
+
+But:
+
+> **Revert the semantic model mutation.**
+
+For example:
+
+```text id="2n8sdi"
+Rename Parameter
+   ↓
+Rewire Dependencies
+   ↓
+Update Contracts
+   ↓
+Run Tests
+```
+
+One undo operation should be capable of reversing the entire transaction.
+
+---
+
+# 23. Semantic Diff
+
+Model IDE must distinguish between:
+
+### Cell Diff
+
+> H82 changed.
+
+and:
+
+### Model Diff
+
+> Revenue calculation changed because FY2029 Growth was redirected from the 2029 assumption to the 2028 assumption.
+
+The latter is the actual information users need.
+
+Semantic diff should expose:
+
+* formula changes
+* dependency changes
+* structure changes
+* assumption changes
+* contract changes
+* test changes
+* output changes
+
+---
+
+# 24. Scenario vs Mutation
+
+Model IDE must preserve a strict distinction.
+
+### Scenario
+
+> "What happens if Revenue Growth falls from 8% to 5%?"
+
+This creates an alternate model state without changing the canonical model.
+
+### Mutation
+
+> "Change the model's Revenue Growth parameter from 8% to 5%."
+
+This changes the model.
+
+### Defect Mutation
+
+> "Deliberately introduce an incorrect formula."
+
+This is primarily an engineering/PDC activity.
+
+These must not be conflated.
+
+---
+
+# 25. Model IDE and PDC
+
+PDC remains an internal XLent engineering system.
+
+Its role is to challenge Model IDE and the underlying model engine.
+
+```text id="a7n3o2"
+                     MODEL IDE
+                         │
+            ┌────────────┼────────────┐
+            ▼            ▼            ▼
+          Edit         Review       Test
+            │            │            │
+            └────────────┼────────────┘
+                         ▼
+                    Model Engine
+                         ▲
+                         │
+                         │
+                        PDC
+                         │
+                         ▼
+                  Challenge XLent
+```
+
+PDC can test whether XLent correctly handles:
+
+* bad edits
+* dangerous refactors
+* broken dependencies
+* invalid formulas
+* contract violations
+* mutation rollback
+* agent-generated changes
+* version transitions
+
+---
+
+# 26. Native Model Creation
+
+The North Star capability is a model that never required Excel.
+
+Example:
+
+```text id="6f6m4y"
+CREATE MODEL
+"Acquisition Model"
+
+INPUT
+Purchase Price
+
+INPUT
+Debt
+
+INPUT
+Revenue
+
+INPUT
+EBITDA Margin
+
+INPUT
+Exit Multiple
+
+FORMULA
+EBITDA = Revenue × EBITDA Margin
+
+FORMULA
+Enterprise Value = EBITDA × Exit Multiple
+
+OUTPUT
+IRR
+```
+
+The user now possesses a genuine computational model.
+
+Excel export becomes optional.
+
+---
+
+# 27. Model Templates
+
+Native authoring enables templates.
+
+Examples:
+
+* DCF
+* LBO
+* SaaS forecast
+* Capacity planning
+* Inventory optimization
+* Project finance
+* Engineering sizing
+* Semiconductor cost model
+* Supply chain model
+
+A template is no longer merely an `.xlsx` file.
+
+It can contain:
+
+* structure
+* contracts
+* tests
+* assumptions
+* documentation
+* review rules
+* scenarios
+
+This creates the possibility of a true **model ecosystem**.
+
+---
+
+# 28. Model Registry
+
+Model IDE can eventually expose organizational models as governed assets.
+
+```text id="1dhy7u"
+MODEL REGISTRY
+
+Acquisition Model
+v12
+VALIDATED
+DEPLOYED
+
+Pricing Model
+v7
+REVIEW REQUIRED
+
+Capacity Model
+v3
+DRAFT
+
+Forecast Model
+v21
+APPROVED
+```
+
+Models acquire explicit lifecycle states.
+
+---
+
+# 29. Model Lifecycle
+
+The complete XLent lifecycle becomes:
+
+```text id="t1gr8y"
+CREATE
+   ↓
+EDIT
+   ↓
+TEST
+   ↓
+REVIEW
+   ↓
+VALIDATE
+   ↓
+APPROVE
+   ↓
+PUBLISH
+   ↓
+DEPLOY
+   ↓
+EXECUTE
+   ↓
+MONITOR
+   ↓
+REVISE
+   ↓
+RETIRE
+```
+
+This is the foundation of ModelOps.
+
+---
+
+# 30. Deployment
+
+Deployment is not:
+
+> Save the workbook somewhere.
+
+Deployment means:
+
+> **Make a validated model available as a controlled computational artifact.**
+
+For example:
+
+```text id="u4cxpf"
+Validated Model v12
+       ↓
+Published
+       ↓
+XLent Runtime
+       ↓
+API
+       ↓
+Application
+Agent
+Workflow
+```
+
+The model can now operate independently of Excel.
+
+---
+
+# 31. The Human-Agent Symmetry
+
+The same Model IDE should ultimately serve humans and agents.
+
+### Human
+
+```text
+Click
+Inspect
+Edit
+Test
+Review
+Commit
+```
+
+### Agent
+
+```text
+Call API
+Inspect
+Propose Mutation
+Test
+Review
+Commit
+```
+
+Both operate against the same canonical model.
+
+This is strategically important.
+
+The Model IDE is not merely a UI.
+
+It is a **model interaction protocol**.
+
+---
+
+# 32. The Agentic Model Development Loop
+
+The mature agent loop becomes:
+
+```text id="0v7m7x"
+Agent Goal
+    ↓
+Inspect Model
+    ↓
+Form Hypothesis
+    ↓
+Propose Mutation
+    ↓
+Execute
+    ↓
+Test
+    ↓
+Review
+    ↓
+Evaluate Evidence
+    ↓
+Accept / Reject
+    ↓
+Commit
+```
+
+If the result fails:
+
+```text id="1g7e4y"
+FAIL
+ ↓
+Undo
+ ↓
+Revise Hypothesis
+ ↓
+Try Alternative
+```
+
+This is effectively **Agent SWE for computational models**.
+
+---
+
+# 33. Model IDE as a Control Plane
+
+The Model IDE eventually becomes the human/agent control plane for:
+
+```text id="j6t1sn"
+                 MODEL
+                   │
+     ┌─────────────┼──────────────┐
+     ▼             ▼              ▼
+   Design        Quality        Runtime
+     │             │              │
+   Edit          Test           Execute
+   Refactor      Review         Monitor
+   Version       Assure         Deploy
+```
+
+This makes Model IDE central to the entire XLent architecture.
+
+---
+
+# 34. Constitutional Amendments
+
+The existing XLent Engineering Constitution should be amended with the following principles.
+
+## Amendment M-01 — Model Sovereignty
+
+The canonical model is the authoritative computational object.
+
+Spreadsheet representations are derivative, interoperable, or user-facing representations of that model.
+
+---
+
+## Amendment M-02 — Native Authoring
+
+XLent shall support the creation and modification of computational models independently of any external spreadsheet authoring environment.
+
+---
+
+## Amendment M-03 — Semantic Mutation
+
+Material model changes shall operate against the canonical model representation rather than directly manipulating presentation artifacts.
+
+---
+
+## Amendment M-04 — Controlled Mutation
+
+Every material mutation shall be capable of validation, recalculation, testing, impact analysis, and version tracking before becoming an accepted model state.
+
+---
+
+## Amendment M-05 — Human-Agent Parity
+
+Humans and agents shall interact with the model through equivalent governed mutation primitives wherever practical.
+
+Agents shall not receive privileged pathways that bypass model integrity controls.
+
+---
+
+## Amendment M-06 — Closed-Loop Engineering
+
+XLent shall enable the complete loop:
+
+> **Find → Understand → Change → Test → Review → Validate → Commit.**
+
+A finding should not inherently require leaving XLent to remediate it.
+
+---
+
+## Amendment M-07 — Representation Independence
+
+XLent shall not make the spreadsheet format a prerequisite for model existence.
+
+A model may originate from:
+
+* XLSX
+* native XLent authoring
+* API
+* agent
+* template
+* another supported representation
+
+---
+
+## Amendment M-08 — Reversibility
+
+Material model mutations shall be traceable and reversible.
+
+No material change should silently destroy prior model state.
+
+---
+
+## Amendment M-09 — Evidence Continuity
+
+Editing a model shall not sever its evidence chain.
+
+Tests, contracts, findings, provenance, and review state must remain associated with model versions through mutation.
+
+---
+
+## Amendment M-10 — Execution Is Not Validation
+
+A successfully executing model is not necessarily valid.
+
+Model validity requires evidence against intended behavior, contracts, tests, invariants, and applicable assurance criteria.
+
+---
+
+# 35. What Model IDE Does Not Mean
+
+Model IDE does **not** mean:
+
+* replacing Excel immediately
+* rebuilding Excel
+* creating a generic spreadsheet SaaS
+* making every cell editable without governance
+* allowing agents unrestricted model mutation
+* conflating scenarios with permanent model changes
+* eliminating human review
+* declaring models valid simply because they execute
+
+The objective is not:
+
+> **"Build a better spreadsheet."**
+
+It is:
+
+> **"Build the environment in which computational models can be responsibly engineered."**
+
+---
+
+# 36. The Product Evolution
+
+The XLent journey can now be expressed as:
+
+### Stage 1 — Spreadsheet Intelligence
+
+> "Understand my workbook."
+
+### Stage 2 — Model Review
+
+> "Tell me what's wrong."
+
+### Stage 3 — ModelOps
+
+> "Test, validate, govern, and operate my model."
+
+### Stage 4 — Model IDE
+
+> **"Let me build and fix the model here."**
+
+### Stage 5 — Agentic Model Engineering
+
+> **"Let my agent build and improve the model here—with XLent enforcing the rules."**
+
+That final stage is where the platform thesis becomes particularly powerful.
+
+---
+
+# 37. The Capstone Flywheel
+
+```text id="n2s0ac"
+                 REAL-WORLD MODELS
+                        │
+                        ▼
+                    XLent IDE
+                        │
+           ┌────────────┼────────────┐
+           ▼            ▼            ▼
+         Build        Debug        Review
+           │            │            │
+           └────────────┼────────────┘
+                        ▼
+                       Test
+                        │
+                        ▼
+                     Assure
+                        │
+                        ▼
+                     Deploy
+                        │
+                        ▼
+                    Operate
+                        │
+                        ▼
+                  New Model State
+                        │
+                        └──────────► IDE
+```
+
+And underneath:
+
+```text id="p1v5f2"
+                         PDC
+                          │
+                          ▼
+                 Continuously tests
+                    XLent itself
+```
+
+---
+
+# 38. The Ultimate XLent Thesis
+
+XLent began by modernizing an established primitive:
+
+> **the spreadsheet model.**
+
+The first insight was:
+
+> **Spreadsheets are applications disguised as documents.**
+
+The second was:
+
+> **Those applications need debugging.**
+
+The third:
+
+> **They need Model Review.**
+
+The fourth:
+
+> **They need ModelOps.**
+
+The capstone realization is:
+
+> **If the model can be understood, tested, reviewed, and operated, it should eventually be possible to build and fix it in the same environment.**
+
+That environment is Model IDE.
+
+---
+
+# 39. Final Definition
+
+> **XLent Model IDE is the native development environment for computational models: a model-centric workspace in which humans and agents can create, inspect, debug, modify, refactor, test, review, validate, version, assure, publish, and deploy models while preserving the spreadsheet as a powerful representation and interchange paradigm.**
+
+The shortest expression is:
+
+> **Model Review tells you what is wrong.**
+
+> **Model IDE lets you do something about it.**
+
+And the ultimate expression is:
+
+> **XLent is where the model lives.**
+
+---
+
+# 40. Capstone Position in XLent
+
+The final architectural relationship is:
+
+```text id="n7v2v1"
+                           XLENT
+                             │
+                    Computational Models
+                             │
+         ┌───────────────────┼───────────────────┐
+         │                   │                   │
+         ▼                   ▼                   ▼
+     Model IDE            ModelOps            Runtime
+         │                   │                   │
+         │              Govern / Operate       Execute
+         │
+ ┌───────┼───────────────────────────────┐
+ │       │       │       │       │       │
+ ▼       ▼       ▼       ▼       ▼       ▼
+Build  Debug  Review   Test   Assure  Deploy
+ │       │       │       │       │       │
+ └───────┴───────┴───────┴───────┴───────┘
+                     │
+                     ▼
+              Canonical Model
+                     │
+          ┌──────────┼──────────┐
+          ▼          ▼          ▼
+         XMR        AST        Graph
+                     │
+                     ▼
+                    PDC
+                     │
+                     ▼
+             Tests XLent itself
+```
+
+**Model IDE is therefore not the end of XLent's architecture.**
+
+It is the point where the architecture finally becomes a **complete model-development system**.
+
+The original wedge remains **debugging**.
+
+The immediate product value remains **Model Review**.
+
+The operational platform remains **ModelOps**.
+
+The assurance discipline remains **PDC**.
+
+But the capstone is the realization that all of those capabilities naturally converge on one place:
+
+> **a native environment where computational models can actually be engineered.**

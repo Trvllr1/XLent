@@ -42,7 +42,7 @@ DEFERRED:   E3 (Lifecycle/Registry/Prod API) · E6 (Branching/Connectors)
 | E9 | 📐 Next | Assurance Ladder (V&V semantics) |
 | E10 | 📐 Next | Behavioral Testing & Model CI |
 | E11 | 📐 Next | Test Corpus & Monitoring |
-| E12 | 📐 Next | Model IDE (Explorer → Editor → IDE) |
+| E12 | 📐 Next | Model IDE Capstone — sovereign canonical model + governed human/agent mutation (see doc 14) |
 | E13 | 📋 Planned | Model Review — judgment layer above E7–E11 (see doc 12) |
 | E14 | 📋 Planned | Programmatic Defect Corpus — XLent tests XLent (see doc 13) |
 | E15 | 📋 Planned | Graph Reasoning Surface — focus/trace, findings & materiality overlays, semantic diff |
@@ -523,57 +523,97 @@ These items have design notes in the blueprint but no scheduled implementation. 
 
 ## E12 — Model IDE
 
-**Goal:** Evolve `@xlent/web` from read-only Model Explorer into a full Model Editor — a second authoring surface alongside Excel. Users can create, edit, test, and export models without ever opening a spreadsheet. Agents can make changes via the same editing API.
+**Goal:** Make XLent the native development environment and control plane for computational models. Humans and agents can create, inspect, debug, mutate, refactor, test, review, validate, version, assure, publish, and deploy the canonical model without bypassing model-integrity controls.
 
-**Source:** North Star thesis completion (".xlsx ≠ Model" → models can originate in XLent); Product Principle 2 (amended: two authoring surfaces).
+**Source:** `docs/14-Model-IDE-Capstone.md` (normative source: `docs/source/XLent-Model-IDE-Capstone.txt`). This supersedes the earlier editor-only E12 guidance.
 
-**Dependencies:** E0 (AST — required for formula editing), E7 (findings feed inline diagnostics), E8 (contracts govern intent editing), E9 (assurance status visible during authoring).
+**Primary thesis:** `.xlsx ≠ Model`. Excel remains a first-class authoring/interchange surface, but the canonical model (XMR + AST + Graph + Runtime) is the authoritative editable, executable, testable, versionable, and deployable object.
 
-### E12.1 — Structure Editor
+**Constitutional status:** M-01–M-10 in doc 14 are proposed amendments, not binding until separately adopted. E12 implementation must nevertheless preserve current constitutional invariants: deterministic execution, inference ≠ authority, execution ≠ validity, no silent mutation, and evidence before judgment.
+
+**Dependencies:** E0 (AST), E2 (version/diff), E7 (debug/findings), E8 (contracts), E9 (assurance), E10 (targeted tests/CI), E13 (review integration for the complete closed loop). E12 can begin before E13 is complete, but E12.4 cannot close without it.
+
+### E12.0 — Canonical Model Mutation Layer
 
 | Field | Value |
 |---|---|
-| **Scope** | Add/remove/rename parameters and outputs in the web UI. Set type, constraints, allowedRange, description. Reorder via drag. Changes write to XMR directly (no xlsx round-trip). |
-| **Files** | Modify: `packages/web/src/` (new editor components). Modify: API to accept PATCH operations on model structure. |
-| **Acceptance criteria** | (1) Add parameter → model gains a new root node in the graph. (2) Remove output → model loses a terminal node; downstream consumers warned. (3) Rename parameter → all formula references auto-updated (AST rewrite). (4) Changes versioned: every edit creates a new draft version. (5) Undo/redo stack (local, session-scoped). |
-| **Dependencies** | E0 (AST for ref renaming) |
+| **Scope** | Establish the architectural boundary through which every human or agent edit passes. A mutation request produces a proposed state, validation, recalculation, affected-graph analysis, targeted tests, contract checks, semantic diff, evidence, then explicit commit or reject. No actor mutates XLSX or persisted XMR directly. |
+| **Files** | New: `packages/core/src/mutation/` (`types.ts`, `validate.ts`, `apply.ts`, `preview.ts`, `undo.ts`). New: `packages/api/src/routes/mutations.ts`. Modify model persistence/versioning. |
+| **Acceptance criteria** | (1) `POST /models/:id/mutations/preview` accepts an atomic operation batch and never persists it. (2) Preview returns semantic diff, affected components/outputs, test + contract results, and evidence refs. (3) Explicit commit creates a new immutable version; reject creates none. (4) The whole mutation transaction is reversible. (5) Human UI and agent API call the same core primitive. (6) Scenario overrides cannot be committed accidentally as mutations. |
+| **Dependencies** | E0, E2, E8, E10 |
+
+### E12.1 — Structure Editor & Semantic Refactoring
+
+| Field | Value |
+|---|---|
+| **Scope** | Add/remove/rename/reorder parameters, outputs, sections, and model components. Semantic refactors: rename, extract, replace source, rewire dependency, introduce, remove. Preview consequences before commit. |
+| **Files** | New editor/refactor components in `packages/web/src/`. New mutation operations in core. |
+| **Acceptance criteria** | (1) Rename propagates through AST formulas, tests, contracts, scenarios, and graph labels. (2) Remove identifies all consumers and blocks unsafe commit unless explicitly resolved. (3) Rewire previews changed dependencies and outputs. (4) Add/remove changes root/terminal graph nodes correctly. (5) Each accepted refactor is one atomic, reversible semantic mutation. |
+| **Dependencies** | E12.0 |
 
 ### E12.2 — Formula Editor
 
 | Field | Value |
 |---|---|
-| **Scope** | In-place formula editing with syntax highlighting, function autocomplete, live dependency preview, and error detection. Edit at the XMR/AST level, not the cell-grid level. |
-| **Files** | New: `packages/web/src/components/FormulaEditor.tsx`. Modify: API to accept formula updates per cell. |
-| **Acceptance criteria** | (1) Syntax highlighting for functions, refs, operators, numbers, strings. (2) Autocomplete for supported functions (with signature hints). (3) Live dependency arrows: as you type a ref, show what it connects to. (4) Immediate error feedback: unsupported function, broken ref, circular dep introduced. (5) Tests re-run on save (background, non-blocking). |
-| **Dependencies** | E0 (AST parsing for live feedback), E7 (findings for inline diagnostics) |
+| **Scope** | Model-component formula editing with syntax highlighting, function signatures/autocomplete, AST/reference validation, live dependency + impact preview, test/contract status, semantic undo/redo, and version tracking. This is not a generic cell editor. |
+| **Files** | New: `packages/web/src/components/FormulaEditor.tsx`. Modify mutation operations and AST serializer. |
+| **Acceptance criteria** | (1) Highlight functions, refs, operators, numbers, strings. (2) Immediate unsupported-function, broken-ref, and introduced-cycle feedback. (3) Dependency arrows and affected outputs update in preview. (4) Relevant tests/contracts run before commit. (5) Accepted formula edit creates a versioned mutation with evidence; failed preview cannot silently persist. |
+| **Dependencies** | E12.0, E0, E7, E8, E10 |
 
-### E12.3 — Agent-Mediated Editing
-
-| Field | Value |
-|---|---|
-| **Scope** | API endpoint for programmatic model edits. An agent (or CLI) can POST structural and formula changes. Same validation as UI editor. |
-| **Files** | New: `packages/api/src/routes/edit.ts`. Modify: `packages/core/` to support apply-edit operations on XMR. |
-| **Acceptance criteria** | (1) `POST /models/:id/edit` accepts `{ operations: EditOperation[] }`. (2) Operations: `addParameter`, `removeParameter`, `setFormula`, `renameCell`, `addOutput`, `removeOutput`. (3) Every edit produces a diff (reuses E2 diff engine). (4) Tests auto-run after edit batch (returns pass/fail inline). (5) Agent can chain: edit → test → if fail → undo → try alternative. |
-| **Dependencies** | E12.1, E12.2, E2 (diff) |
-
-### E12.4 — xlsx Export (Round-Trip)
+### E12.3 — Model Debugger, Watches & Breakpoints
 
 | Field | Value |
 |---|---|
-| **Scope** | Generate a well-formed .xlsx from XMR. Users can export a model they edited in XLent back to Excel for stakeholders who prefer spreadsheets. |
-| **Files** | New: `packages/core/src/xlsxWriter.ts`. New: API endpoint `GET /models/:id/export.xlsx`. |
-| **Acceptance criteria** | (1) Exported xlsx opens in Excel without errors. (2) Formulas are written as Excel formulas (not values). (3) Sheet structure, cell positions, and naming preserved from original import (if imported). (4) Models created in XLent (never imported) get a sensible default layout. (5) Round-trip: import xlsx → export xlsx → re-import → diff shows zero semantic changes. |
-| **Dependencies** | E0 (AST → formula text serialization) |
+| **Scope** | Native debugger: trace output to root causes, watch model components across proposed/committed states, compare formulas/states, identify suspicious dependencies, and inspect breakpoint-like conditions. |
+| **Files** | New debugger/watch views and core debug-condition evaluator; integrate E15 Graph focus/trace when available. |
+| **Acceptance criteria** | (1) Watch list reports before/after values and causal input/assumption changes for a mutation preview. (2) Breakpoints support numeric/boolean conditions (e.g. Debt < 0) and assumption-change conditions. (3) Trace explains an output through dependencies to root causes. (4) Breakpoint/watch evaluation is deterministic and retained as evidence. |
+| **Dependencies** | E12.0, E7; E15 enhances visualization but is not required for core semantics |
 
-### E12.5 — Live Sync (Deferred — Phase C)
+### E12.4 — Closed-Loop Review, Testing, Contracts & Evidence
 
 | Field | Value |
 |---|---|
-| **Scope** | File-system watcher or Excel Add-in that detects changes in either direction and auto-reconciles via the diff engine. |
-| **Files** | TBD — depends on delivery mechanism (Add-in vs. local agent vs. file watcher). |
-| **Acceptance criteria** | (1) Edit in Excel → change detected within 5s → re-import triggered → diff shown in XLent. (2) Edit in XLent → export triggered → xlsx updated → Excel refreshes. (3) Conflict: both sides edited same cell → user shown merge UI with both versions. |
-| **Dependencies** | E12.4, file-system or Office.js infrastructure |
-| **Trigger** | First user requests bidirectional workflow; or enterprise customer requires Excel ↔ XLent parity. |
+| **Scope** | Close `Find → Understand → Change → Test → Review → Validate → Commit`. Findings can produce proposed mutations; affected-graph analysis selects relevant tests; contracts re-evaluate; review and assurance state update only from evidence. |
+| **Files** | Integrate mutation routes/UI with findings, tests, contracts, evidence, assurance, and E13 review APIs. |
+| **Acceptance criteria** | (1) "Fix" on a finding opens a pre-populated mutation preview, never silently edits. (2) Targeted tests are selected from affected nodes; full suite remains available. (3) Contract violations block or explicitly gate commit by policy. (4) A finding resolves only when evidence proves resolution. (5) Prior review/assurance evidence remains attached to the prior version; new version starts the appropriate reassessment. |
+| **Dependencies** | E12.0–E12.3, E7–E10, E13 |
+
+### E12.5 — Native Model Creation & Templates
+
+| Field | Value |
+|---|---|
+| **Scope** | Create a computational model without Excel: inputs, assumptions, formulas, constraints, outputs, tests, contracts, documentation, review rules, and scenarios. Templates become governed model packages rather than `.xlsx` files. |
+| **Files** | New native-create workflow in web/API/core; template package schema and starter templates. |
+| **Acceptance criteria** | (1) Create an executable model with no source workbook. (2) Define model components by semantic names rather than mandatory cell coordinates. (3) Starter template includes contract + tests + documentation. (4) Native model runs through the same runtime, review, assurance, versioning, and deployment paths as an imported model. |
+| **Dependencies** | E12.0–E12.2 |
+
+### E12.6 — Human-Agent Mutation Protocol
+
+| Field | Value |
+|---|---|
+| **Scope** | Expose the canonical mutation loop as a model interaction protocol. Agents inspect, hypothesize, propose, execute preview, test, review evidence, accept/reject, commit; failure supports undo/revise/alternative. No direct XLSX mutation or privileged bypass. |
+| **Files** | Extend mutation API + `XLentClient`; agent tool schemas; permission/policy checks. |
+| **Acceptance criteria** | (1) Agent and UI produce byte-equivalent mutation requests for the same operation. (2) Agent receives semantic diff, impact, test/contract outcomes, and evidence before requesting commit. (3) Agent cannot approve its own consequential review unless policy explicitly grants a human-equivalent role. (4) Failed proposal can be rejected and replaced without altering canonical state. (5) Audit trail identifies actor, rationale, proposal, decision, and resulting version. |
+| **Dependencies** | E12.0, E12.4 |
+
+### E12.7 — Excel Export, Publish & Deploy
+
+| Field | Value |
+|---|---|
+| **Scope** | Generate Excel as a derivative representation and publish a validated canonical model as a controlled runtime artifact. Preserve formulas, structure, metadata, provenance, version, assumptions, and selected evidence where representable. |
+| **Files** | New: `packages/core/src/xlsxWriter.ts`. API: `GET /models/:id/export.xlsx`; integrate publish/deploy gates. |
+| **Acceptance criteria** | (1) Exported XLSX opens in Excel and preserves formula semantics. (2) Imported-model round trip re-imports with zero semantic diff. (3) Native models receive a deterministic, sensible Excel layout. (4) Export identifies model version/provenance and unsupported representation losses. (5) Deployment requires configured review/assurance policy; execution success alone cannot publish. |
+| **Dependencies** | E12.4, E0, E3 |
+
+### E12.8 — Live Excel Sync (Deferred)
+
+| Field | Value |
+|---|---|
+| **Scope** | File watcher or Excel Add-in reconciles changes in either direction through semantic diff and the canonical mutation layer. Excel never bypasses mutation governance. |
+| **Files** | TBD — Add-in vs. local agent vs. file watcher. |
+| **Acceptance criteria** | (1) Excel change becomes a mutation preview, not direct persistence. (2) XLent commit can update/export XLSX. (3) Concurrent changes produce a semantic conflict UI with both states. (4) Provenance identifies representation and actor. |
+| **Dependencies** | E12.0, E12.7, Office.js/file infrastructure |
+| **Trigger** | First user requests bidirectional workflow or enterprise requires Excel ↔ XLent parity. |
 
 ---
 
@@ -744,7 +784,7 @@ These items have design notes in the blueprint but no scheduled implementation. 
 | E8 before E9 | Assurance Ladder's VALIDATED gate requires a contract. Define contracts before defining the gate. |
 | E9 before E10 | CI gates enforce assurance levels. Define the levels before automating enforcement. |
 | E10 before E11 | Behavioral tests validate corpus fixtures. Build the test types before building the corpus. |
-| E12 after E0+E7+E8+E9 | IDE requires AST (formula editing), findings (inline diagnostics), contracts (intent editing), and assurance (authoring feedback). It's the capstone that turns infrastructure into product surface. |
+| E12 after E0+E2+E7–E10 | Model IDE requires AST, semantic diff/versioning, findings, contracts, assurance, and targeted CI. E12.0 establishes the governed mutation boundary before any editor or agent path. E12 can begin before E13, but its closed-loop review work (E12.4) completes only after E13. It is the capstone that makes the canonical model sovereign and turns XLent into a complete model-development system. |
 | E3 deferred | Lifecycle/registry is governance infrastructure needed when multiple users/models exist. Not blocking single-tenant + Sil integration. |
 | E13 after E7–E11 | Model Review is the judgment layer that *consumes* findings, contracts, assurance, and CI. Those facts must exist before they can be judged. Review ≠ Assurance — it is recorded human decision, not the evidence ladder. |
 | E14 after E11 | PDC generalizes the E11.1 seed corpus into a full mutation/ground-truth/release-gate system. It needs E0's AST for semantic mutation and E7's detectors as the system under test. It is XLent testing XLent — internal, never customer-facing. |

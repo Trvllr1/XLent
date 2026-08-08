@@ -20,6 +20,7 @@ Master documentation suite for XLent — ModelOps infrastructure for spreadsheet
 | 11 | [GTM Strategy](11-GTM-Strategy.md) | GTM wedge, positioning, ICP, pricing, PMF definition, commercialization flywheel |
 | 12 | [Model Review](12-Model-Review.md) | Review discipline: findings taxonomy/states, materiality, impact analysis, approval, review-as-API |
 | 13 | [Programmatic Defect Corpus](13-Programmatic-Defect-Corpus.md) | Internal assurance substrate: Golden Models, mutation engine, ground-truth metrics, release gates |
+| 14 | [Model IDE: Capstone](14-Model-IDE-Capstone.md) | E12 authority: model sovereignty, governed mutation, native authoring, human-agent parity |
 
 ## Source Documents
 
@@ -31,6 +32,7 @@ The `source/` directory contains the original strategy and governance documents 
 - `XLent-GTM-PMF-Commercialization.txt` — GTM, PMF, and commercialization strategy
 - `XLent-Model-Review.txt` — Model Review discipline (normative source for doc 12)
 - `XLent-Programmatic-Defect-Corpus.txt` — Programmatic Defect Corpus internal assurance system (normative source for doc 13)
+- `XLent-Model-IDE-Capstone.txt` — Model IDE strategic architecture and proposed constitutional amendments (normative source for doc 14 / E12)
 
 The blueprint is the source of truth for product capabilities. The constitution is the source of truth for engineering invariants. Source documents are retained for reference only.
 
@@ -41,7 +43,7 @@ Three sibling documents govern XLent:
 | Document | Governs | Precedence |
 |---|---|---|
 | **Engineering Constitution** | Binding invariants, assurance vocabulary, V&V semantics, agent rules, non-negotiable distinctions | Engineering correctness — cannot be overridden by product or sequencing convenience |
-| **Product Blueprint** (docs 01–07) | Capabilities, architecture, API contracts, integration design | Product/architecture truth — determines *what* to build and *how* |
+| **Product Blueprint** (docs 01–07, 12–14) | Capabilities, architecture, API contracts, integration design, Model Review, PDC, and Model IDE capstone | Product/architecture truth — determines *what* to build and *how* |
 | **Roadmap** (doc 08) | Execution order, status, dependencies, acceptance criteria | Sequencing truth — determines *when* and whether work is complete |
 
 **Conflict rule:** Preserve implemented behavior unless it violates a constitutional invariant. Resolve future ambiguity by recording a decision in the Blueprint and scheduling implementation in the Roadmap.

@@ -100,7 +100,7 @@ The Engineering Constitution (`source/XLent-Engineering-Constitution.txt`) defin
 | # | Rule | Status | Evidence |
 |---|---|---|---|
 | 1 | The model is the product | ✅ | XMR types, slug identity, Model ≠ xlsx separation throughout |
-| 2 | Excel remains a first-class authoring surface | ✅ (amended) | Import acquisition; Model Editor planned as second surface (E12). Xlsx never silently mutated. |
+| 2 | Excel remains a first-class authoring surface | ✅ (amended) | Import/interchange remains first-class; Model IDE (E12, doc 14) makes the canonical model authoritative without silently mutating XLSX or rebuilding Excel in a browser. |
 | 3 | XMR is the abstraction layer | ✅ | `types.ts` Model/Parameter/Output/Calculation, parser produces XMR |
 | 4 | Treat spreadsheets as applications | ✅ | Graph, runtime, tests, scenarios, versioning |
 | 5 | Debug before beautifying | 🔲 E7 | Debugging Core epic; graph tracing exists, structured findings needed |

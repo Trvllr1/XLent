@@ -86,6 +86,11 @@ It makes spreadsheet models behave like software — without requiring users to 
 | 32 | Model Editor (Formulas) | 📐 Designed → E12 | Syntax-aware formula editing with live dependency preview and inline diagnostics |
 | 33 | Agent-Mediated Editing | 📐 Designed → E12 | Programmatic edit API; agents propose changes, engine validates |
 | 34 | xlsx Export (Round-Trip) | 📐 Designed → E12 | Generate .xlsx from XMR; models can live entirely in XLent |
+| 35 | Canonical Mutation Layer | 📐 Designed → E12 | Shared human/agent preview → validate → test → evidence → commit/reject boundary |
+| 36 | Semantic Refactoring | 📐 Designed → E12 | Rename/extract/replace/rewire/introduce/remove with impact preview and atomic undo |
+| 37 | Model Debugger | 📐 Designed → E12 | Trace, watches, impact/state comparison, deterministic model breakpoints |
+| 38 | Native Model Creation & Templates | 📐 Designed → E12 | Create governed models without Excel; templates include contracts/tests/review rules |
+| 39 | Model Interaction Protocol | 📐 Designed → E12 | Human-agent parity over equivalent governed mutation primitives |
 
 ---
 
@@ -98,7 +103,7 @@ These are explicitly out of scope. They represent traps that dilute focus.
 | "ChatGPT for Excel" | Too generic. XLent is infrastructure, not a chatbot. |
 | "AI spreadsheet summarizer" | Too shallow. Summaries without verification are worthless. |
 | "Another BI platform" | Wrong category. BI asks "what happened?" — XLent asks "can I trust this model?" |
-| "Excel replacement" | Strategically dangerous. Excel is one authoring surface. XLent's Model Editor is an alternative, not a substitute — users choose based on workflow, not mandate. |
+| "Excel replacement" | Strategically dangerous. Excel remains a first-class authoring/interchange surface; XLent is model-native and makes the canonical model sovereign rather than rebuilding a cell-grid application. |
 | "Database connector with spreadsheet support" | Wrong center of gravity. The model is primary, not the data source. |
 | "Spreadsheet visualization tool" | Insufficient differentiation. Model Explorer exists to support verification, not to compete with Tableau. |
 | "Generic ETL/data pipeline" | XLent transforms models, not data. |
