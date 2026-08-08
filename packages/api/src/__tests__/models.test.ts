@@ -4,6 +4,8 @@ import * as XLSX from 'xlsx';
 // Use in-memory SQLite for tests
 process.env.XLENT_DB_PATH = ':memory:';
 process.env.NODE_ENV = 'test';
+process.env.XLENT_HUMAN_EQUIVALENT_AGENTS = 'agent-1,agent-rename,agent-remove,agent-output,agent-output-add';
+process.env.XLENT_APPROVAL_SECRET = 'test-only-approval-secret';
 
 // Dynamic import after env is set so db.ts picks up the path
 const { app } = await import('../server.js');
@@ -122,6 +124,134 @@ describe('Models API', () => {
 
     const snapshotsResponse = await app.request(`/snapshots/${nativeModel.id}`);
     expect((await snapshotsResponse.json()).snapshots).toHaveLength(2);
+  });
+
+  it('enforces independent approval and audits agent commit and rejection decisions', async () => {
+    const createResponse = await app.request('/models/native', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId: 'unit-economics', name: 'Agent Protocol Fixture' }),
+    });
+    const created = await createResponse.json();
+    const model = created.model;
+    const proposedParameterId = '33333333-4444-4555-8666-777777777777';
+    const request = {
+      actor: { id: 'third-party-agent', type: 'agent' },
+      rationale: 'Add an isolated review assumption through the public protocol',
+      operations: [{
+        type: 'addParameter',
+        parameterId: proposedParameterId,
+        name: 'Review Buffer',
+        parameterType: 'number',
+        value: 0.1,
+      }],
+    };
+    const previewResponse = await app.request(`/models/${model.id}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.diff.entries).toEqual(expect.arrayContaining([expect.objectContaining({ semantics: 'semantic' })]));
+    expect(preview.testResults).toHaveLength(3);
+    expect(preview.allTestsPass).toBe(true);
+
+    const unapprovedResponse = await app.request(`/models/${model.id}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...request, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(unapprovedResponse.status).toBe(403);
+    expect(await unapprovedResponse.json()).toEqual(expect.objectContaining({ policy: 'independent-human-equivalent-review' }));
+
+    const selfApprovalResponse = await app.request(`/models/${model.id}/mutations/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: request.actor,
+        rationale: 'Self approve',
+        previewId: preview.previewId,
+      }),
+    });
+    expect(selfApprovalResponse.status).toBe(403);
+
+    const approvalRequest = {
+      actor: { id: 'reviewer-1', type: 'human' },
+      rationale: 'Reviewed the diff, impacts, full test gate, and contract result',
+      previewId: preview.previewId,
+    };
+    const approvalResponse = await app.request(`/models/${model.id}/mutations/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(approvalRequest),
+    });
+    expect(approvalResponse.status).toBe(201);
+    const { approval } = await approvalResponse.json();
+    const commitResponse = await app.request(`/models/${model.id}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...request, baseVersion: model.version, previewId: preview.previewId, approval }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.version).toBe(model.version + 1);
+    const commitEvidence = await (await app.request(`/tests/${model.id}/evidence/${committed.evidenceId}`)).json();
+    expect(commitEvidence.mutationDecision).toEqual({
+      decision: 'committed',
+      previewId: preview.previewId,
+      proposer: request.actor,
+      approver: approvalRequest.actor,
+      approvalRationale: approvalRequest.rationale,
+      resultingVersion: model.version + 1,
+    });
+
+    const alternative = {
+      actor: { id: 'third-party-agent', type: 'agent' },
+      rationale: 'Reject this alternative without changing canonical state',
+      operations: [{ type: 'setParameterValue', parameterId: proposedParameterId, value: 0.2 }],
+    };
+    const alternativePreview = await (await app.request(`/models/${model.id}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alternative),
+    })).json();
+    const rejectionResponse = await app.request(`/models/${model.id}/mutations/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...alternative, baseVersion: committed.model.version, previewId: alternativePreview.previewId }),
+    });
+    expect(rejectionResponse.status).toBe(200);
+    const rejection = await rejectionResponse.json();
+    expect(rejection).toEqual(expect.objectContaining({ rejected: true, previewId: alternativePreview.previewId, persisted: false }));
+    expect(rejection.evidenceId).toBeTruthy();
+    const rejectionEvidence = await (await app.request(`/tests/${model.id}/evidence/${rejection.evidenceId}`)).json();
+    expect(rejectionEvidence).toEqual(expect.objectContaining({
+      purpose: 'mutation_reject',
+      mutationDecision: {
+        decision: 'rejected',
+        previewId: alternativePreview.previewId,
+        proposer: alternative.actor,
+      },
+    }));
+    const afterRejection = await (await app.request(`/models/${model.id}`)).json();
+    expect(afterRejection.model.version).toBe(committed.model.version);
+    expect(afterRejection.model.parameters.find((parameter: any) => parameter.id === proposedParameterId).currentValue).toBe(0.1);
+
+    process.env.XLENT_API_KEYS = 'agent-key';
+    process.env.XLENT_API_PRINCIPALS = JSON.stringify({
+      'agent-key': { id: 'bound-agent', type: 'agent', roles: [] },
+    });
+    const spoofedActorResponse = await app.request(`/models/${model.id}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'agent-key' },
+      body: JSON.stringify({ ...alternative, actor: { id: 'reviewer-1', type: 'human' } }),
+    });
+    expect(spoofedActorResponse.status).toBe(403);
+    delete process.env.XLENT_API_KEYS;
+    delete process.env.XLENT_API_PRINCIPALS;
+
+    expect((await app.request(`/models/${model.id}`, { method: 'DELETE' })).status).toBe(200);
   });
 
   it('POST /models/import — uploads and parses a workbook', async () => {
@@ -248,7 +378,7 @@ describe('Models API', () => {
       body: JSON.stringify({ ...request, baseVersion: beforeModel.version, previewId: preview.previewId }),
     });
     expect(rejectResponse.status).toBe(200);
-    expect(await rejectResponse.json()).toEqual({ rejected: true, previewId: preview.previewId, persisted: false });
+    expect(await rejectResponse.json()).toEqual(expect.objectContaining({ rejected: true, previewId: preview.previewId, persisted: false, evidenceId: expect.any(String) }));
 
     const afterRejectModelResponse = await app.request(`/models/${modelId}`);
     expect((await afterRejectModelResponse.json()).model).toEqual(beforeModel);

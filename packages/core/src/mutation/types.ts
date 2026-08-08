@@ -6,6 +6,14 @@ export interface MutationActor {
   type: 'human' | 'agent';
 }
 
+export interface MutationApproval {
+  actor: MutationActor;
+  decision: 'approved';
+  rationale: string;
+  previewId: string;
+  signature: string;
+}
+
 export type BreakpointOperator = '<' | '<=' | '>' | '>=' | '==' | '!=';
 
 export type MutationBreakpoint = {
@@ -146,8 +154,20 @@ export interface MutationRequest {
   findingId?: string;
 }
 
-export interface MutationCommitRequest extends MutationRequest {
+export interface MutationDecisionRequest extends MutationRequest {
   baseVersion: number;
+  previewId: string;
+}
+
+export interface MutationCommitRequest extends MutationDecisionRequest {
+  approval?: MutationApproval;
+}
+
+export type MutationRejectRequest = MutationDecisionRequest;
+
+export interface MutationApprovalRequest {
+  actor: MutationActor;
+  rationale: string;
   previewId: string;
 }
 

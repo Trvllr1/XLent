@@ -1,10 +1,11 @@
 import crypto from 'crypto';
 import { previewMutation } from '@xlent/core';
-import type { EvidenceRecord, Model, ModelTestDefinition, MutationPreview, MutationRequest, Snapshot } from '@xlent/core';
+import type { EvidenceRecord, Model, ModelTestDefinition, MutationApproval, MutationPreview, MutationRequest, Snapshot } from '@xlent/core';
 import { Hono } from 'hono';
 import db from '../db.js';
-import { mutationCommitSchema, mutationPreviewSchema, mutationRejectSchema, mutationUndoSchema } from '../schemas.js';
+import { mutationApproveSchema, mutationCommitSchema, mutationPreviewSchema, mutationRejectSchema, mutationUndoSchema } from '../schemas.js';
 import { evidenceStore, snapshotStore, store, testStore } from '../store.js';
+import type { ApiPrincipal } from '../middleware/auth.js';
 
 export const mutationsRouter = new Hono();
 
@@ -15,11 +16,59 @@ function hasCommitBlocker(preview: MutationPreview): boolean {
     || !preview.proposedModel;
 }
 
+function isConsequential(preview: MutationPreview): boolean {
+  return preview.diff?.entries.some((entry) => entry.semantics === 'semantic') ?? false;
+}
+
+function humanEquivalentAgents(): Set<string> {
+  return new Set((process.env.XLENT_HUMAN_EQUIVALENT_AGENTS ?? '').split(',').map((id) => id.trim()).filter(Boolean));
+}
+
+function hasHumanEquivalentRole(actorId: string, principal?: ApiPrincipal): boolean {
+  return humanEquivalentAgents().has(actorId)
+    || (principal?.id === actorId && principal.roles?.includes('human-equivalent-reviewer') === true);
+}
+
+function actorMatchesPrincipal(context: { get: (key: string) => unknown }, actor: MutationRequest['actor']): boolean {
+  const principal = context.get('xlentPrincipal') as ApiPrincipal | undefined;
+  return !principal || (principal.id === actor.id && principal.type === actor.type);
+}
+
+function approvalSignature(modelId: string, approval: Omit<MutationApproval, 'decision' | 'signature'>): string {
+  const secret = process.env.XLENT_APPROVAL_SECRET ?? 'xlent-local-development-approval-key';
+  return crypto.createHmac('sha256', secret).update(JSON.stringify({
+    modelId,
+    previewId: approval.previewId,
+    actor: approval.actor,
+    rationale: approval.rationale,
+  })).digest('hex');
+}
+
+function hasValidApprovalSignature(modelId: string, approval: MutationApproval): boolean {
+  const received = Buffer.from(approval.signature, 'hex');
+  const expected = Buffer.from(approvalSignature(modelId, approval), 'hex');
+  return received.length === expected.length && crypto.timingSafeEqual(received, expected);
+}
+
+function approvalError(modelId: string, request: MutationRequest, preview: MutationPreview, approval?: MutationApproval, principal?: ApiPrincipal): string | null {
+  if (request.actor.type !== 'agent' || !isConsequential(preview)) return null;
+  if (hasHumanEquivalentRole(request.actor.id, principal)) return null;
+  if (!approval) return 'A consequential agent mutation requires independent human-equivalent approval.';
+  if (!hasValidApprovalSignature(modelId, approval)) return 'Mutation approval signature is invalid.';
+  if (approval.previewId !== preview.previewId) return 'Mutation approval is not bound to the current preview.';
+  if (approval.actor.id === request.actor.id) return 'An agent cannot approve its own consequential mutation.';
+  if (approval.actor.type === 'agent' && !hasHumanEquivalentRole(approval.actor.id)) {
+    return 'The approving agent does not have the human-equivalent reviewer role.';
+  }
+  return null;
+}
+
 function persistMutation(
   model: Model,
   request: MutationRequest,
   preview: MutationPreview,
   baseVersion: number,
+  approval?: MutationApproval,
   restoredFromSnapshotId?: string,
 ) {
   const committedModel = structuredClone(preview.proposedModel!);
@@ -41,6 +90,14 @@ function persistMutation(
       relevantTestIds: preview.relevantTestIds ?? [],
       fullTestIds: preview.testResults.map((result) => result.testId),
       contractFindingIds: preview.contractFindings.map((finding) => finding.id),
+    },
+    mutationDecision: {
+      decision: 'committed',
+      previewId: preview.previewId!,
+      proposer: request.actor,
+      approver: approval?.actor,
+      approvalRationale: approval?.rationale,
+      resultingVersion: committedModel.version,
     },
   })).digest('hex');
   const snapshot: Snapshot = {
@@ -71,6 +128,14 @@ function persistMutation(
     purpose: 'mutation_commit',
     rationale: request.rationale,
     mutationOperations: request.operations,
+    mutationDecision: {
+      decision: 'committed',
+      previewId: preview.previewId!,
+      proposer: request.actor,
+      approver: approval?.actor,
+      approvalRationale: approval?.rationale,
+      resultingVersion: committedModel.version,
+    },
     sourceFindingId: request.findingId,
     mutationReview: {
       relevantTestIds: preview.relevantTestIds ?? [],
@@ -113,10 +178,32 @@ mutationsRouter.post('/:id/mutations/preview', async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Invalid mutation request', issues: parsed.error.issues }, 400);
   }
+  if (!actorMatchesPrincipal(c, parsed.data.actor)) return c.json({ error: 'Mutation actor does not match the authenticated API principal.' }, 403);
 
   const tests = testStore.listTests(model.id) as ModelTestDefinition[];
   const preview = previewMutation(model, workbook, parsed.data as MutationRequest, tests);
   return c.json(preview, preview.valid ? 200 : 422);
+});
+
+/** POST /models/:id/mutations/approve — Issue a signed approval bound to one preview. */
+mutationsRouter.post('/:id/mutations/approve', async (c) => {
+  const model = store.getModel(c.req.param('id'));
+  if (!model) return c.json({ error: 'Model not found' }, 404);
+  const parsed = mutationApproveSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: 'Invalid mutation approval request', issues: parsed.error.issues }, 400);
+  if (!actorMatchesPrincipal(c, parsed.data.actor)) return c.json({ error: 'Approval actor does not match the authenticated API principal.' }, 403);
+  const principal = c.get('xlentPrincipal') as ApiPrincipal | undefined;
+  if (parsed.data.actor.type === 'agent' && !hasHumanEquivalentRole(parsed.data.actor.id, principal)) {
+    return c.json({ error: 'Agent does not have the human-equivalent reviewer role.' }, 403);
+  }
+  const approval: MutationApproval = {
+    actor: parsed.data.actor,
+    decision: 'approved',
+    rationale: parsed.data.rationale,
+    previewId: parsed.data.previewId,
+    signature: approvalSignature(model.id, parsed.data),
+  };
+  return c.json({ approval }, 201);
 });
 
 /** POST /models/:id/mutations/commit — Re-evaluate and atomically commit a mutation. */
@@ -131,6 +218,7 @@ mutationsRouter.post('/:id/mutations/commit', async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Invalid mutation commit request', issues: parsed.error.issues }, 400);
   }
+  if (!actorMatchesPrincipal(c, parsed.data.actor)) return c.json({ error: 'Mutation actor does not match the authenticated API principal.' }, 403);
   if (parsed.data.baseVersion !== model.version) {
     return c.json({
       error: 'Stale mutation base version',
@@ -154,8 +242,18 @@ mutationsRouter.post('/:id/mutations/commit', async (c) => {
   if (hasCommitBlocker(preview)) {
     return c.json({ error: 'Mutation did not pass commit gates', preview }, 422);
   }
+  const authorizationError = approvalError(
+    model.id,
+    request,
+    preview,
+    parsed.data.approval as MutationApproval | undefined,
+    c.get('xlentPrincipal') as ApiPrincipal | undefined,
+  );
+  if (authorizationError) {
+    return c.json({ error: authorizationError, preview, policy: 'independent-human-equivalent-review' }, 403);
+  }
 
-  const result = persistMutation(model, request, preview, parsed.data.baseVersion);
+  const result = persistMutation(model, request, preview, parsed.data.baseVersion, parsed.data.approval as MutationApproval | undefined);
   if (!result.committed) {
     return c.json({
       error: 'Stale mutation base version',
@@ -185,6 +283,7 @@ mutationsRouter.post('/:id/mutations/reject', async (c) => {
 
   const parsed = mutationRejectSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: 'Invalid mutation reject request', issues: parsed.error.issues }, 400);
+  if (!actorMatchesPrincipal(c, parsed.data.actor)) return c.json({ error: 'Mutation actor does not match the authenticated API principal.' }, 403);
   if (parsed.data.baseVersion !== model.version) {
     return c.json({ error: 'Stale mutation base version', expectedBaseVersion: model.version, receivedBaseVersion: parsed.data.baseVersion }, 409);
   }
@@ -201,7 +300,39 @@ mutationsRouter.post('/:id/mutations/reject', async (c) => {
   if (preview.previewId !== parsed.data.previewId) {
     return c.json({ error: 'Mutation preview no longer matches the proposed rejection', currentPreview: preview }, 409);
   }
-  return c.json({ rejected: true, previewId: preview.previewId, persisted: false });
+  const rejectedAt = new Date().toISOString();
+  const evidence: EvidenceRecord = {
+    id: crypto.randomUUID(),
+    modelId: model.id,
+    modelVersion: model.version,
+    executedAt: rejectedAt,
+    inputs: Object.fromEntries(model.parameters.map((parameter) => [parameter.id, parameter.currentValue])),
+    overrides: [],
+    outputs: Object.fromEntries(model.outputs.map((output) => [output.id, output.value])),
+    tests: preview.testResults,
+    contractFindings: preview.contractFindings,
+    allTestsPass: preview.allTestsPass,
+    checksum: crypto.createHash('sha256').update(JSON.stringify({
+      modelId: model.id,
+      modelVersion: model.version,
+      previewId: preview.previewId,
+      decision: 'rejected',
+      actor: request.actor,
+      rationale: request.rationale,
+    })).digest('hex'),
+    reproducible: true,
+    executedBy: `${request.actor.type}:${request.actor.id}`,
+    purpose: 'mutation_reject',
+    rationale: request.rationale,
+    mutationOperations: request.operations,
+    mutationDecision: {
+      decision: 'rejected',
+      previewId: preview.previewId!,
+      proposer: request.actor,
+    },
+  };
+  evidenceStore.store(evidence);
+  return c.json({ rejected: true, previewId: preview.previewId, persisted: false, evidenceId: evidence.id });
 });
 
 /** POST /models/:id/mutations/undo — Restore a prior snapshot through the governed mutation path. */
@@ -213,6 +344,7 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
 
   const parsed = mutationUndoSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: 'Invalid mutation undo request', issues: parsed.error.issues }, 400);
+  if (!actorMatchesPrincipal(c, parsed.data.actor)) return c.json({ error: 'Mutation actor does not match the authenticated API principal.' }, 403);
   if (parsed.data.baseVersion !== model.version) {
     return c.json({ error: 'Stale mutation base version', expectedBaseVersion: model.version, receivedBaseVersion: parsed.data.baseVersion }, 409);
   }
@@ -308,7 +440,7 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
   const preview = previewMutation(model, workbook, request, tests);
   if (hasCommitBlocker(preview)) return c.json({ error: 'Undo did not pass commit gates', preview }, 422);
 
-  const result = persistMutation(model, request, preview, parsed.data.baseVersion, target.id);
+  const result = persistMutation(model, request, preview, parsed.data.baseVersion, undefined, target.id);
   if (!result.committed) {
     return c.json({ error: 'Stale mutation base version', expectedBaseVersion: store.getModel(model.id)?.version, receivedBaseVersion: parsed.data.baseVersion }, 409);
   }

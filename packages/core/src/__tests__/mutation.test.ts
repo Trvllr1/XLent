@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
 import { buildGraph } from '../graph.js';
-import { previewMutation } from '../mutation/index.js';
+import { MUTATION_AGENT_TOOLS, previewMutation } from '../mutation/index.js';
 import { parseWorkbook } from '../parser.js';
 import type { Model } from '../types.js';
 
@@ -47,6 +47,20 @@ function buildFixture(): { model: Model; workbook: ReturnType<typeof parseWorkbo
   };
   return { model, workbook };
 }
+
+describe('mutation agent tools', () => {
+  it('publishes the complete human-equivalent governance workflow', () => {
+    expect(MUTATION_AGENT_TOOLS.map((tool) => tool.name)).toEqual([
+      'xlent_preview_mutation',
+      'xlent_approve_mutation',
+      'xlent_commit_mutation',
+      'xlent_reject_mutation',
+      'xlent_undo_mutation',
+    ]);
+    expect(MUTATION_AGENT_TOOLS.every((tool) => tool.inputSchema.type === 'object')).toBe(true);
+    expect(MUTATION_AGENT_TOOLS.every((tool) => Array.isArray(tool.inputSchema.required))).toBe(true);
+  });
+});
 
 describe('previewMutation', () => {
   it('previews a deterministic parameter mutation without changing the source model', () => {

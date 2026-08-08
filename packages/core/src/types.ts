@@ -459,9 +459,17 @@ export interface EvidenceRecord {
   checksum: string;
   reproducible: boolean;
   executedBy?: string;
-  purpose?: 'scenario_run' | 'publish_gate' | 'delivery' | 'manual' | 'mutation_commit';
+  purpose?: 'scenario_run' | 'publish_gate' | 'delivery' | 'manual' | 'mutation_commit' | 'mutation_reject';
   rationale?: string;
   mutationOperations?: Array<{ type: string; parameterId?: string; value?: unknown }>;
+  mutationDecision?: {
+    decision: 'committed' | 'rejected';
+    previewId: string;
+    proposer: { id: string; type: 'human' | 'agent' };
+    approver?: { id: string; type: 'human' | 'agent' };
+    approvalRationale?: string;
+    resultingVersion?: number;
+  };
   mutationDebugger?: {
     watchValues: Record<string, { before: unknown; after: unknown }>;
     breakpointResults: unknown[];

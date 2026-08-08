@@ -84,6 +84,42 @@ POST /models/:id/compare
   → { comparison: ComparisonRow[] }
 ```
 
+### Governed Mutation Protocol
+
+```
+POST /models/:id/mutations/preview
+  Body: MutationRequest
+  → MutationPreview
+
+POST /models/:id/mutations/approve
+  Body: { actor: MutationActor, rationale: string, previewId: string }
+  → { approval: MutationApproval }
+
+POST /models/:id/mutations/commit
+  Body: MutationCommitRequest
+  → MutationCommitResult
+
+POST /models/:id/mutations/reject
+  Body: MutationRejectRequest
+  → { rejected: true, previewId: string, persisted: false, evidenceId: string }
+
+POST /models/:id/mutations/undo
+  Body: MutationUndoRequest
+  → MutationCommitResult
+```
+
+Preview is non-persistent and returns the engine-computed semantic diff, impact,
+tests, contracts, watches, traces, and checksum. Consequential agent commits
+require an independent server-signed approval unless policy grants the actor a
+human-equivalent reviewer role. Configure `XLENT_APPROVAL_SECRET` outside local
+development and use `XLENT_API_PRINCIPALS` to bind API keys to actor identity,
+type, and roles. Commit, rejection, and undo retain immutable decision evidence.
+
+Core and SDK export `MUTATION_AGENT_TOOLS`, a vendor-neutral JSON Schema tool set
+for preview, approve, commit, reject, and undo. All agents and the human UI use
+the same routes, authorization model, canonical mutation types, and deterministic
+engine gates.
+
 ### Deliverables
 
 ```

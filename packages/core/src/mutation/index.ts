@@ -1,4 +1,6 @@
 export { previewMutation } from './preview.js';
+export { MUTATION_AGENT_TOOLS } from './tools.js';
+export type { MutationAgentTool } from './tools.js';
 export type {
   AddParameterOperation,
   AddOutputOperation,
@@ -6,12 +8,16 @@ export type {
   MutationBreakpoint,
   MutationBreakpointResult,
   MutationActor,
+  MutationApproval,
+  MutationApprovalRequest,
   MutationCommitRequest,
+  MutationDecisionRequest,
   MutationCommitResult,
   MutationOperation,
   MutationOutputTrace,
   MutationPreview,
   MutationRequest,
+  MutationRejectRequest,
   MutationUndoRequest,
   MutationValidationIssue,
   MutationWatchValue,

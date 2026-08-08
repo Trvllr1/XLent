@@ -27,6 +27,11 @@ GET  /models/:id/outputs     Get computed outputs
 POST /models/:id/run         Execute model (with optional overrides)
 POST /models/:id/scenarios   Create a named scenario
 POST /models/:id/compare     Compare baseline vs scenario
+POST /models/:id/mutations/preview  Preview a governed semantic mutation
+POST /models/:id/mutations/approve  Issue preview-bound reviewer approval
+POST /models/:id/mutations/commit   Commit through test/contract gates
+POST /models/:id/mutations/reject   Reject with immutable decision evidence
+POST /models/:id/mutations/undo     Restore through the governed mutation path
 GET  /models/:id/graph       Dependency graph
 GET  /models/:id/compatibility   Compatibility report
 GET  /models/:id/provenance  Parameter provenance

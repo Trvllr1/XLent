@@ -23,7 +23,8 @@ export type { LabeledCell, ModelUnderstanding, ModelSection } from './understand
 export { buildModelPackage } from './package.js';
 export { compileNativeModel, getNativeTemplate, listNativeTemplates } from './native.js';
 export type { CompiledNativeModel, NativeTemplate } from './native.js';
-export { previewMutation } from './mutation/index.js';
+export { MUTATION_AGENT_TOOLS, previewMutation } from './mutation/index.js';
+export type { MutationAgentTool } from './mutation/index.js';
 export type {
 	AddParameterOperation,
 	AddOutputOperation,
@@ -31,12 +32,16 @@ export type {
 	MutationBreakpoint,
 	MutationBreakpointResult,
 	MutationActor,
+	MutationApproval,
+	MutationApprovalRequest,
 	MutationCommitRequest,
+	MutationDecisionRequest,
 	MutationCommitResult,
 	MutationOperation,
 	MutationOutputTrace,
 	MutationPreview,
 	MutationRequest,
+	MutationRejectRequest,
 	MutationUndoRequest,
 	MutationValidationIssue,
 	MutationWatchValue,

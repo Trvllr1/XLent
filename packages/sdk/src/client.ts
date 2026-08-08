@@ -14,7 +14,10 @@ import type {
   Output,
   MutationCommitRequest,
   MutationCommitResult,
+  MutationApproval,
+  MutationApprovalRequest,
   MutationPreview,
+  MutationRejectRequest,
   MutationRequest,
   MutationUndoRequest,
 } from '@xlent/core';
@@ -94,7 +97,11 @@ export class XLentClient {
     return this.post(`/models/${modelId}/mutations/commit`, request);
   }
 
-  async rejectMutation(modelId: string, request: MutationCommitRequest): Promise<{ rejected: true; previewId: string; persisted: false }> {
+  async approveMutation(modelId: string, request: MutationApprovalRequest): Promise<{ approval: MutationApproval }> {
+    return this.post(`/models/${modelId}/mutations/approve`, request);
+  }
+
+  async rejectMutation(modelId: string, request: MutationRejectRequest): Promise<{ rejected: true; previewId: string; persisted: false; evidenceId: string }> {
     return this.post(`/models/${modelId}/mutations/reject`, request);
   }
 

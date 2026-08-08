@@ -263,13 +263,32 @@ const mutationRequestFields = {
 
 export const mutationPreviewSchema = z.object(mutationRequestFields).strict();
 
+const mutationApprovalSchema = z.object({
+  actor: mutationRequestFields.actor,
+  decision: z.literal('approved'),
+  rationale: z.string().min(1).max(2000),
+  previewId: z.string().regex(/^[a-f0-9]{64}$/),
+  signature: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+
+export const mutationApproveSchema = z.object({
+  actor: mutationRequestFields.actor,
+  rationale: z.string().min(1).max(2000),
+  previewId: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+
 export const mutationCommitSchema = z.object({
   ...mutationRequestFields,
   baseVersion: z.number().int().positive(),
   previewId: z.string().regex(/^[a-f0-9]{64}$/),
+  approval: mutationApprovalSchema.optional(),
 }).strict();
 
-export const mutationRejectSchema = mutationCommitSchema;
+export const mutationRejectSchema = z.object({
+  ...mutationRequestFields,
+  baseVersion: z.number().int().positive(),
+  previewId: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
 
 export const mutationUndoSchema = z.object({
   actor: mutationRequestFields.actor,
