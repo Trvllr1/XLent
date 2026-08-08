@@ -260,6 +260,14 @@ export function previewMutation(
     diff,
     affectedComponents: impact.components,
     affectedOutputs: impact.outputs,
+    affectedComponentValues: Object.fromEntries(
+      impact.components.map((cellId) => {
+        const [sheet, ref] = cellId.split('!');
+        const runtime = new ModelRuntime(proposedModel, effectiveWorkbook);
+        runtime.run(overrides);
+        return [cellId, runtime.getCellValue(sheet, ref)];
+      }),
+    ),
     evidenceRefs: [{ kind: 'preview', checksum: previewId }],
     testResults,
     allTestsPass: testResults.every((result) => result.status === 'pass' || result.status === 'skip'),

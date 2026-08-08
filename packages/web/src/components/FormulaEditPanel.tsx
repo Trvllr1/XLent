@@ -14,6 +14,7 @@ interface Preview {
   evidenceRefs: Array<{ checksum: string }>;
   affectedComponents: string[];
   affectedOutputs: string[];
+  affectedComponentValues?: Record<string, unknown>;
   allTestsPass: boolean;
   testResults: Array<{ name: string; status: string; message?: string }>;
   contractFindings: Array<{ id: string; severity: string; explanation: string }>;
@@ -216,6 +217,19 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
           </div>
           {preview.testResults.length > 0 && <p className={`mt-2 ${preview.allTestsPass ? 'text-emerald-400' : 'text-red-400'}`}>Tests: {preview.testResults.filter((test) => test.status === 'pass').length}/{preview.testResults.length} passed</p>}
           {preview.testResults.filter((test) => test.status === 'fail' || test.status === 'error').map((test) => <p key={test.name} className="mt-1 text-red-300"><span className="font-medium">{test.name}:</span> {test.message ?? test.status}</p>)}
+          {preview.affectedComponentValues && Object.keys(preview.affectedComponentValues).length > 0 && (
+            <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-2">
+              <h5 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Watch — before → after</h5>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {Object.entries(preview.affectedComponentValues).map(([cellId, value]) => (
+                  <div key={cellId} className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-mono text-slate-400 truncate">{cellId}</span>
+                    <span className="font-mono text-slate-300 shrink-0">→ {String(value ?? '—')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {preview.contractFindings.map((finding) => <p key={finding.id} className={finding.severity === 'critical' ? 'mt-2 text-red-400' : 'mt-2 text-amber-400'}>{finding.explanation}</p>)}
           <div className="mt-3 flex gap-2">
             <button type="button" disabled={busy || blocked} onClick={() => handleDecision('commit')} className="rounded bg-emerald-500 px-3 py-1.5 font-medium text-slate-950 disabled:opacity-40">Commit</button>

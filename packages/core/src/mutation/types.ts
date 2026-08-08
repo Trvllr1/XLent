@@ -137,6 +137,7 @@ export interface MutationPreview {
   diff?: ModelDiff;
   affectedComponents: string[];
   affectedOutputs: string[];
+  affectedComponentValues?: Record<string, unknown>;
   evidenceRefs: Array<{ kind: 'preview'; checksum: string }>;
   testResults: ModelTestResult[];
   allTestsPass: boolean;

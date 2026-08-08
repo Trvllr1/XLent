@@ -586,6 +586,17 @@ These items have design notes in the blueprint but no scheduled implementation. 
 | **Verification (tokenized editor increment)** | Web build passes; live browser edit of `Value Effect!B31` `B8` → `=$B$8` produced one cosmetic change, patch bump, 24 affected components, 11 outputs, and 22/22 tests; reject left version, semver, and formula unchanged; focused screenshot verified the highlighted editor and evidence. Autocomplete, in-editor dependency arrows, and semantic undo/redo history are next E12.2 increments. |
 | **Dependencies** | E12.1 (formula edit primitive), E0 (AST) |
 
+### E12.3 — Model Debugger, Watches & Breakpoints
+
+| Field | Value |
+|---|---|
+| **Scope** | Native debugger: trace output to root causes, watch model components across proposed/committed states, compare formulas/states, identify suspicious dependencies, and inspect breakpoint-like conditions. |
+| **Files** | Modify: `packages/core/src/mutation/types.ts`, `preview.ts`, `packages/web/src/components/FormulaEditPanel.tsx`. |
+| **Acceptance criteria** | (1) Watch list reports before/after values and causal input/assumption changes for a mutation preview. (2) Breakpoints support numeric/boolean conditions (e.g. Debt < 0) and assumption-change conditions. (3) Trace explains an output through dependencies to root causes. (4) Breakpoint/watch evaluation is deterministic and retained as evidence. |
+| **Implemented (watch list increment)** | The mutation preview now exposes `affectedComponentValues` — a deterministic map of each affected component's proposed value computed from the same runtime execution used for tests and evidence; the formula editor renders a Watch panel listing before → after for every affected component; the watch list is computed from the proposed workbook, not a separate execution, so it is byte-identical to the commit's evidence. |
+| **Verification (watch list increment)** | Core build passes; live browser edit of `Value Effect!B31` `B8` → `=$B$8` produced a Watch panel with 24 before/after entries including `EPS Effect!E21` and `EPS Effect!D25`; reject left version and formula unchanged; focused screenshot verified the watch list. Breakpoint conditions and trace-to-root-cause are next E12.3 increments. |
+| **Dependencies** | E12.1 (formula edit primitive), E12.2 (editor surface) |
+
 ### E12.2 — Formula Editor
 
 | Field | Value |
