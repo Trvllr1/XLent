@@ -22,6 +22,8 @@ export { resolveLabels, findSignificantIntermediates, understandModel } from './
 export type { LabeledCell, ModelUnderstanding, ModelSection } from './understand.js';
 export { buildModelPackage } from './package.js';
 export { compileNativeModel, getNativeTemplate, listNativeTemplates } from './native.js';
+export { writeWorkbookXlsx } from './xlsxWriter.js';
+export type { XlsxExportMetadata, XlsxExportReport } from './xlsxWriter.js';
 export type { CompiledNativeModel, NativeTemplate } from './native.js';
 export { MUTATION_AGENT_TOOLS, previewMutation } from './mutation/index.js';
 export type { MutationAgentTool } from './mutation/index.js';

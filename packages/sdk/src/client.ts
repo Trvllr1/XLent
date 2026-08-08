@@ -20,6 +20,7 @@ import type {
   MutationRejectRequest,
   MutationRequest,
   MutationUndoRequest,
+  XlsxExportReport,
 } from '@xlent/core';
 
 export interface XLentClientOptions {
@@ -111,6 +112,21 @@ export class XLentClient {
 
   async getPackage(modelId: string): Promise<ModelPackage> {
     return this.get(`/models/${modelId}/package`);
+  }
+
+  async exportWorkbook(modelId: string): Promise<{ data: ArrayBuffer; filename: string; report: XlsxExportReport }> {
+    const response = await fetch(`${this.baseUrl}/models/${modelId}/export.xlsx`, { headers: this.headers });
+    if (!response.ok) throw new Error(`XLent API ${response.status}: ${await response.text().catch(() => '')}`);
+    const disposition = response.headers.get('content-disposition') ?? '';
+    const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `${modelId}.xlsx`;
+    const reportHeader = response.headers.get('x-xlent-export-report');
+    return {
+      data: await response.arrayBuffer(),
+      filename,
+      report: reportHeader ? JSON.parse(decodeURIComponent(reportHeader)) : {
+        format: 'xlsx', modelId, semver: '', sheetCount: 0, formulaCount: 0, namedRangeCount: 0, losses: [],
+      },
+    };
   }
 
   // --- Lifecycle ---

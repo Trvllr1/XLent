@@ -126,6 +126,63 @@ describe('Models API', () => {
     expect((await snapshotsResponse.json()).snapshots).toHaveLength(2);
   });
 
+  it('exports native XLSX and gates a deployable published artifact on assurance', async () => {
+    const createResponse = await app.request('/models/native', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId: 'unit-economics', name: 'Published Unit Economics' }),
+    });
+    const created = await createResponse.json();
+    const model = created.model;
+
+    const exportResponse = await app.request(`/models/${model.id}/export.xlsx`);
+    expect(exportResponse.status).toBe(200);
+    expect(exportResponse.headers.get('content-type')).toContain('spreadsheetml.sheet');
+    const exported = XLSX.read(await exportResponse.arrayBuffer(), { type: 'array', cellFormula: true });
+    expect(exported.SheetNames).toEqual(['Model']);
+    expect(exported.Sheets.Model.B5.f).toBe('B1*B2');
+    expect(exported.Sheets.Model.B5.v).toBe(120000);
+    expect(exported.Custprops).toEqual(expect.objectContaining({
+      XLentModelId: model.id,
+      XLentSemver: '1.0.0',
+      XLentSourceKind: 'native',
+    }));
+    const exportReport = JSON.parse(decodeURIComponent(exportResponse.headers.get('x-xlent-export-report')!));
+    expect(exportReport).toEqual(expect.objectContaining({ formulaCount: 4, losses: [] }));
+
+    store.setModel({ ...model, status: 'approved', assuranceLevel: 'UNASSESSED' });
+    const blockedPublish = await app.request(`/models/${model.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'published' }),
+    });
+    expect(blockedPublish.status).toBe(409);
+    expect(await blockedPublish.json()).toEqual(expect.objectContaining({
+      currentAssurance: 'UNASSESSED',
+      requiredAssurance: 'VERIFIED',
+    }));
+
+    store.setModel({ ...model, status: 'approved', assuranceLevel: 'VERIFIED' });
+    const publishResponse = await app.request(`/models/${model.id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'published' }),
+    });
+    expect(publishResponse.status).toBe(200);
+    const publishEvidence = (await (await app.request(`/tests/${model.id}/evidence`)).json()).evidence;
+    expect(publishEvidence).toEqual(expect.arrayContaining([
+      expect.objectContaining({ purpose: 'publish_gate', allTestsPass: true }),
+    ]));
+
+    const executeResponse = await app.request(`/v1/models/${model.slug}/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(executeResponse.status).toBe(200);
+    expect(Object.values((await executeResponse.json()).results)).toEqual([120000, 30000, 0.25]);
+  });
+
   it('enforces independent approval and audits agent commit and rejection decisions', async () => {
     const createResponse = await app.request('/models/native', {
       method: 'POST',

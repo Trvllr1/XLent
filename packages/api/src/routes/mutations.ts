@@ -30,8 +30,12 @@ function hasHumanEquivalentRole(actorId: string, principal?: ApiPrincipal): bool
 }
 
 function actorMatchesPrincipal(context: { get: (key: string) => unknown }, actor: MutationRequest['actor']): boolean {
-  const principal = context.get('xlentPrincipal') as ApiPrincipal | undefined;
+  const principal = principalFromContext(context);
   return !principal || (principal.id === actor.id && principal.type === actor.type);
+}
+
+function principalFromContext(context: { get: (key: string) => unknown }): ApiPrincipal | undefined {
+  return context.get('xlentPrincipal') as ApiPrincipal | undefined;
 }
 
 function approvalSignature(modelId: string, approval: Omit<MutationApproval, 'decision' | 'signature'>): string {
@@ -192,7 +196,7 @@ mutationsRouter.post('/:id/mutations/approve', async (c) => {
   const parsed = mutationApproveSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: 'Invalid mutation approval request', issues: parsed.error.issues }, 400);
   if (!actorMatchesPrincipal(c, parsed.data.actor)) return c.json({ error: 'Approval actor does not match the authenticated API principal.' }, 403);
-  const principal = c.get('xlentPrincipal') as ApiPrincipal | undefined;
+  const principal = principalFromContext(c);
   if (parsed.data.actor.type === 'agent' && !hasHumanEquivalentRole(parsed.data.actor.id, principal)) {
     return c.json({ error: 'Agent does not have the human-equivalent reviewer role.' }, 403);
   }
@@ -247,7 +251,7 @@ mutationsRouter.post('/:id/mutations/commit', async (c) => {
     request,
     preview,
     parsed.data.approval as MutationApproval | undefined,
-    c.get('xlentPrincipal') as ApiPrincipal | undefined,
+    principalFromContext(c),
   );
   if (authorizationError) {
     return c.json({ error: authorizationError, preview, policy: 'independent-human-equivalent-review' }, 403);

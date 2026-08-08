@@ -22,7 +22,7 @@ backfillCalculationInventory();
 
 const app = new Hono();
 
-app.use('*', cors());
+app.use('*', cors({ exposeHeaders: ['Content-Disposition', 'X-XLent-Export-Report'] }));
 app.use('*', authMiddleware);
 
 app.get('/health', (c) => c.json({ status: 'ok', service: 'xlent-api', version: '0.2.0' }));

@@ -32,6 +32,8 @@ POST /models/:id/mutations/approve  Issue preview-bound reviewer approval
 POST /models/:id/mutations/commit   Commit through test/contract gates
 POST /models/:id/mutations/reject   Reject with immutable decision evidence
 POST /models/:id/mutations/undo     Restore through the governed mutation path
+GET  /models/:id/export.xlsx        Export canonical model as derivative Excel
+PATCH /models/:id/status            Review, validate, approve, and publish
 GET  /models/:id/graph       Dependency graph
 GET  /models/:id/compatibility   Compatibility report
 GET  /models/:id/provenance  Parameter provenance

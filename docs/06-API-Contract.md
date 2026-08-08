@@ -36,6 +36,15 @@ POST /models/native
 Native definitions use semantic component keys. XLent compiles them to an internal
 execution artifact for the canonical runtime and stores no uploaded original binary.
 
+GET /models/:id/export.xlsx
+  → XLSX binary
+  Headers: Content-Disposition, X-XLent-Export-Report
+
+The export report identifies model/version, sheet/formula/named-range counts, and
+known representation losses. Workbook custom properties retain XLent model ID,
+slug, version, source kind, assurance level, and selected evidence references.
+`XLentClient.exportWorkbook` returns `{ data, filename, report }`.
+
 GET /models
   → { models: Model[] }
 
@@ -203,6 +212,11 @@ PATCH /models/:id/status
   Body: { status: ModelStatus }
   → { model: Model }
   Validates transition rules (e.g., can't publish without passing tests).
+
+Publication requires the existing `approved → published` review transition, a
+fresh passing full test run, and `XLENT_PUBLISH_MIN_ASSURANCE` (default
+`VERIFIED`). A successful run alone never publishes a model. Published versions
+are the controlled artifacts available through `/v1/models/:slug/execute`.
 
 POST /models/:id/publish
   → { snapshot: ModelSnapshot, evidence: EvidenceRecord }
