@@ -122,6 +122,16 @@ const mutationRequestFields = {
       formula: z.string().min(1).max(2000),
     }).strict(),
     z.object({
+      type: z.literal('extractFormula'),
+      componentId: z.string().min(1).max(200),
+      componentName: z.string().min(1).max(200),
+      formula: z.string().min(1).max(2000),
+      retargetCell: z.object({
+        sheet: z.string().min(1).max(200),
+        ref: z.string().regex(/^[A-Z]+\d+$/),
+      }).strict(),
+    }).strict(),
+    z.object({
       type: z.literal('renameOutput'),
       outputId: z.string().uuid(),
       name: z.string().min(1).max(200),

@@ -964,6 +964,77 @@ describe('Models API', () => {
     expect(undone.model.graph).toEqual(model.graph);
   });
 
+  it('POST /models/:id/mutations/commit — extracts a formula component and restores it through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const originalB3 = model.calculations.find((calculation: any) => calculation.sourceCell.sheet === 'Sheet1' && calculation.sourceCell.ref === 'B3');
+    expect(originalB3.originalFormula).toBe('B1*B2');
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before formula extraction' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'user-extract', type: 'human' },
+      rationale: 'Extract the shared product for reuse',
+      operations: [{
+        type: 'extractFormula',
+        componentId: 'shared-product',
+        componentName: 'Shared Product',
+        formula: '=B1*B2',
+        retargetCell: { sheet: 'Sheet1', ref: 'B3' },
+      }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.proposedModel.outputs.find((output: any) => output.name === 'Total').value).toBe(5000);
+    expect(preview.proposedModel.calculations.some((calculation: any) => calculation.sourceCell.sheet === 'XLent Components')).toBe(true);
+    expect(preview.proposedModel.calculations.find((calculation: any) => calculation.sourceCell.ref === 'B3').originalFormula).toBe("'XLent Components'!A1");
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.calculations.some((calculation: any) => calculation.sourceCell.sheet === 'XLent Components')).toBe(true);
+    const runAfterExtract = await (await app.request(`/models/${modelId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    expect(Object.values(runAfterExtract.results)).toContain(5000);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the inline formula',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.calculations.find((calculation: any) => calculation.sourceCell.ref === 'B3').originalFormula).toBe('B1*B2');
+    expect(undone.model.calculations.some((calculation: any) => calculation.originalFormula.includes('XLent Components'))).toBe(false);
+    expect(undone.model.graph).toEqual(model.graph);
+    const runAfterUndo = await (await app.request(`/models/${modelId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    expect(Object.values(runAfterUndo.results)).toContain(5000);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

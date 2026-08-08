@@ -33,9 +33,29 @@ export function previewMutation(
 
   const proposedModel = structuredClone(model);
   const proposedTests = structuredClone(tests);
-  const hasFormulaOps = request.operations.some((operation) => operation.type === 'setCellFormula' || operation.type === 'setParameterSource' || operation.type === 'restoreParameterSource');
+  const hasFormulaOps = request.operations.some((operation) => ['setCellFormula', 'setParameterSource', 'restoreParameterSource', 'extractFormula'].includes(operation.type));
   const proposedWorkbook = hasFormulaOps ? structuredClone(workbook) : undefined;
   for (const operation of request.operations) {
+    if (operation.type === 'extractFormula') {
+      const componentSheetName = 'XLent Components';
+      let componentSheet = proposedWorkbook!.sheets.find((sheet) => sheet.name === componentSheetName);
+      if (!componentSheet) {
+        componentSheet = { name: componentSheetName, cells: [] };
+        proposedWorkbook!.sheets.push(componentSheet);
+      }
+      const componentRef = `A${componentSheet.cells.length + 1}`;
+      const qualifiedFormula = qualifyFormula(operation.formula.trim().replace(/^=+/, ''), operation.retargetCell.sheet);
+      componentSheet.cells.push({
+        address: { sheet: componentSheetName, ref: componentRef },
+        value: undefined,
+        type: 'number',
+        formula: qualifiedFormula,
+      });
+      const retargetSheet = proposedWorkbook!.sheets.find((sheet) => sheet.name === operation.retargetCell.sheet)!;
+      const retargetTarget = retargetSheet.cells.find((cell) => cell.address.ref === operation.retargetCell.ref)!;
+      retargetTarget.formula = `'${componentSheetName}'!${componentRef}`;
+      continue;
+    }
     if (operation.type === 'restoreParameterSource') {
       const parameter = proposedModel.parameters.find((candidate) => candidate.id === operation.parameterId)!;
       const sheet = proposedWorkbook!.sheets.find((candidate) => candidate.name === parameter.sourceCell.sheet)!;
@@ -139,6 +159,16 @@ export function previewMutation(
 
   let effectiveWorkbook = workbook;
   if (proposedWorkbook) {
+    // Prune the virtual component sheet if no formula references it after edits.
+    const componentSheetName = 'XLent Components';
+    const componentRefs = proposedWorkbook.sheets
+      .filter((sheet) => sheet.name !== componentSheetName)
+      .flatMap((sheet) => sheet.cells)
+      .filter((cell) => cell.formula?.includes(componentSheetName))
+      .length;
+    if (componentRefs === 0) {
+      proposedWorkbook.sheets = proposedWorkbook.sheets.filter((sheet) => sheet.name !== componentSheetName);
+    }
     const proposedGraph = buildGraph(proposedWorkbook);
     const cycles = detectCycles(proposedGraph);
     if (cycles.length > 0) {
@@ -294,6 +324,37 @@ function validateRequest(model: Model, workbook: ParsedWorkbook, request: Mutati
       const cell = workbook.sheets.find((sheet) => sheet.name === parameter.sourceCell.sheet)?.cells.find((candidate) => candidate.address.ref === parameter.sourceCell.ref);
       if (!cell?.formula) {
         issues.push({ code: 'formula_cell_not_formula', operationIndex, message: `Parameter "${parameter.name}" is not currently formula-driven.` });
+      }
+      return;
+    }
+
+    if (operation.type === 'extractFormula') {
+      const componentName = operation.componentName.trim();
+      if (!componentName) {
+        issues.push({ code: 'invalid_name', operationIndex, message: 'Component name cannot be blank.' });
+        return;
+      }
+      if (model.parameters.some((parameter) => parameter.name.toLowerCase() === componentName.toLowerCase())) {
+        issues.push({ code: 'duplicate_name', operationIndex, message: `Component name "${componentName}" is already in use by an input.` });
+        return;
+      }
+      const retargetCell = workbook.sheets.find((sheet) => sheet.name === operation.retargetCell.sheet)?.cells.find((cell) => cell.address.ref === operation.retargetCell.ref);
+      if (!retargetCell) {
+        issues.push({ code: 'retarget_cell_not_found', operationIndex, message: `Retarget cell "${operation.retargetCell.sheet}!${operation.retargetCell.ref}" was not found in the canonical workbook.` });
+        return;
+      }
+      if (!retargetCell.formula) {
+        issues.push({ code: 'retarget_cell_not_formula', operationIndex, message: `Retarget cell "${operation.retargetCell.sheet}!${operation.retargetCell.ref}" is not an existing formula component.` });
+        return;
+      }
+      const formula = operation.formula.trim().replace(/^=+/, '');
+      try {
+        const unsupported = collectFunctionCalls(parseFormula(formula)).filter((name) => isUnsupportedFunction(name));
+        if (unsupported.length > 0) {
+          issues.push({ code: 'unsupported_function', operationIndex, message: `Formula uses unsupported function(s): ${unsupported.join(', ')}.` });
+        }
+      } catch {
+        issues.push({ code: 'invalid_formula', operationIndex, message: `Formula could not be parsed: ${operation.formula.slice(0, 60)}.` });
       }
       return;
     }
@@ -524,6 +585,7 @@ function findImpact(model: Model, request: MutationRequest, graph: DependencyGra
   let virtualParameterOffset = 0;
   const queue = request.operations.filter((operation) => operation.type !== 'moveParameter' && operation.type !== 'moveOutput').map((operation) => {
     if (operation.type === 'setCellFormula') return `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
+    if (operation.type === 'extractFormula') return `XLent Components!A${request.operations.filter((candidate) => candidate.type === 'extractFormula').indexOf(operation) + 1}`;
     if (operation.type === 'addParameter') {
       const sourceCell = nextVirtualParameterCell(model, virtualParameterOffset++);
       return `${sourceCell.sheet}!${sourceCell.ref}`;
@@ -628,6 +690,7 @@ function testReferencesOutput(test: ModelTestDefinition, output: Model['outputs'
 
 function operationTargetId(operation: MutationRequest['operations'][number]): string {
   if (operation.type === 'setCellFormula') return `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
+  if (operation.type === 'extractFormula') return operation.componentId;
   if (operation.type === 'setParameterSource' || operation.type === 'restoreParameterSource') return operation.parameterId;
   return operation.type === 'addOutput' || operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput'
     ? operation.outputId
@@ -641,4 +704,11 @@ function nextVirtualParameterCell(model: Model, offset = 0): Parameter['sourceCe
     return match ? Math.max(highest, Number(match[1])) : highest;
   }, 0);
   return { sheet: 'XLent Inputs', ref: `A${highestRow + offset + 1}` };
+}
+
+/** Qualify unqualified cell references in an extracted component formula with the source sheet. */
+function qualifyFormula(formula: string, sourceSheet: string): string {
+  return formula.replace(/(?<![A-Za-z0-9_!'])\$?([A-Z]{1,3})\$?(\d+)(?![A-Za-z0-9_])/g, (match, col, row) => {
+    return `'${sourceSheet}'!${col}${row}`;
+  });
 }

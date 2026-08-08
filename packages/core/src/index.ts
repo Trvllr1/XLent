@@ -43,6 +43,7 @@ export type {
 	RestoreParameterOperation,
 	RestoreParameterSourceOperation,
 	SetCellFormulaOperation,
+	ExtractFormulaOperation,
 	SetParameterSourceOperation,
 	SetParameterValueOperation,
 } from './mutation/index.js';

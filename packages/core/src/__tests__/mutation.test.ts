@@ -666,4 +666,81 @@ describe('previewMutation', () => {
     expect(preview.valid).toBe(false);
     expect(preview.validationIssues).toEqual([expect.objectContaining({ code: 'parameter_source_already_formula' })]);
   });
+
+  it('extracts a repeated computation into a virtual component and retargets the consuming formula', () => {
+    const source = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(source, XLSX.utils.aoa_to_sheet([[10], [4], [{ t: 'n', f: 'A1*A2' }], [{ t: 'n', f: 'A1*A2+1' }]]), 'Model');
+    const workbook = parseWorkbook(Buffer.from(XLSX.write(source, { type: 'buffer', bookType: 'xlsx' })), 'extract.xlsx');
+    const { model } = buildFixture();
+    model.graph = buildGraph(workbook);
+    model.calculations = [];
+    model.outputs[0] = { ...model.outputs[0], sourceCell: { sheet: 'Model', ref: 'A3' }, value: 40 };
+    model.outputs.push({ ...model.outputs[0], id: 'adjusted-total', name: 'Adjusted Total', sourceCell: { sheet: 'Model', ref: 'A4' }, value: 41 });
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Extract the shared product into a reusable component',
+      operations: [{
+        type: 'extractFormula',
+        componentId: 'shared-product',
+        componentName: 'Shared Product',
+        formula: '=A1*A2',
+        retargetCell: { sheet: 'Model', ref: 'A3' },
+      }],
+    });
+
+    expect(preview.valid).toBe(true);
+    const proposedSheet = preview.proposedWorkbook?.sheets.find((sheet) => sheet.name === 'XLent Components');
+    expect(proposedSheet?.cells[0]).toEqual(expect.objectContaining({
+      address: { sheet: 'XLent Components', ref: 'A1' },
+      formula: "'Model'!A1*'Model'!A2",
+    }));
+    const retargeted = preview.proposedWorkbook?.sheets.find((sheet) => sheet.name === 'Model')?.cells.find((cell) => cell.address.ref === 'A3');
+    expect(retargeted?.formula).toBe("'XLent Components'!A1");
+    expect(preview.proposedModel?.outputs.map((output) => output.value)).toEqual([40, 41]);
+    expect(preview.proposedModel?.graph.edges).toEqual(expect.arrayContaining([
+      { from: 'Model!A1', to: 'XLent Components!A1' },
+      { from: 'Model!A2', to: 'XLent Components!A1' },
+      { from: 'XLent Components!A1', to: 'Model!A3' },
+    ]));
+    expect(preview.proposedModel?.semver).toBe('1.1.0');
+    expect(preview.affectedComponents).toEqual(expect.arrayContaining(['XLent Components!A1', 'Model!A3']));
+    expect(preview.diff?.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'calculations.XLent Components!A1', changeType: 'added' }),
+      expect.objectContaining({ path: 'calculations.Model!A3.formula', semantics: 'semantic' }),
+    ]));
+    expect(model.outputs.map((output) => output.value)).toEqual([40, 41]);
+  });
+
+  it('rejects extract when the retarget cell is not a formula or the name collides', () => {
+    const { model, workbook } = buildFixture();
+
+    const badTarget = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt to retarget a constant',
+      operations: [{
+        type: 'extractFormula',
+        componentId: 'shared-product',
+        componentName: 'Shared Product',
+        formula: '=A1*2',
+        retargetCell: { sheet: 'Model', ref: 'A1' },
+      }],
+    });
+    expect(badTarget.valid).toBe(false);
+    expect(badTarget.validationIssues).toEqual([expect.objectContaining({ code: 'retarget_cell_not_formula' })]);
+
+    const nameCollision = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt to collide with an input name',
+      operations: [{
+        type: 'extractFormula',
+        componentId: 'shared-product',
+        componentName: 'Revenue',
+        formula: '=A1*2',
+        retargetCell: { sheet: 'Model', ref: 'A2' },
+      }],
+    });
+    expect(nameCollision.valid).toBe(false);
+    expect(nameCollision.validationIssues).toEqual([expect.objectContaining({ code: 'duplicate_name' })]);
+  });
 });

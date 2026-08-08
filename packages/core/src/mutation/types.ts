@@ -43,6 +43,14 @@ export interface RestoreParameterSourceOperation {
   parameterId: string;
 }
 
+export interface ExtractFormulaOperation {
+  type: 'extractFormula';
+  componentId: string;
+  componentName: string;
+  formula: string;
+  retargetCell: CellAddress;
+}
+
 export interface RenameOutputOperation {
   type: 'renameOutput';
   outputId: string;
@@ -93,7 +101,7 @@ export interface RestoreParameterOperation {
   graphIndex: number;
 }
 
-export type MutationOperation = SetParameterValueOperation | AddParameterOperation | RenameParameterOperation | SetCellFormulaOperation | SetParameterSourceOperation | RestoreParameterSourceOperation | AddOutputOperation | RenameOutputOperation | MoveOutputOperation | RemoveOutputOperation | RestoreOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
+export type MutationOperation = SetParameterValueOperation | AddParameterOperation | RenameParameterOperation | SetCellFormulaOperation | SetParameterSourceOperation | RestoreParameterSourceOperation | ExtractFormulaOperation | AddOutputOperation | RenameOutputOperation | MoveOutputOperation | RemoveOutputOperation | RestoreOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
 
 export interface MutationRequest {
   actor: MutationActor;
@@ -114,7 +122,7 @@ export interface MutationUndoRequest {
 }
 
 export interface MutationValidationIssue {
-  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'output_not_found' | 'parameter_already_exists' | 'output_already_exists' | 'output_source_not_found' | 'output_source_not_formula' | 'output_source_already_exposed' | 'formula_cell_not_found' | 'formula_cell_not_formula' | 'invalid_formula' | 'unsupported_function' | 'formula_introduces_cycle' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs' | 'output_has_contract_refs' | 'output_has_test_refs' | 'parameter_source_already_formula';
+  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'output_not_found' | 'parameter_already_exists' | 'output_already_exists' | 'output_source_not_found' | 'output_source_not_formula' | 'output_source_already_exposed' | 'formula_cell_not_found' | 'formula_cell_not_formula' | 'invalid_formula' | 'unsupported_function' | 'formula_introduces_cycle' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs' | 'output_has_contract_refs' | 'output_has_test_refs' | 'parameter_source_already_formula' | 'component_already_exists' | 'retarget_cell_not_found' | 'retarget_cell_not_formula' | 'retarget_formula_must_reference_component';
   operationIndex?: number;
   message: string;
 }
