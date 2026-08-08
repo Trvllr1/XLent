@@ -91,7 +91,8 @@ export function detectCycles(graph: DependencyGraph): string[][] {
   return cycles;
 }
 
-function extractDependencies(formula: string, currentSheet: string): string[] {
+/** Extract canonical cell references from a formula (AST-first, regex fallback). */
+export function extractDependencies(formula: string, currentSheet: string): string[] {
   try {
     const ast = parseFormula(formula);
     const refs: string[] = [];

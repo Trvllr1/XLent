@@ -16,6 +16,9 @@ import { monitoringRouter } from './routes/monitoring.js';
 import { mutationsRouter } from './routes/mutations.js';
 import { v1Router } from './routes/v1/models.js';
 import { authMiddleware } from './middleware/auth.js';
+import { backfillCalculationInventory } from './store.js';
+
+backfillCalculationInventory();
 
 const app = new Hono();
 

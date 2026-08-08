@@ -1,4 +1,5 @@
-import type { CellType, DebugFinding, Model, ModelDiff, ModelTestDefinition, ModelTestResult, Output, Parameter } from '../types.js';
+import type { ParsedWorkbook } from '../parser.js';
+import type { CellAddress, CellType, DebugFinding, Model, ModelDiff, ModelTestDefinition, ModelTestResult, Output, Parameter } from '../types.js';
 
 export interface MutationActor {
   id: string;
@@ -23,6 +24,12 @@ export interface AddParameterOperation {
   name: string;
   parameterType: CellType;
   value: unknown;
+}
+
+export interface SetCellFormulaOperation {
+  type: 'setCellFormula';
+  sourceCell: CellAddress;
+  formula: string;
 }
 
 export interface RenameOutputOperation {
@@ -75,7 +82,7 @@ export interface RestoreParameterOperation {
   graphIndex: number;
 }
 
-export type MutationOperation = SetParameterValueOperation | AddParameterOperation | RenameParameterOperation | AddOutputOperation | RenameOutputOperation | MoveOutputOperation | RemoveOutputOperation | RestoreOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
+export type MutationOperation = SetParameterValueOperation | AddParameterOperation | RenameParameterOperation | SetCellFormulaOperation | AddOutputOperation | RenameOutputOperation | MoveOutputOperation | RemoveOutputOperation | RestoreOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
 
 export interface MutationRequest {
   actor: MutationActor;
@@ -96,7 +103,7 @@ export interface MutationUndoRequest {
 }
 
 export interface MutationValidationIssue {
-  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'output_not_found' | 'parameter_already_exists' | 'output_already_exists' | 'output_source_not_found' | 'output_source_not_formula' | 'output_source_already_exposed' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs' | 'output_has_contract_refs' | 'output_has_test_refs';
+  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'output_not_found' | 'parameter_already_exists' | 'output_already_exists' | 'output_source_not_found' | 'output_source_not_formula' | 'output_source_already_exposed' | 'formula_cell_not_found' | 'formula_cell_not_formula' | 'invalid_formula' | 'unsupported_function' | 'formula_introduces_cycle' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs' | 'output_has_contract_refs' | 'output_has_test_refs';
   operationIndex?: number;
   message: string;
 }
@@ -106,6 +113,7 @@ export interface MutationPreview {
   baseVersion: number;
   previewId?: string;
   proposedModel?: Model;
+  proposedWorkbook?: ParsedWorkbook;
   proposedTests?: ModelTestDefinition[];
   diff?: ModelDiff;
   affectedComponents: string[];

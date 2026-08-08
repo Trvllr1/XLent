@@ -1,5 +1,6 @@
 import type { Model, Snapshot } from '@xlent/core';
 import type { ParsedWorkbook } from '@xlent/core';
+import { buildCalculations } from '@xlent/core';
 import crypto from 'crypto';
 import db from './db.js';
 
@@ -100,6 +101,24 @@ class ModelStore {
     const result = this.stmts.deleteModel.run(id);
     return result.changes > 0;
   }
+}
+
+/**
+ * E12.2 — backfill the canonical calculation inventory for models persisted
+ * before `buildCalculations` existed. Derived deterministically from the
+ * workbook of record; values, versions, and history are unchanged.
+ */
+export function backfillCalculationInventory(): number {
+  let migrated = 0;
+  for (const model of store.listModels()) {
+    if (model.calculations && model.calculations.length > 0) continue;
+    const workbook = store.getWorkbook(model.id);
+    if (!workbook) continue;
+    model.calculations = buildCalculations(workbook, model.graph);
+    store.setModel(model);
+    migrated++;
+  }
+  return migrated;
 }
 
 class ClientStore {

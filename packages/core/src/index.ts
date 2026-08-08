@@ -41,6 +41,7 @@ export type {
 	RenameOutputOperation,
 	RestoreOutputOperation,
 	RestoreParameterOperation,
+	SetCellFormulaOperation,
 	SetParameterValueOperation,
 } from './mutation/index.js';
 export { parseFormula, normalizeFormula, collectFunctionCalls } from './ast/index.js';

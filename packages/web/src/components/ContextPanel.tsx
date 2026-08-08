@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSelection } from '../selection.js';
 import { formatExcelValue } from '../format.js';
 import { IconClose } from './icons.js';
+import { FormulaEditPanel } from './FormulaEditPanel.js';
 
 interface Graph {
   nodes: string[];
@@ -27,8 +28,10 @@ function trace(graph: Graph, start: string, direction: 'up' | 'down'): string[] 
 export function ContextPanel() {
   const { selection, clear } = useSelection();
   const [graph, setGraph] = useState<Graph | null>(null);
+  const [editingFormula, setEditingFormula] = useState(false);
 
   const modelId = selection?.modelId;
+  const cellId = selection?.cellId;
   useEffect(() => {
     if (!modelId) return;
     let cancelled = false;
@@ -38,6 +41,7 @@ export function ContextPanel() {
       .catch(() => { if (!cancelled) setGraph(null); });
     return () => { cancelled = true; };
   }, [modelId]);
+  useEffect(() => { setEditingFormula(false); }, [cellId]);
 
   if (!selection) return null;
 
@@ -68,10 +72,18 @@ export function ContextPanel() {
 
         {selection.formula && (
           <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-1.5">Formula</h4>
+            <div className="flex items-center justify-between mb-1.5">
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">Formula</h4>
+              {!editingFormula && <button type="button" onClick={() => setEditingFormula(true)} className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-emerald-500 hover:text-emerald-300">Edit</button>}
+            </div>
             <p className="font-mono text-xs text-indigo-300 bg-slate-950 rounded px-2 py-1.5 break-all">
               {selection.formula}
             </p>
+            {editingFormula && modelId && (
+              <div className="mt-2">
+                <FormulaEditPanel modelId={modelId} cellId={selection.cellId} currentFormula={selection.formula} onClose={() => setEditingFormula(false)} />
+              </div>
+            )}
           </section>
         )}
 

@@ -65,6 +65,7 @@ function persistMutation(
 
   const committed = db.transaction(() => {
     if (!store.setModelIfVersion(committedModel, baseVersion)) return false;
+    if (preview.proposedWorkbook) store.setWorkbook(model.id, preview.proposedWorkbook);
     for (const test of preview.proposedTests ?? []) {
       if (!testStore.updateAssertion(model.id, test.id, test.assertion)) {
         throw new Error(`Mutation test "${test.id}" could not be updated atomically.`);
@@ -256,6 +257,14 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
       workingOutputOrder.splice(toIndex, 0, output.id);
     }
   });
+  const currentCalculations = new Map(model.calculations.map((calculation) => [`${calculation.sourceCell.sheet}!${calculation.sourceCell.ref}`, calculation]));
+  for (const targetCalculation of target.data.calculations) {
+    const key = `${targetCalculation.sourceCell.sheet}!${targetCalculation.sourceCell.ref}`;
+    const current = currentCalculations.get(key);
+    if (current && current.originalFormula !== targetCalculation.originalFormula) {
+      operations.push({ type: 'setCellFormula', sourceCell: targetCalculation.sourceCell, formula: targetCalculation.originalFormula });
+    }
+  }
   if (operations.length === 0) return c.json({ error: 'Target snapshot matches the current model state' }, 422);
 
   const request: MutationRequest = { actor: parsed.data.actor, rationale: parsed.data.rationale, operations };

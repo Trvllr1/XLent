@@ -831,6 +831,73 @@ describe('Models API', () => {
     expect(undone.model.graph).toEqual(model.graph);
   });
 
+  it('POST /models/:id/mutations/commit — edits a formula and restores it through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const spreadCalculation = model.calculations.find((calculation: any) => calculation.sourceCell.sheet === 'Sheet1' && calculation.sourceCell.ref === 'B6');
+    expect(spreadCalculation.originalFormula).toBe('B1-B2');
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before formula edit' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'user-formula', type: 'human' },
+      rationale: 'Add the reviewed spread adjustment',
+      operations: [{ type: 'setCellFormula', sourceCell: { sheet: 'Sheet1', ref: 'B6' }, formula: '=B1-B2+10' }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.diff.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'calculations.Sheet1!B6.formula', semantics: 'semantic', before: 'B1-B2', after: 'B1-B2+10' }),
+    ]));
+    expect(preview.proposedModel.outputs.find((output: any) => output.name === 'Spread result').value).toBe(61);
+    expect(preview.proposedModel.outputs.find((output: any) => output.name === 'Total').value).toBe(5000);
+    expect(preview.proposedModel.graph).toEqual(model.graph);
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.calculations.find((calculation: any) => calculation.sourceCell.ref === 'B6').originalFormula).toBe('B1-B2+10');
+    const runAfterEdit = await (await app.request(`/models/${modelId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    expect(Object.values(runAfterEdit.results)).toContain(61);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the reviewed formula',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.calculations.find((calculation: any) => calculation.sourceCell.ref === 'B6').originalFormula).toBe('B1-B2');
+    expect(undone.model.graph).toEqual(model.graph);
+    const runAfterUndo = await (await app.request(`/models/${modelId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    expect(Object.values(runAfterUndo.results)).toContain(51);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

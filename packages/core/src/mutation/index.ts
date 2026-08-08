@@ -18,5 +18,6 @@ export type {
   RenameOutputOperation,
   RestoreOutputOperation,
   RestoreParameterOperation,
+  SetCellFormulaOperation,
   SetParameterValueOperation,
 } from './types.js';

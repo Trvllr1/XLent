@@ -40,6 +40,12 @@ export function ModelView() {
   }, [modelId, reload]);
 
   useEffect(() => {
+    const onModelChanged = () => setReload((n) => n + 1);
+    window.addEventListener('xlent:model-changed', onModelChanged);
+    return () => window.removeEventListener('xlent:model-changed', onModelChanged);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     setUnderstanding(null);
     setUnderstandingError(null);

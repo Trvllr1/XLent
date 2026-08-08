@@ -8,6 +8,11 @@ const UNSUPPORTED_FUNCTIONS = new Set([
   'REGISTER.ID', 'CALL', 'SQL.REQUEST',
 ]);
 
+/** E12.2 — check whether a function call is outside the deterministic runtime surface. */
+export function isUnsupportedFunction(name: string): boolean {
+  return UNSUPPORTED_FUNCTIONS.has(name.toUpperCase());
+}
+
 /** Analyze a parsed workbook and produce the discovery report. */
 export function discoverModel(workbook: ParsedWorkbook): ModelDiscovery {
   let formulaCells = 0;

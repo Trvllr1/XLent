@@ -507,4 +507,111 @@ describe('previewMutation', () => {
       expect.objectContaining({ code: 'invalid_type' }),
     ]));
   });
+
+  it('edits a formula through the canonical mutation path and recomputes outputs', () => {
+    const { model, workbook } = buildFixture();
+    model.calculations = [{
+      id: 'calc-a2',
+      sourceCell: { sheet: 'Model', ref: 'A2' },
+      originalFormula: 'A1*2',
+      dependencies: ['Model!A1'],
+      downstreamOutputs: [],
+    }];
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Triple the revenue multiplier',
+      operations: [{ type: 'setCellFormula', sourceCell: { sheet: 'Model', ref: 'A2' }, formula: '=A1*3' }],
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel?.outputs[0].value).toBe(30);
+    expect(preview.proposedModel?.calculations[0]).toEqual(expect.objectContaining({
+      sourceCell: { sheet: 'Model', ref: 'A2' },
+      originalFormula: 'A1*3',
+      normalizedFormula: 'A1*3',
+    }));
+    expect(preview.proposedModel?.graph.edges).toEqual(model.graph.edges);
+    expect(preview.proposedModel?.semver).toBe('1.1.0');
+    expect(preview.affectedComponents).toEqual(['Model!A2']);
+    expect(preview.affectedOutputs).toEqual(['double-revenue']);
+    expect(preview.diff?.entries).toEqual([
+      expect.objectContaining({ path: 'outputs.Double Revenue.value', before: 20, after: 30 }),
+      expect.objectContaining({ path: 'calculations.Model!A2.formula', semantics: 'semantic', before: 'A1*2', after: 'A1*3' }),
+    ]);
+    expect(preview.proposedWorkbook?.sheets[0].cells.find((cell) => cell.address.ref === 'A2')?.formula).toBe('A1*3');
+    expect(model.outputs[0].value).toBe(20);
+    expect(workbook.sheets[0].cells.find((cell) => cell.address.ref === 'A2')?.formula).toBe('A1*2');
+  });
+
+  it('rewires a dependency edge and previews the changed downstream impact', () => {
+    const source = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(source, XLSX.utils.aoa_to_sheet([[10], [4], [{ t: 'n', f: 'A1*2' }]]), 'Model');
+    const workbook = parseWorkbook(Buffer.from(XLSX.write(source, { type: 'buffer', bookType: 'xlsx' })), 'rewire.xlsx');
+    const { model } = buildFixture();
+    model.graph = buildGraph(workbook);
+    model.calculations = [];
+    model.parameters.push({ ...model.parameters[0], id: 'volume', name: 'Volume', sourceCell: { sheet: 'Model', ref: 'A2' }, currentValue: 4, originalValue: 4 });
+    model.outputs[0] = { ...model.outputs[0], sourceCell: { sheet: 'Model', ref: 'A3' }, value: 20 };
+
+    const preview = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Rewire the driver from revenue to volume',
+      operations: [{ type: 'setCellFormula', sourceCell: { sheet: 'Model', ref: 'A3' }, formula: 'A2*2' }],
+    });
+
+    expect(preview.valid).toBe(true);
+    expect(preview.proposedModel?.outputs[0].value).toBe(8);
+    expect(preview.proposedModel?.graph.edges).toEqual([{ from: 'Model!A2', to: 'Model!A3' }]);
+    expect(preview.proposedModel?.calculations).toEqual([expect.objectContaining({
+      sourceCell: { sheet: 'Model', ref: 'A3' },
+      originalFormula: 'A2*2',
+      dependencies: ['Model!A2'],
+    })]);
+    expect(preview.diff?.entries).toEqual([
+      expect.objectContaining({ path: 'outputs.Double Revenue.value', before: 20, after: 8 }),
+      expect.objectContaining({ path: 'calculations.Model!A3.formula', semantics: 'semantic' }),
+    ]);
+  });
+
+  it('rejects invalid, unsupported, constant-target, and cyclic formula edits', () => {
+    const source = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(source, XLSX.utils.aoa_to_sheet([[10], [{ t: 'n', f: 'A1*2' }], [{ t: 'n', f: 'A2+1' }]]), 'Model');
+    const workbook = parseWorkbook(Buffer.from(XLSX.write(source, { type: 'buffer', bookType: 'xlsx' })), 'formula-gates.xlsx');
+    const { model } = buildFixture();
+    model.graph = buildGraph(workbook);
+
+    const invalid = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt an unparseable formula',
+      operations: [{ type: 'setCellFormula', sourceCell: { sheet: 'Model', ref: 'A2' }, formula: '=SUM(' }],
+    });
+    expect(invalid.valid).toBe(false);
+    expect(invalid.validationIssues).toEqual([expect.objectContaining({ code: 'invalid_formula' })]);
+
+    const unsupported = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt an unsupported function',
+      operations: [{ type: 'setCellFormula', sourceCell: { sheet: 'Model', ref: 'A2' }, formula: '=WEBSERVICE("https://example.com")' }],
+    });
+    expect(unsupported.valid).toBe(false);
+    expect(unsupported.validationIssues).toEqual([expect.objectContaining({ code: 'unsupported_function' })]);
+
+    const constant = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt to convert a constant input',
+      operations: [{ type: 'setCellFormula', sourceCell: { sheet: 'Model', ref: 'A1' }, formula: '=A2*2' }],
+    });
+    expect(constant.valid).toBe(false);
+    expect(constant.validationIssues).toEqual([expect.objectContaining({ code: 'formula_cell_not_formula' })]);
+
+    const cycle = previewMutation(model, workbook, {
+      actor: { id: 'user-1', type: 'human' },
+      rationale: 'Attempt to introduce a cycle',
+      operations: [{ type: 'setCellFormula', sourceCell: { sheet: 'Model', ref: 'A2' }, formula: '=A3*2' }],
+    });
+    expect(cycle.valid).toBe(false);
+    expect(cycle.validationIssues).toEqual([expect.objectContaining({ code: 'formula_introduces_cycle' })]);
+    expect(cycle.proposedModel).toBeUndefined();
+  });
 });

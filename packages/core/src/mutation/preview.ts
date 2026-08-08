@@ -1,11 +1,13 @@
 import crypto from 'crypto';
 import { bumpSemver, diffModels } from '../diff.js';
 import { reconcileContract } from '../contractReconcile.js';
-import { traceUpstream } from '../graph.js';
+import { buildCalculations, discoverModel, isUnsupportedFunction } from '../discovery.js';
+import { buildGraph, detectCycles, extractDependencies, traceUpstream } from '../graph.js';
+import { collectFunctionCalls, parseFormula } from '../ast/index.js';
 import type { ParsedWorkbook } from '../parser.js';
 import { ModelRuntime } from '../runtime.js';
 import { runModelTests } from '../testRunner.js';
-import type { Model, ModelTestDefinition, Parameter } from '../types.js';
+import type { DependencyGraph, Model, ModelTestDefinition, Parameter } from '../types.js';
 import type { MutationPreview, MutationRequest, MutationValidationIssue } from './types.js';
 
 export function previewMutation(
@@ -31,7 +33,15 @@ export function previewMutation(
 
   const proposedModel = structuredClone(model);
   const proposedTests = structuredClone(tests);
+  const hasFormulaOps = request.operations.some((operation) => operation.type === 'setCellFormula');
+  const proposedWorkbook = hasFormulaOps ? structuredClone(workbook) : undefined;
   for (const operation of request.operations) {
+    if (operation.type === 'setCellFormula') {
+      const sheet = proposedWorkbook!.sheets.find((candidate) => candidate.name === operation.sourceCell.sheet)!;
+      const cell = sheet.cells.find((candidate) => candidate.address.ref === operation.sourceCell.ref)!;
+      cell.formula = operation.formula.trim().replace(/^=+/, '');
+      continue;
+    }
     if (operation.type === 'addParameter') {
       const sourceCell = nextVirtualParameterCell(proposedModel);
       proposedModel.parameters.push({
@@ -111,24 +121,58 @@ export function previewMutation(
     }
   }
 
+  let effectiveWorkbook = workbook;
+  if (proposedWorkbook) {
+    const proposedGraph = buildGraph(proposedWorkbook);
+    const cycles = detectCycles(proposedGraph);
+    if (cycles.length > 0) {
+      return {
+        valid: false,
+        baseVersion: model.version,
+        affectedComponents: [],
+        affectedOutputs: [],
+        evidenceRefs: [],
+        testResults: [],
+        allTestsPass: false,
+        contractFindings: [],
+        validationIssues: [{ code: 'formula_introduces_cycle', message: `Proposed formula introduces a circular dependency: ${cycles[0].join(' → ')}.` }],
+      };
+    }
+    proposedModel.graph = proposedGraph;
+    proposedModel.calculations = buildCalculations(proposedWorkbook, proposedGraph);
+    proposedModel.discovery = discoverModel(proposedWorkbook);
+    proposedModel.compatibility = {
+      status: proposedModel.discovery.compatibility,
+      supportedFormulas: proposedModel.discovery.formulaCells - proposedModel.discovery.unsupportedFunctions,
+      totalFormulas: proposedModel.discovery.formulaCells,
+      issues: [],
+    };
+    effectiveWorkbook = proposedWorkbook;
+  }
+  // Legacy models persisted before the canonical calculation inventory existed
+  // derive it from the workbook of record so formula diffs stay precise.
+  const baseForDiff = hasFormulaOps && model.calculations.length === 0
+    ? { ...model, calculations: buildCalculations(workbook, model.graph) }
+    : model;
+
   const overrides = proposedModel.parameters.map((parameter) => ({
     parameterId: parameter.id,
     value: parameter.currentValue,
   }));
-  const results = new ModelRuntime(proposedModel, workbook).run(overrides);
+  const results = new ModelRuntime(proposedModel, effectiveWorkbook).run(overrides);
   proposedModel.outputs = proposedModel.outputs.map((output) => ({
     ...output,
     value: results[output.id],
   }));
 
-  const initialDiff = diffModels(model, proposedModel);
+  const initialDiff = diffModels(baseForDiff, proposedModel);
   proposedModel.semver = bumpSemver(model.semver, initialDiff.suggestedBump);
-  const testResults = runModelTests(proposedModel, workbook, proposedTests, overrides);
+  const testResults = runModelTests(proposedModel, effectiveWorkbook, proposedTests, overrides);
   const contractFindings = proposedModel.contract
     ? reconcileContract(proposedModel, proposedModel.contract)
     : [];
-  const impact = findImpact(model, request);
-  const diff = diffModels(model, proposedModel);
+  const impact = findImpact(model, request, proposedModel.graph);
+  const diff = diffModels(baseForDiff, proposedModel);
   const previewId = crypto.createHash('sha256').update(JSON.stringify({
     baseVersion: model.version,
     request,
@@ -145,6 +189,7 @@ export function previewMutation(
     baseVersion: model.version,
     previewId,
     proposedModel,
+    proposedWorkbook,
     proposedTests,
     diff,
     affectedComponents: impact.components,
@@ -202,6 +247,35 @@ function validateRequest(model: Model, workbook: ParsedWorkbook, request: Mutati
       return;
     }
     targets.add(target);
+
+    if (operation.type === 'setCellFormula') {
+      const cellId = `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
+      const cell = workbook.sheets.find((sheet) => sheet.name === operation.sourceCell.sheet)?.cells.find((candidate) => candidate.address.ref === operation.sourceCell.ref);
+      if (!cell) {
+        issues.push({ code: 'formula_cell_not_found', operationIndex, message: `Formula target "${cellId}" was not found in the canonical workbook.` });
+        return;
+      }
+      if (!cell.formula) {
+        issues.push({ code: 'formula_cell_not_formula', operationIndex, message: `Formula target "${cellId}" is not an existing formula component; creating formulas on constants is not supported yet.` });
+        return;
+      }
+      const formula = operation.formula.trim().replace(/^=+/, '');
+      try {
+        const unsupported = collectFunctionCalls(parseFormula(formula)).filter((name) => isUnsupportedFunction(name));
+        if (unsupported.length > 0) {
+          issues.push({ code: 'unsupported_function', operationIndex, message: `Formula uses unsupported function(s): ${unsupported.join(', ')}.` });
+        }
+        const unknownSheet = extractDependencies(formula, operation.sourceCell.sheet)
+          .map((ref) => ref.split('!')[0])
+          .find((sheet) => !workbook.sheets.some((candidate) => candidate.name === sheet));
+        if (unknownSheet) {
+          issues.push({ code: 'invalid_formula', operationIndex, message: `Formula references unknown sheet "${unknownSheet}".` });
+        }
+      } catch {
+        issues.push({ code: 'invalid_formula', operationIndex, message: `Formula could not be parsed: ${operation.formula.slice(0, 60)}.` });
+      }
+      return;
+    }
 
     if (operation.type === 'addParameter') {
       const name = operation.name.trim();
@@ -362,9 +436,10 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
   return [];
 }
 
-function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
+function findImpact(model: Model, request: MutationRequest, graph: DependencyGraph = model.graph): { components: string[]; outputs: string[] } {
   let virtualParameterOffset = 0;
   const queue = request.operations.filter((operation) => operation.type !== 'moveParameter' && operation.type !== 'moveOutput').map((operation) => {
+    if (operation.type === 'setCellFormula') return `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
     if (operation.type === 'addParameter') {
       const sourceCell = nextVirtualParameterCell(model, virtualParameterOffset++);
       return `${sourceCell.sheet}!${sourceCell.ref}`;
@@ -385,7 +460,7 @@ function findImpact(model: Model, request: MutationRequest): { components: strin
 
   while (queue.length > 0) {
     const current = queue.shift()!;
-    for (const edge of model.graph.edges) {
+    for (const edge of graph.edges) {
       if (edge.from === current && !visited.has(edge.to)) {
         visited.add(edge.to);
         queue.push(edge.to);
@@ -468,6 +543,7 @@ function testReferencesOutput(test: ModelTestDefinition, output: Model['outputs'
 }
 
 function operationTargetId(operation: MutationRequest['operations'][number]): string {
+  if (operation.type === 'setCellFormula') return `${operation.sourceCell.sheet}!${operation.sourceCell.ref}`;
   return operation.type === 'addOutput' || operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput'
     ? operation.outputId
     : operation.parameterId;
