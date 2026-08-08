@@ -84,6 +84,86 @@ export const metadataSchema = z.object({
   tags: z.array(z.string().min(1).max(60)).max(20).optional(),
 });
 
+const semanticKeySchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
+
+const nativeContractSchema = z.object({
+  purpose: z.string().min(1),
+  declaredInputs: z.array(z.object({
+    name: z.string().min(1),
+    unit: z.string().optional(),
+    description: z.string().optional(),
+    bounds: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
+  })),
+  declaredOutputs: z.array(z.object({
+    name: z.string().min(1),
+    unit: z.string().optional(),
+    meaning: z.string().optional(),
+    expectation: z.string().optional(),
+  })),
+  invariants: z.array(z.object({ id: z.string().min(1), expression: z.string().min(1), description: z.string().optional() })),
+  rules: z.array(z.object({
+    id: z.string().min(1),
+    expression: z.string().min(1),
+    description: z.string().optional(),
+    severity: z.enum(['critical', 'warning', 'info']).optional(),
+    scope: z.string().optional(),
+  })),
+  behaviors: z.array(z.object({ id: z.string().min(1), statement: z.string().min(1), description: z.string().optional() })).optional(),
+  version: z.string().min(1),
+});
+
+export const nativeDefinitionSchema = z.object({
+  name: z.string().min(1).max(200),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80).optional(),
+  documentation: z.string().min(1).max(10000),
+  inputs: z.array(z.object({
+    key: semanticKeySchema,
+    name: z.string().min(1).max(200),
+    value: z.union([z.number(), z.string(), z.boolean()]),
+    type: z.enum(['number', 'string', 'boolean']).optional(),
+    unit: z.string().max(100).optional(),
+    format: z.string().max(100).optional(),
+    description: z.string().max(1000).optional(),
+    bounds: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
+  })).min(1).max(200),
+  formulas: z.array(z.object({
+    key: semanticKeySchema,
+    name: z.string().min(1).max(200),
+    expression: z.string().min(1).max(2000),
+    unit: z.string().max(100).optional(),
+    format: z.string().max(100).optional(),
+    description: z.string().max(1000).optional(),
+  })).min(1).max(500),
+  outputs: z.array(z.object({
+    key: semanticKeySchema,
+    name: z.string().min(1).max(200),
+    component: semanticKeySchema,
+    unit: z.string().max(100).optional(),
+    format: z.string().max(100).optional(),
+    description: z.string().max(1000).optional(),
+  })).min(1).max(200),
+  contract: nativeContractSchema,
+  tests: z.array(z.object({
+    name: z.string().min(1).max(200),
+    category: z.enum(['structural', 'mathematical', 'business']),
+    assertion: testAssertionSchema,
+    description: z.string().max(1000).optional(),
+  })).min(1).max(100),
+  scenarios: z.array(z.object({
+    name: z.string().min(1).max(200),
+    overrides: z.record(semanticKeySchema, z.unknown()),
+  })).max(20).optional(),
+  reviewRules: z.array(z.string().min(1).max(1000)).max(50).optional(),
+}).strict();
+
+export const createNativeModelSchema = z.object({
+  templateId: z.string().min(1).max(100).optional(),
+  name: z.string().min(1).max(200).optional(),
+  definition: nativeDefinitionSchema.optional(),
+}).strict().refine((value) => Boolean(value.templateId) !== Boolean(value.definition), {
+  message: 'Provide exactly one of templateId or definition',
+});
+
 const mutationRequestFields = {
   actor: z.object({
     id: z.string().min(1).max(200),

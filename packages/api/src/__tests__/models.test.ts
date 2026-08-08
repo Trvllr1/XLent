@@ -7,6 +7,7 @@ process.env.NODE_ENV = 'test';
 
 // Dynamic import after env is set so db.ts picks up the path
 const { app } = await import('../server.js');
+const { store } = await import('../store.js');
 
 function makeWorkbookBuffer(): Buffer {
   const wb = XLSX.utils.book_new();
@@ -31,6 +32,97 @@ function buildFormData(buffer: Buffer, filename: string): FormData {
 
 describe('Models API', () => {
   let modelId: string;
+
+  it('creates and governs a source-free native model from a starter template', async () => {
+    const templatesResponse = await app.request('/models/native/templates');
+    expect(templatesResponse.status).toBe(200);
+    const templates = (await templatesResponse.json()).templates;
+    expect(templates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'unit-economics', componentCounts: { inputs: 4, formulas: 4, outputs: 3, tests: 3 } }),
+    ]));
+
+    const createResponse = await app.request('/models/native', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId: 'unit-economics', name: 'Board Unit Economics' }),
+    });
+    expect(createResponse.status).toBe(201);
+    const created = await createResponse.json();
+    const nativeModel = created.model;
+    expect(nativeModel).toEqual(expect.objectContaining({
+      name: 'Board Unit Economics',
+      sourceKind: 'native',
+      workbookName: '',
+      assuranceLevel: 'UNASSESSED',
+    }));
+    expect(nativeModel.parameters.map((parameter: any) => parameter.semanticKey)).toEqual([
+      'units', 'price', 'variable_cost', 'fixed_cost',
+    ]);
+    expect(nativeModel.contract.rules).toHaveLength(2);
+    expect(nativeModel.documentation).toContain('native operating model');
+    expect(created.tests).toHaveLength(3);
+    expect(created.scenarios[0]).toEqual(expect.objectContaining({ name: 'Higher volume' }));
+    expect(created.scenarios[0].overrides[0]).toEqual(expect.objectContaining({ semanticKey: 'units', value: 1250 }));
+    expect(store.getOriginal(nativeModel.id)).toBeUndefined();
+
+    const runResponse = await app.request(`/models/${nativeModel.id}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(runResponse.status).toBe(200);
+    expect(Object.values((await runResponse.json()).results)).toEqual([120000, 30000, 0.25]);
+
+    const testsResponse = await app.request(`/tests/${nativeModel.id}/run?evidence=true`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const testRun = await testsResponse.json();
+    expect(testsResponse.status).toBe(200);
+    expect(testRun).toEqual(expect.objectContaining({ allPass: true, count: 3 }));
+    expect(testRun.evidenceId).toBeTruthy();
+
+    const scenarioOverride = created.scenarios[0].overrides.map(({ parameterId, value }: any) => ({ parameterId, value }));
+    const compareResponse = await app.request(`/models/${nativeModel.id}/compare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenarioOverrides: scenarioOverride }),
+    });
+    expect(compareResponse.status).toBe(200);
+    expect((await compareResponse.json()).comparison.rows[0]).toEqual(expect.objectContaining({ baseline: 120000, scenario: 150000 }));
+
+    const packageResponse = await app.request(`/models/${nativeModel.id}/package`);
+    expect(packageResponse.status).toBe(200);
+
+    const mutationRequest = {
+      actor: { id: 'native-reviewer', type: 'human' },
+      rationale: 'Place the margin output first for executive review',
+      operations: [{ type: 'moveOutput', outputId: nativeModel.outputs[2].id, toIndex: 0 }],
+    };
+    const previewResponse = await app.request(`/models/${nativeModel.id}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.valid).toBe(true);
+    expect(preview.testResults).toHaveLength(3);
+
+    const commitResponse = await app.request(`/models/${nativeModel.id}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: nativeModel.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model).toEqual(expect.objectContaining({ sourceKind: 'native', version: 2, semver: '1.0.1', assuranceLevel: 'UNASSESSED' }));
+    expect(committed.evidenceId).toBeTruthy();
+
+    const snapshotsResponse = await app.request(`/snapshots/${nativeModel.id}`);
+    expect((await snapshotsResponse.json()).snapshots).toHaveLength(2);
+  });
 
   it('POST /models/import — uploads and parses a workbook', async () => {
     const form = buildFormData(makeWorkbookBuffer(), 'cost-model.xlsx');

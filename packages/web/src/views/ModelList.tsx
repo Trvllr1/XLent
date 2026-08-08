@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Upload } from './Upload.js';
 import { invalidateModelsCache, type ModelSummary } from '../hooks/useModels.js';
+import { NativeModelCreate } from '../components/NativeModelCreate.js';
 
 export function ModelListPage() {
   const [models, setModels] = useState<ModelSummary[]>([]);
@@ -29,10 +30,18 @@ export function ModelListPage() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-4xl mx-auto space-y-8">
+        <header className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-100">Models</h1>
+            <p className="mt-1 text-sm text-slate-500">Create natively or bring an existing spreadsheet.</p>
+          </div>
+          <NativeModelCreate onCreated={(id) => { invalidateModelsCache(); navigate(`/models/${id}`); }} />
+        </header>
+
         <Upload onImported={(id) => { invalidateModelsCache(); navigate(`/models/${id}`); }} />
 
         <section>
-          <h2 className="text-lg font-semibold mb-4">Imported Models</h2>
+          <h2 className="text-lg font-semibold mb-4">All models</h2>
           {loading ? (
             <p className="text-slate-500 text-sm">Loading…</p>
           ) : models.length === 0 ? (
@@ -46,7 +55,7 @@ export function ModelListPage() {
                       {m.name}
                     </Link>
                     <p className="text-xs text-slate-500 truncate">
-                      {m.workbookName} · v{m.version} · {m.parameters.length} inputs · {m.outputs.length} outputs
+                      {m.sourceKind === 'native' ? 'Native model' : m.workbookName} · v{m.version} · {m.parameters.length} inputs · {m.outputs.length} outputs
                     </p>
                   </div>
                   <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-medium ${

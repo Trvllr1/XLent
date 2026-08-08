@@ -17,6 +17,8 @@ packages/
 
 ```
 POST /models/import          Upload and parse a workbook
+GET  /models/native/templates  List governed native starter packages
+POST /models/native          Create from a template or semantic definition
 POST /models/:id/analyze     Re-run model discovery
 GET  /models                 List models
 GET  /models/:id             Get model details
@@ -51,6 +53,9 @@ const xlent = new XLentClient({ baseUrl: 'http://localhost:4100' });
 const { model } = await xlent.importWorkbook(file);
 const { results } = await xlent.runModel(model.id, overrides);
 ```
+
+Native models use semantic component keys and the same deterministic runtime,
+tests, contracts, evidence, versioning, assurance, and delivery paths as imports.
 
 ## Core Principles
 

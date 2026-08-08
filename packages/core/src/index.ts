@@ -21,6 +21,8 @@ export { traceDownstream, computeParameterImpact } from './impact.js';
 export { resolveLabels, findSignificantIntermediates, understandModel } from './understand.js';
 export type { LabeledCell, ModelUnderstanding, ModelSection } from './understand.js';
 export { buildModelPackage } from './package.js';
+export { compileNativeModel, getNativeTemplate, listNativeTemplates } from './native.js';
+export type { CompiledNativeModel, NativeTemplate } from './native.js';
 export { previewMutation } from './mutation/index.js';
 export type {
 	AddParameterOperation,

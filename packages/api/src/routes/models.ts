@@ -17,10 +17,13 @@ import {
   computeParameterImpact,
   buildCalculations,
   checkBugfixRegression,
+  compileNativeModel,
+  getNativeTemplate,
+  listNativeTemplates,
 } from '@xlent/core';
-import type { Model, ModelStatus, ModelTestDefinition, Parameter, Output, ScenarioOverride, Deliverable, Snapshot, EvidenceRecord, AssuranceLevel } from '@xlent/core';
+import type { Model, ModelStatus, ModelTestDefinition, NativeModelDefinition, Parameter, Output, ScenarioOverride, Deliverable, Snapshot, EvidenceRecord, AssuranceLevel } from '@xlent/core';
 import { store, clientStore, snapshotStore, testStore, evidenceStore } from '../store.js';
-import { runModelSchema, createScenarioSchema, compareSchema, deliverablePushSchema, deliverToClientSchema, statusTransitionSchema, metadataSchema } from '../schemas.js';
+import { runModelSchema, createScenarioSchema, compareSchema, createNativeModelSchema, deliverablePushSchema, deliverToClientSchema, statusTransitionSchema, metadataSchema } from '../schemas.js';
 
 export const modelsRouter = new Hono();
 
@@ -143,10 +146,87 @@ modelsRouter.post('/import', async (c) => {
   return c.json({ model, discovery }, 201);
 });
 
+/** GET /models/native/templates — List governed native starter packages. */
+modelsRouter.get('/native/templates', (c) => {
+  const templates = listNativeTemplates().map(({ definition, ...template }) => ({
+    ...template,
+    componentCounts: {
+      inputs: definition.inputs.length,
+      formulas: definition.formulas.length,
+      outputs: definition.outputs.length,
+      tests: definition.tests.length,
+    },
+  }));
+  return c.json({ templates });
+});
+
+/** POST /models/native — Create a source-free model from a template or semantic definition. */
+modelsRouter.post('/native', async (c) => {
+  const raw = await c.req.json().catch(() => null);
+  const parsed = createNativeModelSchema.safeParse(raw);
+  if (!parsed.success) return c.json({ error: 'Invalid native model', details: parsed.error.flatten() }, 400);
+
+  let definition: NativeModelDefinition;
+  if (parsed.data.templateId) {
+    const template = getNativeTemplate(parsed.data.templateId);
+    if (!template) return c.json({ error: 'Native template not found' }, 404);
+    definition = template.definition;
+  } else {
+    definition = parsed.data.definition as NativeModelDefinition;
+  }
+  if (parsed.data.name) definition = { ...definition, name: parsed.data.name, slug: undefined };
+
+  const baseSlug = generateSlug(definition.slug ?? definition.name) || 'native-model';
+  let slug = baseSlug;
+  let suffix = 1;
+  while (store.slugExists(slug)) slug = `${baseSlug}-${++suffix}`;
+
+  let compiled;
+  try {
+    compiled = compileNativeModel(definition, { slug });
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : 'Native model compilation failed' }, 400);
+  }
+
+  store.setModel(compiled.model);
+  store.setWorkbook(compiled.model.id, compiled.workbook);
+  for (const test of compiled.tests) {
+    testStore.addTest(compiled.model.id, test);
+  }
+
+  const checksum = crypto.createHash('sha256').update(JSON.stringify(definition)).digest('hex');
+  const snapshot: Snapshot = {
+    id: crypto.randomUUID(),
+    modelId: compiled.model.id,
+    semver: compiled.model.semver,
+    message: 'Initial native model',
+    checksum,
+    createdAt: compiled.model.createdAt,
+    data: compiled.model,
+  };
+  snapshotStore.create(snapshot);
+
+  const parameterIds = new Map(compiled.model.parameters.map((parameter) => [parameter.semanticKey, parameter.id]));
+  const scenarios = compiled.scenarios.map((scenario) => ({
+    name: scenario.name,
+    overrides: Object.entries(scenario.overrides).map(([semanticKey, value]) => ({
+      parameterId: parameterIds.get(semanticKey),
+      semanticKey,
+      value,
+    })),
+  }));
+
+  return c.json({ model: compiled.model, tests: compiled.tests, scenarios, snapshot: { id: snapshot.id, checksum } }, 201);
+});
+
 /** POST /models/:id/analyze — Re-run discovery and refresh labels */
 modelsRouter.post('/:id/analyze', (c) => {
   const model = store.getModel(c.req.param('id'));
   if (!model) return c.json({ error: 'Model not found' }, 404);
+
+  if (model.sourceKind === 'native') {
+    return c.json({ model, discovery: model.discovery });
+  }
 
   const workbook = store.getWorkbook(c.req.param('id'));
   if (!workbook) {

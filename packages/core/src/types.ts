@@ -20,6 +20,7 @@ export type ParameterSource =
 
 export interface Parameter {
   id: string;
+  semanticKey?: string;
   name: string;
   type: CellType;
   unit?: string;
@@ -35,6 +36,7 @@ export interface Parameter {
 
 export interface Calculation {
   id: string;
+  semanticKey?: string;
   sourceCell: CellAddress;
   originalFormula: string;
   normalizedFormula?: string;
@@ -45,6 +47,7 @@ export interface Calculation {
 
 export interface Output {
   id: string;
+  semanticKey?: string;
   name: string;
   value: unknown;
   format?: string;
@@ -200,6 +203,62 @@ export type ModelStatus = 'draft' | 'sandbox' | 'validated' | 'approved' | 'publ
 // assurance is evidence-backed validity. Advance-only, never skip a level.
 export type AssuranceLevel = 'UNASSESSED' | 'TESTED' | 'VERIFIED' | 'VALIDATED';
 
+export type ModelSourceKind = 'workbook' | 'native';
+
+export interface NativeInputDefinition {
+  key: string;
+  name: string;
+  value: number | string | boolean;
+  type?: 'number' | 'string' | 'boolean';
+  unit?: string;
+  format?: string;
+  description?: string;
+  bounds?: { min?: number; max?: number };
+}
+
+export interface NativeFormulaDefinition {
+  key: string;
+  name: string;
+  expression: string;
+  unit?: string;
+  format?: string;
+  description?: string;
+}
+
+export interface NativeOutputDefinition {
+  key: string;
+  name: string;
+  component: string;
+  unit?: string;
+  format?: string;
+  description?: string;
+}
+
+export interface NativeTestDefinition {
+  name: string;
+  category: TestCategory;
+  assertion: Omit<TestAssertion, 'left'> & { left: string };
+  description?: string;
+}
+
+export interface NativeScenarioDefinition {
+  name: string;
+  overrides: Record<string, unknown>;
+}
+
+export interface NativeModelDefinition {
+  name: string;
+  slug?: string;
+  documentation: string;
+  inputs: NativeInputDefinition[];
+  formulas: NativeFormulaDefinition[];
+  outputs: NativeOutputDefinition[];
+  contract: ModelContract;
+  tests: NativeTestDefinition[];
+  scenarios?: NativeScenarioDefinition[];
+  reviewRules?: string[];
+}
+
 export interface AssuranceGateResult {
   canAdvance: boolean;
   blockers: string[];
@@ -208,6 +267,10 @@ export interface AssuranceGateResult {
 export interface Model {
   id: string;
   name: string;
+  sourceKind?: ModelSourceKind;
+  documentation?: string;
+  nativeDefinition?: NativeModelDefinition;
+  reviewRules?: string[];
   slug: string;
   semver: string;
   version: number;

@@ -54,7 +54,7 @@ export function OverviewView() {
           ['Sheets', d.sheets],
           ['Formula Cells', d.formulaCells],
           ['Input Candidates', d.inputCandidates],
-          ['Output Candidates', d.outputCandidates],
+          [model.sourceKind === 'native' ? 'Declared Outputs' : 'Output Candidates', model.sourceKind === 'native' ? model.outputs.length : d.outputCandidates],
           ['Cross-Sheet Refs', d.crossSheetReferences],
           ['External Refs', d.externalReferences],
           ['Named Ranges', d.namedRanges],
@@ -90,7 +90,7 @@ export function OverviewView() {
               ))}
             </dd>
           </div>
-          <div><dt className="text-xs text-slate-600">Imported</dt><dd className="font-mono text-slate-300">{new Date(model.createdAt).toLocaleDateString()}</dd></div>
+          <div><dt className="text-xs text-slate-600">{model.sourceKind === 'native' ? 'Created' : 'Imported'}</dt><dd className="font-mono text-slate-300">{new Date(model.createdAt).toLocaleDateString()}</dd></div>
         </dl>
         {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
       </div>

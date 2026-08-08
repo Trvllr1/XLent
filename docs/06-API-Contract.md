@@ -26,6 +26,16 @@ POST /models/import
   Body: FormData { file: .xlsx }
   → { model: Model, discovery: ModelDiscovery }
 
+GET /models/native/templates
+  → { templates: NativeTemplateSummary[] }
+
+POST /models/native
+  Body: { templateId: string, name?: string } | { definition: NativeModelDefinition }
+  → { model: Model, tests: ModelTestDefinition[], scenarios, snapshot }
+
+Native definitions use semantic component keys. XLent compiles them to an internal
+execution artifact for the canonical runtime and stores no uploaded original binary.
+
 GET /models
   → { models: Model[] }
 

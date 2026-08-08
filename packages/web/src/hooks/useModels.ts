@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 export interface ModelSummary {
   id: string;
   name: string;
+  sourceKind?: 'workbook' | 'native';
   workbookName: string;
   version: number;
   createdAt: string;
