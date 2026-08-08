@@ -1,5 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormulaEditor } from './FormulaEditor.js';
+
+interface SnapshotEntry {
+  id: string;
+  semver: string;
+  message?: string;
+  createdAt: string;
+}
 
 interface Preview {
   baseVersion: number;
@@ -28,6 +35,50 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<Array<{ formula: string; rationale: string }>>([{ formula: `=${currentFormula}`, rationale: '' }]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [versions, setVersions] = useState<SnapshotEntry[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState('');
+  const historyRef = useRef(history);
+  const historyIndexRef = useRef(historyIndex);
+
+  useEffect(() => { historyRef.current = history; historyIndexRef.current = historyIndex; }, [history, historyIndex]);
+
+  useEffect(() => {
+    fetch(`/snapshots/${modelId}`)
+      .then((r) => r.json())
+      .then((d) => setVersions(d.snapshots ?? []))
+      .catch(() => setVersions([]));
+  }, [modelId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return;
+      event.preventDefault();
+      const nextIndex = event.shiftKey
+        ? Math.min(historyIndexRef.current + 1, historyRef.current.length - 1)
+        : Math.max(historyIndexRef.current - 1, 0);
+      if (nextIndex !== historyIndexRef.current) {
+        const entry = historyRef.current[nextIndex];
+        setHistoryIndex(nextIndex);
+        setFormula(entry.formula);
+        setRationale(entry.rationale);
+        setPreview(null);
+        setError(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const pushHistory = (nextFormula: string, nextRationale: string) => {
+    const current = historyRef.current;
+    const currentIndex = historyIndexRef.current;
+    const next = current.slice(0, currentIndex + 1);
+    next.push({ formula: nextFormula, rationale: nextRationale });
+    setHistory(next);
+    setHistoryIndex(next.length - 1);
+  };
 
   const separator = cellId.lastIndexOf('!');
   const sourceCell = { sheet: cellId.slice(0, separator), ref: cellId.slice(separator + 1) };
@@ -42,6 +93,36 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
     update();
     setPreview(null);
     setError(null);
+  };
+
+  const reviseWithHistory = (update: () => void) => {
+    const previousFormula = formula;
+    const previousRationale = rationale;
+    revise(update);
+    pushHistory(previousFormula, previousRationale);
+  };
+
+  const commitHistory = () => {
+    if (formula === historyRef.current[historyIndexRef.current]?.formula) return;
+    pushHistory(formula, rationale);
+  };
+
+  const loadVersion = (snapshotId: string) => {
+    setSelectedVersion(snapshotId);
+    fetch(`/snapshots/${modelId}/${snapshotId}`)
+      .then((r) => r.json())
+      .then((snapshot) => {
+        const calculation = snapshot.data.calculations.find((c: any) => `${c.sourceCell.sheet}!${c.sourceCell.ref}` === cellId);
+        if (calculation) {
+          const nextFormula = `=${calculation.originalFormula}`;
+          setFormula(nextFormula);
+          setRationale(`Restore from v${snapshot.semver}`);
+          setPreview(null);
+          setError(null);
+          pushHistory(nextFormula, `Restore from v${snapshot.semver}`);
+        }
+      })
+      .catch(() => setError('Could not load the selected version.'));
   };
 
   const call = async (path: string, body: object) => {
@@ -105,10 +186,19 @@ export function FormulaEditPanel({ modelId, cellId, currentFormula, workbookShee
     <section className="rounded border border-slate-700 bg-slate-950/60 p-3" aria-label={`Edit formula ${cellId}`}>
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Edit formula</h4>
-        <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300">Close</button>
+        <div className="flex items-center gap-1">
+          {versions.length > 0 && (
+            <select value={selectedVersion} onChange={(event) => loadVersion(event.target.value)} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] text-slate-400">
+              <option value="">History…</option>
+              {versions.map((snapshot) => <option key={snapshot.id} value={snapshot.id}>{snapshot.semver}{snapshot.message ? ` · ${snapshot.message.slice(0, 24)}` : ''}</option>)}
+            </select>
+          )}
+          <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300">Close</button>
+        </div>
       </div>
+      <p className="mt-1 text-[10px] text-slate-600">Ctrl+Z undo · Ctrl+Shift+Z redo</p>
       <label className="mt-2 block text-xs text-slate-400">Proposed formula
-        <FormulaEditor value={formula} onChange={(next) => revise(() => setFormula(next))} rows={3} ariaLabel="Proposed formula" />
+        <FormulaEditor value={formula} onChange={(next) => revise(() => setFormula(next))} onBlur={commitHistory} rows={3} ariaLabel="Proposed formula" />
       </label>
       {unknownSheet && <p className="mt-1 text-xs text-amber-400">Unknown sheet "{unknownSheet}"</p>}
       <label className="mt-2 block text-xs text-slate-400">Rationale
