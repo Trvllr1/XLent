@@ -1,13 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ModelOutletContext } from './ModelView.js';
 import { useSelection } from '../selection.js';
 import { formatExcelValue } from '../format.js';
 import { ConfidenceBadge } from '../components/ConfidenceBadge.js';
+import { OutputRenamePanel } from '../components/OutputRenamePanel.js';
 
 export function OutputsView() {
-  const { model, modelId } = useOutletContext<ModelOutletContext>();
+  const { model, modelId, refreshModel } = useOutletContext<ModelOutletContext>();
   const { selection, select } = useSelection();
+  const [editingOutputId, setEditingOutputId] = useState<string | null>(null);
+  const editingOutput = model.outputs.find((output: any) => output.id === editingOutputId);
 
   const fanIn = useMemo(() => {
     const map = new Map<string, number>();
@@ -16,13 +19,17 @@ export function OutputsView() {
   }, [model.graph]);
 
   return (
-    <table className="w-full text-sm">
+    <>
+    {editingOutput && <OutputRenamePanel modelId={modelId} output={editingOutput} onClose={() => setEditingOutputId(null)} onCommitted={refreshModel} />}
+    <div className="max-w-full overflow-x-auto">
+    <table className="w-full min-w-[36rem] text-sm">
       <thead>
         <tr className="text-left text-slate-500 border-b border-slate-800">
           <th className="py-2">Name</th>
           <th>Value</th>
           <th>Confidence</th>
           <th className="text-right">Depends on</th>
+          <th><span className="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
@@ -51,10 +58,13 @@ export function OutputsView() {
               <td className="font-mono">{formatExcelValue(o.value, o.format)}</td>
               <td><ConfidenceBadge level={o.confidence} /></td>
               <td className="text-right text-xs font-mono text-slate-500">{fanIn.get(cellId) ?? 0}</td>
+              <td className="text-right"><button type="button" onClick={(event) => { event.stopPropagation(); setEditingOutputId(o.id); }} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-emerald-500 hover:text-emerald-300">Rename</button></td>
             </tr>
           );
         })}
       </tbody>
     </table>
+    </div>
+    </>
   );
 }

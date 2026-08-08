@@ -17,6 +17,12 @@ export interface RenameParameterOperation {
   name: string;
 }
 
+export interface RenameOutputOperation {
+  type: 'renameOutput';
+  outputId: string;
+  name: string;
+}
+
 export interface RemoveParameterOperation {
   type: 'removeParameter';
   parameterId: string;
@@ -36,7 +42,7 @@ export interface RestoreParameterOperation {
   graphIndex: number;
 }
 
-export type MutationOperation = SetParameterValueOperation | RenameParameterOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
+export type MutationOperation = SetParameterValueOperation | RenameParameterOperation | RenameOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
 
 export interface MutationRequest {
   actor: MutationActor;
@@ -57,7 +63,7 @@ export interface MutationUndoRequest {
 }
 
 export interface MutationValidationIssue {
-  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'parameter_already_exists' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs';
+  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'output_not_found' | 'parameter_already_exists' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs';
   operationIndex?: number;
   message: string;
 }

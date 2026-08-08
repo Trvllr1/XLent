@@ -31,6 +31,14 @@ export function previewMutation(
   const proposedModel = structuredClone(model);
   const proposedTests = structuredClone(tests);
   for (const operation of request.operations) {
+    if (operation.type === 'renameOutput') {
+      const output = proposedModel.outputs.find((candidate) => candidate.id === operation.outputId)!;
+      const previousName = output.name;
+      output.name = operation.name.trim();
+      renameContractReferences(proposedModel, previousName, output.name, 'output');
+      renameTestReferences(proposedTests, previousName, output.name);
+      continue;
+    }
     if (operation.type === 'restoreParameter') {
       proposedModel.parameters.splice(operation.index, 0, structuredClone(operation.parameter));
       const cellId = `${operation.parameter.sourceCell.sheet}!${operation.parameter.sourceCell.ref}`;
@@ -43,7 +51,7 @@ export function previewMutation(
     } else if (operation.type === 'renameParameter') {
       const previousName = parameter.name;
       parameter.name = operation.name.trim();
-      renameContractReferences(proposedModel, previousName, parameter.name);
+      renameContractReferences(proposedModel, previousName, parameter.name, 'input');
       renameTestReferences(proposedTests, previousName, parameter.name);
     } else if (operation.type === 'removeParameter') {
       const cellId = `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
@@ -112,32 +120,50 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
   const targets = new Set<string>();
   const structuralConflicts = new Set(request.operations
     .filter((operation) => (operation.type === 'removeParameter' || operation.type === 'restoreParameter')
-      && request.operations.some((candidate) => candidate !== operation && candidate.parameterId === operation.parameterId))
-    .map((operation) => operation.parameterId));
+      && request.operations.some((candidate) => candidate !== operation && operationTargetId(candidate) === operation.parameterId))
+    .map(operationTargetId));
   const proposedNames = new Map(model.parameters.map((parameter) => [parameter.id, parameter.name.toLowerCase()]));
+  const proposedOutputNames = new Map(model.outputs.map((output) => [output.id, output.name.toLowerCase()]));
 
   for (const operation of request.operations) {
     if (operation.type === 'renameParameter') proposedNames.set(operation.parameterId, operation.name.trim().toLowerCase());
     if (operation.type === 'restoreParameter') proposedNames.set(operation.parameterId, operation.parameter.name.toLowerCase());
+    if (operation.type === 'renameOutput') proposedOutputNames.set(operation.outputId, operation.name.trim().toLowerCase());
   }
 
   request.operations.forEach((operation, operationIndex) => {
-    if (structuralConflicts.has(operation.parameterId)) {
-      if (!issues.some((issue) => issue.code === 'duplicate_target' && issue.message.includes(operation.parameterId))) {
-        issues.push({ code: 'duplicate_target', operationIndex, message: `Structural change for parameter "${operation.parameterId}" cannot be combined with another operation on that parameter.` });
+    const operationId = operationTargetId(operation);
+    if (structuralConflicts.has(operationId)) {
+      if (!issues.some((issue) => issue.code === 'duplicate_target' && issue.message.includes(operationId))) {
+        issues.push({ code: 'duplicate_target', operationIndex, message: `Structural change for parameter "${operationId}" cannot be combined with another operation on that parameter.` });
       }
       return;
     }
-    const target = `${operation.type}:${operation.parameterId}`;
+    const target = `${operation.type}:${operationId}`;
     if (targets.has(target)) {
       issues.push({
         code: 'duplicate_target',
         operationIndex,
-        message: `Parameter "${operation.parameterId}" may only be changed once per atomic mutation.`,
+        message: `Component "${operationId}" may only be changed once per atomic mutation.`,
       });
       return;
     }
     targets.add(target);
+
+    if (operation.type === 'renameOutput') {
+      const output = model.outputs.find((candidate) => candidate.id === operation.outputId);
+      if (!output) {
+        issues.push({ code: 'output_not_found', operationIndex, message: `Output "${operation.outputId}" was not found.` });
+        return;
+      }
+      const name = operation.name.trim();
+      if (!name) {
+        issues.push({ code: 'invalid_name', operationIndex, message: 'Output name cannot be blank.' });
+      } else if ([...proposedOutputNames].some(([outputId, proposedName]) => outputId !== output.id && proposedName === name.toLowerCase())) {
+        issues.push({ code: 'duplicate_name', operationIndex, message: `Output name "${name}" is already in use.` });
+      }
+      return;
+    }
 
     if (operation.type === 'restoreParameter') {
       if (model.parameters.some((candidate) => candidate.id === operation.parameterId)) {
@@ -221,6 +247,10 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
 
 function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
   const queue = request.operations.filter((operation) => operation.type !== 'moveParameter').map((operation) => {
+    if (operation.type === 'renameOutput') {
+      const output = model.outputs.find((candidate) => candidate.id === operation.outputId)!;
+      return `${output.sourceCell.sheet}!${output.sourceCell.ref}`;
+    }
     const parameter = operation.type === 'restoreParameter'
       ? operation.parameter
       : model.parameters.find((candidate) => candidate.id === operation.parameterId)!;
@@ -244,14 +274,15 @@ function findImpact(model: Model, request: MutationRequest): { components: strin
   return { components: [...visited], outputs };
 }
 
-function renameContractReferences(model: Model, previousName: string, nextName: string): void {
+function renameContractReferences(model: Model, previousName: string, nextName: string, declaration: 'input' | 'output'): void {
   if (!model.contract) return;
   const protectedNames = [
     ...model.contract.declaredInputs.map((input) => input.name),
     ...model.contract.declaredOutputs.map((output) => output.name),
   ].filter((name) => name !== previousName && name.includes(previousName));
-  for (const input of model.contract.declaredInputs) {
-    if (input.name === previousName) input.name = nextName;
+  const declarations = declaration === 'input' ? model.contract.declaredInputs : model.contract.declaredOutputs;
+  for (const item of declarations) {
+    if (item.name === previousName) item.name = nextName;
   }
   for (const invariant of model.contract.invariants) invariant.expression = replaceName(invariant.expression, previousName, nextName, protectedNames);
   for (const rule of model.contract.rules) rule.expression = replaceName(rule.expression, previousName, nextName, protectedNames);
@@ -298,4 +329,8 @@ function testReferencesParameter(test: ModelTestDefinition, parameter: Parameter
     || assertion.right === parameter.name
     || assertion.consistencyPair?.includes(parameter.name) === true
     || assertion.boundaryParams?.some((boundary) => boundary.parameterId === parameter.id) === true;
+}
+
+function operationTargetId(operation: MutationRequest['operations'][number]): string {
+  return operation.type === 'renameOutput' ? operation.outputId : operation.parameterId;
 }

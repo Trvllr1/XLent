@@ -36,22 +36,25 @@ export function diffModels(from: Model, to: Model): ModelDiff {
   }
 
   // Compare outputs
-  const fromOutputs = new Map(from.outputs.map((o) => [o.name, o]));
-  const toOutputs = new Map(to.outputs.map((o) => [o.name, o]));
+  const fromOutputs = new Map(from.outputs.map((o) => [o.id, o]));
+  const toOutputs = new Map(to.outputs.map((o) => [o.id, o]));
 
-  for (const [name, output] of toOutputs) {
-    if (!fromOutputs.has(name)) {
-      entries.push({ path: `outputs.${name}`, changeType: 'added', semantics: 'semantic', after: output.value, description: `Output "${name}" added` });
+  for (const [id, output] of toOutputs) {
+    if (!fromOutputs.has(id)) {
+      entries.push({ path: `outputs.${output.name}`, changeType: 'added', semantics: 'semantic', after: output.value, description: `Output "${output.name}" added` });
     } else {
-      const prev = fromOutputs.get(name)!;
+      const prev = fromOutputs.get(id)!;
+      if (prev.name !== output.name) {
+        entries.push({ path: `outputs.${prev.name}.name`, changeType: 'modified', semantics: 'semantic', before: prev.name, after: output.name, description: `Output "${prev.name}" renamed to "${output.name}"` });
+      }
       if (prev.value !== output.value) {
-        entries.push({ path: `outputs.${name}.value`, changeType: 'modified', semantics: 'semantic', before: prev.value, after: output.value, description: `Output "${name}" value changed` });
+        entries.push({ path: `outputs.${output.name}.value`, changeType: 'modified', semantics: 'semantic', before: prev.value, after: output.value, description: `Output "${output.name}" value changed` });
       }
     }
   }
-  for (const [name] of fromOutputs) {
-    if (!toOutputs.has(name)) {
-      entries.push({ path: `outputs.${name}`, changeType: 'removed', semantics: 'semantic', before: fromOutputs.get(name)!.value, description: `Output "${name}" removed` });
+  for (const [id, output] of fromOutputs) {
+    if (!toOutputs.has(id)) {
+      entries.push({ path: `outputs.${output.name}`, changeType: 'removed', semantics: 'semantic', before: output.value, description: `Output "${output.name}" removed` });
     }
   }
 

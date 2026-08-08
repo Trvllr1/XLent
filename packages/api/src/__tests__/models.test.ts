@@ -516,6 +516,75 @@ describe('Models API', () => {
     expect(undone.model.graph).toEqual(model.graph);
   });
 
+  it('POST /models/:id/mutations/commit — renames an output and reverses its test references through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const totalOutput = model.outputs.find((output: any) => output.name === 'Total');
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before output rename' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const createTestResponse = await app.request(`/tests/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Total remains non-negative',
+        category: 'business',
+        assertion: { type: 'non_negative', left: 'Total' },
+      }),
+    });
+    const createdTest = await createTestResponse.json();
+    const mutationRequest = {
+      actor: { id: 'agent-output', type: 'agent' },
+      rationale: 'Adopt the approved output label',
+      operations: [{ type: 'renameOutput', outputId: totalOutput.id, name: 'Gross Total' }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.proposedTests).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: createdTest.testId, assertion: expect.objectContaining({ left: 'Gross Total' }) }),
+    ]));
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.outputs.find((output: any) => output.id === totalOutput.id)).toEqual(
+      expect.objectContaining({ name: 'Gross Total', value: totalOutput.value, sourceCell: totalOutput.sourceCell }),
+    );
+    const testsAfterCommit = await (await app.request(`/tests/${modelId}`)).json();
+    expect(testsAfterCommit.tests.find((test: any) => test.id === createdTest.testId).assertion.left).toBe('Gross Total');
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the prior output label',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.outputs.find((output: any) => output.id === totalOutput.id).name).toBe('Total');
+    const testsAfterUndo = await (await app.request(`/tests/${modelId}`)).json();
+    expect(testsAfterUndo.tests.find((test: any) => test.id === createdTest.testId).assertion.left).toBe('Total');
+
+    const deleteTestResponse = await app.request(`/tests/${modelId}/${createdTest.testId}`, { method: 'DELETE' });
+    expect(deleteTestResponse.status).toBe(200);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);

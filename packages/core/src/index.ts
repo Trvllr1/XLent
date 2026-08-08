@@ -34,6 +34,7 @@ export type {
 	MoveParameterOperation,
 	RemoveParameterOperation,
 	RenameParameterOperation,
+	RenameOutputOperation,
 	RestoreParameterOperation,
 	SetParameterValueOperation,
 } from './mutation/index.js';

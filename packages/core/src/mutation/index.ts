@@ -11,6 +11,7 @@ export type {
   MoveParameterOperation,
   RemoveParameterOperation,
   RenameParameterOperation,
+  RenameOutputOperation,
   RestoreParameterOperation,
   SetParameterValueOperation,
 } from './types.js';

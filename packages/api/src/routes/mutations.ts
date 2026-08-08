@@ -226,7 +226,13 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
       workingOrder.splice(toIndex, 0, parameter.id);
     }
   });
-  if (operations.length === 0) return c.json({ error: 'Target snapshot matches the current parameter state' }, 422);
+  for (const output of model.outputs) {
+    const targetOutput = target.data.outputs.find((candidate) => candidate.id === output.id);
+    if (targetOutput && targetOutput.name !== output.name) {
+      operations.push({ type: 'renameOutput', outputId: output.id, name: targetOutput.name });
+    }
+  }
+  if (operations.length === 0) return c.json({ error: 'Target snapshot matches the current model state' }, 422);
 
   const request: MutationRequest = { actor: parsed.data.actor, rationale: parsed.data.rationale, operations };
   const tests = testStore.listTests(model.id) as ModelTestDefinition[];
