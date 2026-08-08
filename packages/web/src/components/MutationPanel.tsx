@@ -29,7 +29,7 @@ interface MutationPanelProps {
 }
 
 export function MutationPanel({ modelId, parameter, onClose, onCommitted }: MutationPanelProps) {
-  const [mode, setMode] = useState<'value' | 'name'>('value');
+  const [mode, setMode] = useState<'value' | 'name' | 'remove'>('value');
   const [value, setValue] = useState(String(parameter.currentValue ?? ''));
   const [name, setName] = useState(parameter.name);
   const [rationale, setRationale] = useState('');
@@ -46,7 +46,9 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
           parameterId: parameter.id,
           value: parameter.type === 'number' ? Number(value) : parameter.type === 'boolean' ? value === 'true' : value,
         }]
-      : [{ type: 'renameParameter' as const, parameterId: parameter.id, name: name.trim() }],
+      : mode === 'name'
+        ? [{ type: 'renameParameter' as const, parameterId: parameter.id, name: name.trim() }]
+        : [{ type: 'removeParameter' as const, parameterId: parameter.id }],
   });
 
   const revise = (update: () => void) => {
@@ -68,7 +70,10 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
     } catch {
       data = null;
     }
-    if (!response.ok) throw new Error(data?.error ?? `Mutation request failed (${response.status})`);
+    if (!response.ok) {
+      const validationMessage = data?.validationIssues?.map((issue: { message: string }) => issue.message).join(' ');
+      throw new Error(data?.error ?? validationMessage ?? `Mutation request failed (${response.status})`);
+    }
     if (!data) throw new Error('Mutation response was not valid JSON');
     return data;
   };
@@ -116,7 +121,7 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
       </div>
 
       <div className="mt-4 inline-flex rounded border border-slate-700 bg-slate-950 p-0.5" aria-label="Change type">
-        {(['value', 'name'] as const).map((option) => (
+        {(['value', 'name', 'remove'] as const).map((option) => (
           <button
             key={option}
             type="button"
@@ -131,8 +136,10 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
 
       <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(10rem,0.5fr)_minmax(16rem,1fr)_auto] xl:items-end">
         <label className="text-xs text-slate-400">
-          {mode === 'value' ? 'Proposed value' : 'Proposed name'}
-          {mode === 'name' ? (
+          {mode === 'value' ? 'Proposed value' : mode === 'name' ? 'Proposed name' : 'Proposed change'}
+          {mode === 'remove' ? (
+            <span className="mt-1 flex min-h-9 items-center rounded border border-red-900/70 bg-red-950/30 px-2.5 py-2 text-sm text-red-300">Remove {parameter.name}</span>
+          ) : mode === 'name' ? (
             <input type="text" value={name} onChange={(event) => revise(() => setName(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100" />
           ) : parameter.type === 'boolean' ? (
             <select value={value} onChange={(event) => revise(() => setValue(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100">
@@ -147,7 +154,7 @@ export function MutationPanel({ modelId, parameter, onClose, onCommitted }: Muta
           Rationale
           <input type="text" value={rationale} onChange={(event) => revise(() => setRationale(event.target.value))} placeholder="Why should this model change?" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
         </label>
-        <button type="button" disabled={busy || !rationale.trim() || (mode === 'name' ? !name.trim() || name.trim() === parameter.name : parameter.type === 'number' && !Number.isFinite(Number(value)))} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="button" disabled={busy || !rationale.trim() || (mode === 'name' ? !name.trim() || name.trim() === parameter.name : mode === 'value' && parameter.type === 'number' && !Number.isFinite(Number(value)))} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
           {busy ? 'Evaluating…' : 'Preview change'}
         </button>
       </div>

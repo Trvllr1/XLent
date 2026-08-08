@@ -193,12 +193,19 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
   const target = snapshotStore.get(parsed.data.targetSnapshotId);
   if (!target || target.modelId !== model.id) return c.json({ error: 'Target snapshot not found' }, 404);
   const targetParameters = new Map(target.data.parameters.map((parameter) => [parameter.id, parameter]));
-  if (model.parameters.some((parameter) => !targetParameters.has(parameter.id)) || target.data.parameters.some((parameter) => !model.parameters.some((current) => current.id === parameter.id))) {
-    return c.json({ error: 'Snapshot structure is incompatible with parameter undo' }, 422);
-  }
   const operations: MutationRequest['operations'] = [];
+  target.data.parameters.forEach((parameter, index) => {
+    if (!model.parameters.some((current) => current.id === parameter.id)) {
+      const cellId = `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
+      operations.push({ type: 'restoreParameter', parameterId: parameter.id, parameter, index, graphIndex: target.data.graph.nodes.indexOf(cellId) });
+    }
+  });
   for (const parameter of model.parameters) {
     const targetParameter = targetParameters.get(parameter.id)!;
+    if (!targetParameter) {
+      operations.push({ type: 'removeParameter', parameterId: parameter.id });
+      continue;
+    }
     if (targetParameter.name !== parameter.name) {
       operations.push({ type: 'renameParameter', parameterId: parameter.id, name: targetParameter.name });
     }

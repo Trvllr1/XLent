@@ -31,7 +31,9 @@ export type {
 	MutationRequest,
 	MutationUndoRequest,
 	MutationValidationIssue,
+	RemoveParameterOperation,
 	RenameParameterOperation,
+	RestoreParameterOperation,
 	SetParameterValueOperation,
 } from './mutation/index.js';
 export { parseFormula, normalizeFormula, collectFunctionCalls } from './ast/index.js';

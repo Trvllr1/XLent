@@ -13,7 +13,7 @@ export function previewMutation(
   request: MutationRequest,
   tests: ModelTestDefinition[] = [],
 ): MutationPreview {
-  const validationIssues = validateRequest(model, request);
+  const validationIssues = validateRequest(model, request, tests);
   if (validationIssues.length > 0) {
     return {
       valid: false,
@@ -31,14 +31,25 @@ export function previewMutation(
   const proposedModel = structuredClone(model);
   const proposedTests = structuredClone(tests);
   for (const operation of request.operations) {
+    if (operation.type === 'restoreParameter') {
+      proposedModel.parameters.splice(operation.index, 0, structuredClone(operation.parameter));
+      const cellId = `${operation.parameter.sourceCell.sheet}!${operation.parameter.sourceCell.ref}`;
+      if (!proposedModel.graph.nodes.includes(cellId)) proposedModel.graph.nodes.splice(operation.graphIndex, 0, cellId);
+      continue;
+    }
     const parameter = proposedModel.parameters.find((candidate) => candidate.id === operation.parameterId)!;
     if (operation.type === 'setParameterValue') {
       parameter.currentValue = operation.value;
-    } else {
+    } else if (operation.type === 'renameParameter') {
       const previousName = parameter.name;
       parameter.name = operation.name.trim();
       renameContractReferences(proposedModel, previousName, parameter.name);
       renameTestReferences(proposedTests, previousName, parameter.name);
+    } else {
+      const cellId = `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
+      proposedModel.parameters = proposedModel.parameters.filter((candidate) => candidate.id !== parameter.id);
+      proposedModel.graph.nodes = proposedModel.graph.nodes.filter((node) => node !== cellId);
+      proposedModel.graph.edges = proposedModel.graph.edges.filter((edge) => edge.from !== cellId && edge.to !== cellId);
     }
   }
 
@@ -88,20 +99,31 @@ export function previewMutation(
   };
 }
 
-function validateRequest(model: Model, request: MutationRequest): MutationValidationIssue[] {
+function validateRequest(model: Model, request: MutationRequest, tests: ModelTestDefinition[]): MutationValidationIssue[] {
   if (request.operations.length === 0) {
     return [{ code: 'empty_batch', message: 'A mutation request must contain at least one operation.' }];
   }
 
   const issues: MutationValidationIssue[] = [];
   const targets = new Set<string>();
+  const structuralConflicts = new Set(request.operations
+    .filter((operation) => (operation.type === 'removeParameter' || operation.type === 'restoreParameter')
+      && request.operations.some((candidate) => candidate !== operation && candidate.parameterId === operation.parameterId))
+    .map((operation) => operation.parameterId));
   const proposedNames = new Map(model.parameters.map((parameter) => [parameter.id, parameter.name.toLowerCase()]));
 
   for (const operation of request.operations) {
     if (operation.type === 'renameParameter') proposedNames.set(operation.parameterId, operation.name.trim().toLowerCase());
+    if (operation.type === 'restoreParameter') proposedNames.set(operation.parameterId, operation.parameter.name.toLowerCase());
   }
 
   request.operations.forEach((operation, operationIndex) => {
+    if (structuralConflicts.has(operation.parameterId)) {
+      if (!issues.some((issue) => issue.code === 'duplicate_target' && issue.message.includes(operation.parameterId))) {
+        issues.push({ code: 'duplicate_target', operationIndex, message: `Structural change for parameter "${operation.parameterId}" cannot be combined with another operation on that parameter.` });
+      }
+      return;
+    }
     const target = `${operation.type}:${operation.parameterId}`;
     if (targets.has(target)) {
       issues.push({
@@ -112,6 +134,16 @@ function validateRequest(model: Model, request: MutationRequest): MutationValida
       return;
     }
     targets.add(target);
+
+    if (operation.type === 'restoreParameter') {
+      if (model.parameters.some((candidate) => candidate.id === operation.parameterId)) {
+        issues.push({ code: 'parameter_already_exists', operationIndex, message: `Parameter "${operation.parameterId}" already exists.` });
+      }
+      if ([...proposedNames].some(([parameterId, name]) => parameterId !== operation.parameterId && name === operation.parameter.name.toLowerCase())) {
+        issues.push({ code: 'duplicate_name', operationIndex, message: `Parameter name "${operation.parameter.name}" is already in use.` });
+      }
+      return;
+    }
 
     const parameter = model.parameters.find((candidate) => candidate.id === operation.parameterId);
     if (!parameter) {
@@ -125,12 +157,25 @@ function validateRequest(model: Model, request: MutationRequest): MutationValida
 
     if (operation.type === 'setParameterValue') {
       issues.push(...validateValue(parameter, operation.value, operationIndex));
-    } else {
+    } else if (operation.type === 'renameParameter') {
       const name = operation.name.trim();
       if (!name) {
         issues.push({ code: 'invalid_name', operationIndex, message: 'Parameter name cannot be blank.' });
       } else if ([...proposedNames].some(([parameterId, proposedName]) => parameterId !== parameter.id && proposedName === name.toLowerCase())) {
         issues.push({ code: 'duplicate_name', operationIndex, message: `Parameter name "${name}" is already in use.` });
+      }
+    } else {
+      const cellId = `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
+      const consumers = model.graph.edges.filter((edge) => edge.from === cellId).map((edge) => edge.to);
+      const isOutput = model.outputs.some((output) => `${output.sourceCell.sheet}!${output.sourceCell.ref}` === cellId);
+      if (consumers.length > 0 || isOutput) {
+        issues.push({ code: 'parameter_has_consumers', operationIndex, message: `Parameter "${parameter.name}" cannot be removed because ${consumers.length + (isOutput ? 1 : 0)} model component(s) consume it.` });
+      }
+      if (contractReferencesName(model, parameter.name)) {
+        issues.push({ code: 'parameter_has_contract_refs', operationIndex, message: `Parameter "${parameter.name}" cannot be removed while the model contract references it.` });
+      }
+      if (tests.some((test) => testReferencesParameter(test, parameter))) {
+        issues.push({ code: 'parameter_has_test_refs', operationIndex, message: `Parameter "${parameter.name}" cannot be removed while model tests reference it.` });
       }
     }
   });
@@ -170,7 +215,9 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
 
 function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
   const queue = request.operations.map((operation) => {
-    const parameter = model.parameters.find((candidate) => candidate.id === operation.parameterId)!;
+    const parameter = operation.type === 'restoreParameter'
+      ? operation.parameter
+      : model.parameters.find((candidate) => candidate.id === operation.parameterId)!;
     return `${parameter.sourceCell.sheet}!${parameter.sourceCell.ref}`;
   });
   const visited = new Set(queue);
@@ -225,4 +272,24 @@ function replaceName(value: string, previousName: string, nextName: string, prot
   result = result.replace(new RegExp(`\\b${escaped}\\b`, 'g'), nextName);
   for (const replacement of replacements) result = result.replaceAll(replacement.placeholder, replacement.name);
   return result;
+}
+
+function contractReferencesName(model: Model, name: string): boolean {
+  if (!model.contract) return false;
+  if (model.contract.declaredInputs.some((input) => input.name === name)) return true;
+  const expressions = [
+    ...model.contract.invariants.map((invariant) => invariant.expression),
+    ...model.contract.rules.map((rule) => rule.expression),
+    ...(model.contract.behaviors ?? []).map((behavior) => behavior.statement),
+  ];
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return expressions.some((expression) => new RegExp(`\\b${escaped}\\b`).test(expression));
+}
+
+function testReferencesParameter(test: ModelTestDefinition, parameter: Parameter): boolean {
+  const assertion = test.assertion;
+  return assertion.left === parameter.name
+    || assertion.right === parameter.name
+    || assertion.consistencyPair?.includes(parameter.name) === true
+    || assertion.boundaryParams?.some((boundary) => boundary.parameterId === parameter.id) === true;
 }

@@ -14,6 +14,7 @@ function makeWorkbookBuffer(): Buffer {
     ['Price', 100],
     ['Quantity', 50],
     ['Total', { t: 'n', f: 'B1*B2' }],
+    ['Memo', 7],
   ]);
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
@@ -397,6 +398,68 @@ describe('Models API', () => {
 
     const deleteTestResponse = await app.request(`/tests/${modelId}/${createdTest.testId}`, { method: 'DELETE' });
     expect(deleteTestResponse.status).toBe(200);
+  });
+
+  it('POST /models/:id/mutations/commit — removes an isolated parameter and restores it through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const memoParameter = model.parameters.find((parameter: any) => parameter.name === 'Memo');
+    const memoIndex = model.parameters.findIndex((parameter: any) => parameter.id === memoParameter.id);
+    const memoCellId = `${memoParameter.sourceCell.sheet}!${memoParameter.sourceCell.ref}`;
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before isolated parameter removal' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'agent-remove', type: 'agent' },
+      rationale: 'Remove a confirmed isolated input',
+      operations: [{ type: 'removeParameter', parameterId: memoParameter.id }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.affectedOutputs).toEqual([]);
+    expect(preview.proposedModel.parameters.some((parameter: any) => parameter.id === memoParameter.id)).toBe(false);
+    expect(preview.proposedModel.graph.nodes).not.toContain(memoCellId);
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.semver).toBe('2.0.0');
+    expect(committed.model.parameters.some((parameter: any) => parameter.id === memoParameter.id)).toBe(false);
+    const runAfterRemoval = await (await app.request(`/models/${modelId}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })).json();
+    expect(Object.values(runAfterRemoval.results)).toContain(5000);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the isolated input',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.version).toBe(committed.model.version + 1);
+    expect(undone.model.parameters[memoIndex]).toEqual(memoParameter);
+    expect(undone.model.graph).toEqual(model.graph);
+    expect(undone.restoredFromSnapshotId).toBe(baselineSnapshot.id);
   });
 
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
