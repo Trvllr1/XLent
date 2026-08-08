@@ -12,7 +12,7 @@ interface Preview {
   affectedComponents: string[];
   affectedOutputs: string[];
   allTestsPass: boolean;
-  testResults: Array<{ status: string }>;
+  testResults: Array<{ name: string; status: string; message?: string }>;
   contractFindings: Array<{ id: string; severity: string; explanation: string }>;
   diff?: { summary: string };
 }
@@ -27,7 +27,7 @@ interface OutputRenamePanelProps {
 }
 
 export function OutputRenamePanel({ modelId, output, outputIndex, outputCount, onClose, onCommitted }: OutputRenamePanelProps) {
-  const [mode, setMode] = useState<'name' | 'position'>('name');
+  const [mode, setMode] = useState<'name' | 'position' | 'remove'>('name');
   const [name, setName] = useState(output.name);
   const [position, setPosition] = useState(String(outputIndex + 1));
   const [rationale, setRationale] = useState('');
@@ -40,7 +40,9 @@ export function OutputRenamePanel({ modelId, output, outputIndex, outputCount, o
     rationale,
     operations: mode === 'name'
       ? [{ type: 'renameOutput' as const, outputId: output.id, name: name.trim() }]
-      : [{ type: 'moveOutput' as const, outputId: output.id, toIndex: Number(position) - 1 }],
+      : mode === 'position'
+        ? [{ type: 'moveOutput' as const, outputId: output.id, toIndex: Number(position) - 1 }]
+        : [{ type: 'removeOutput' as const, outputId: output.id }],
   });
 
   const revise = (update: () => void) => {
@@ -102,13 +104,15 @@ export function OutputRenamePanel({ modelId, output, outputIndex, outputCount, o
         <button type="button" onClick={onClose} className="text-xs text-slate-400 hover:text-slate-100">Close</button>
       </div>
       <div className="mt-4 inline-flex rounded border border-slate-700 bg-slate-950 p-0.5" aria-label="Change type">
-        {(['name', 'position'] as const).map((option) => (
+        {(['name', 'position', 'remove'] as const).map((option) => (
           <button key={option} type="button" aria-pressed={mode === option} onClick={() => revise(() => setMode(option))} className={`px-3 py-1 text-xs font-medium capitalize ${mode === option ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:text-slate-200'}`}>{option}</button>
         ))}
       </div>
       <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(10rem,0.5fr)_minmax(16rem,1fr)_auto] xl:items-end">
-        <label className="text-xs text-slate-400">{mode === 'name' ? 'Proposed name' : 'Proposed position'}
-          {mode === 'name' ? (
+        <label className="text-xs text-slate-400">{mode === 'name' ? 'Proposed name' : mode === 'position' ? 'Proposed position' : 'Proposed change'}
+          {mode === 'remove' ? (
+            <span className="mt-1 flex min-h-9 items-center rounded border border-red-900/70 bg-red-950/30 px-2.5 py-2 text-sm text-red-300">Remove {output.name}</span>
+          ) : mode === 'name' ? (
             <input value={name} onChange={(event) => revise(() => setName(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100" />
           ) : (
             <select value={position} onChange={(event) => revise(() => setPosition(event.target.value))} className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100">
@@ -119,7 +123,7 @@ export function OutputRenamePanel({ modelId, output, outputIndex, outputCount, o
         <label className="text-xs text-slate-400">Rationale
           <input value={rationale} onChange={(event) => revise(() => setRationale(event.target.value))} placeholder="Why should this model change?" className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
         </label>
-        <button type="button" disabled={busy || !rationale.trim() || (mode === 'name' ? !name.trim() || name.trim() === output.name : Number(position) === outputIndex + 1)} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Evaluating…' : 'Preview change'}</button>
+        <button type="button" disabled={busy || !rationale.trim() || (mode === 'name' ? !name.trim() || name.trim() === output.name : mode === 'position' && Number(position) === outputIndex + 1)} onClick={handlePreview} className="rounded bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Evaluating…' : 'Preview change'}</button>
       </div>
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       {preview && (
@@ -131,6 +135,9 @@ export function OutputRenamePanel({ modelId, output, outputIndex, outputCount, o
             <span className="font-mono">Evidence {preview.previewId?.slice(0, 12)}</span>
           </div>
           {preview.testResults.length > 0 && <p className={`mt-2 ${preview.allTestsPass ? 'text-emerald-400' : 'text-red-400'}`}>Tests: {preview.testResults.filter((test) => test.status === 'pass').length}/{preview.testResults.length} passed</p>}
+          {preview.testResults.filter((test) => test.status === 'fail' || test.status === 'error').map((test) => (
+            <p key={test.name} className="mt-1 text-red-300"><span className="font-medium">{test.name}:</span> {test.message ?? test.status}</p>
+          ))}
           {preview.contractFindings.map((finding) => <p key={finding.id} className={finding.severity === 'critical' ? 'mt-2 text-red-400' : 'mt-2 text-amber-400'}>{finding.explanation}</p>)}
           <div className="mt-4 flex gap-2">
             <button type="button" disabled={busy || blocked} onClick={() => handleDecision('commit')} className="rounded bg-emerald-500 px-3 py-1.5 font-medium text-slate-950 disabled:opacity-40">Commit</button>

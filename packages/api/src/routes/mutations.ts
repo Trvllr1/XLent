@@ -226,13 +226,28 @@ mutationsRouter.post('/:id/mutations/undo', async (c) => {
       workingOrder.splice(toIndex, 0, parameter.id);
     }
   });
+  const currentOutputs = new Map(model.outputs.map((output) => [output.id, output]));
+  const targetOutputs = new Map(target.data.outputs.map((output) => [output.id, output]));
+  target.data.outputs.forEach((output, index) => {
+    if (!currentOutputs.has(output.id)) {
+      operations.push({ type: 'restoreOutput', outputId: output.id, output, index });
+    }
+  });
   for (const output of model.outputs) {
-    const targetOutput = target.data.outputs.find((candidate) => candidate.id === output.id);
-    if (targetOutput && targetOutput.name !== output.name) {
+    const targetOutput = targetOutputs.get(output.id);
+    if (!targetOutput) {
+      operations.push({ type: 'removeOutput', outputId: output.id });
+      continue;
+    }
+    if (targetOutput.name !== output.name) {
       operations.push({ type: 'renameOutput', outputId: output.id, name: targetOutput.name });
     }
   }
   const workingOutputOrder = model.outputs.map((output) => output.id);
+  for (const operation of operations) {
+    if (operation.type === 'restoreOutput') workingOutputOrder.splice(operation.index, 0, operation.outputId);
+    if (operation.type === 'removeOutput') workingOutputOrder.splice(workingOutputOrder.indexOf(operation.outputId), 1);
+  }
   target.data.outputs.forEach((output, toIndex) => {
     const fromIndex = workingOutputOrder.indexOf(output.id);
     if (fromIndex !== toIndex) {

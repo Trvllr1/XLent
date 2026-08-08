@@ -33,9 +33,11 @@ export type {
 	MutationValidationIssue,
 	MoveOutputOperation,
 	MoveParameterOperation,
+	RemoveOutputOperation,
 	RemoveParameterOperation,
 	RenameParameterOperation,
 	RenameOutputOperation,
+	RestoreOutputOperation,
 	RestoreParameterOperation,
 	SetParameterValueOperation,
 } from './mutation/index.js';

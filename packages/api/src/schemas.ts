@@ -112,6 +112,10 @@ const mutationRequestFields = {
       toIndex: z.number().int().min(0),
     }).strict(),
     z.object({
+      type: z.literal('removeOutput'),
+      outputId: z.string().uuid(),
+    }).strict(),
+    z.object({
       type: z.literal('removeParameter'),
       parameterId: z.string().uuid(),
     }).strict(),

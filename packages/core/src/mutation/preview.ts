@@ -45,6 +45,14 @@ export function previewMutation(
       proposedModel.outputs.splice(operation.toIndex, 0, moved);
       continue;
     }
+    if (operation.type === 'removeOutput') {
+      proposedModel.outputs = proposedModel.outputs.filter((candidate) => candidate.id !== operation.outputId);
+      continue;
+    }
+    if (operation.type === 'restoreOutput') {
+      proposedModel.outputs.splice(operation.index, 0, structuredClone(operation.output));
+      continue;
+    }
     if (operation.type === 'restoreParameter') {
       proposedModel.parameters.splice(operation.index, 0, structuredClone(operation.parameter));
       const cellId = `${operation.parameter.sourceCell.sheet}!${operation.parameter.sourceCell.ref}`;
@@ -125,8 +133,8 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
   const issues: MutationValidationIssue[] = [];
   const targets = new Set<string>();
   const structuralConflicts = new Set(request.operations
-    .filter((operation) => (operation.type === 'removeParameter' || operation.type === 'restoreParameter')
-      && request.operations.some((candidate) => candidate !== operation && operationTargetId(candidate) === operation.parameterId))
+    .filter((operation) => ['removeParameter', 'restoreParameter', 'removeOutput', 'restoreOutput'].includes(operation.type)
+      && request.operations.some((candidate) => candidate !== operation && operationTargetId(candidate) === operationTargetId(operation)))
     .map(operationTargetId));
   const proposedNames = new Map(model.parameters.map((parameter) => [parameter.id, parameter.name.toLowerCase()]));
   const proposedOutputNames = new Map(model.outputs.map((output) => [output.id, output.name.toLowerCase()]));
@@ -135,13 +143,14 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
     if (operation.type === 'renameParameter') proposedNames.set(operation.parameterId, operation.name.trim().toLowerCase());
     if (operation.type === 'restoreParameter') proposedNames.set(operation.parameterId, operation.parameter.name.toLowerCase());
     if (operation.type === 'renameOutput') proposedOutputNames.set(operation.outputId, operation.name.trim().toLowerCase());
+    if (operation.type === 'restoreOutput') proposedOutputNames.set(operation.outputId, operation.output.name.toLowerCase());
   }
 
   request.operations.forEach((operation, operationIndex) => {
     const operationId = operationTargetId(operation);
     if (structuralConflicts.has(operationId)) {
       if (!issues.some((issue) => issue.code === 'duplicate_target' && issue.message.includes(operationId))) {
-        issues.push({ code: 'duplicate_target', operationIndex, message: `Structural change for parameter "${operationId}" cannot be combined with another operation on that parameter.` });
+        issues.push({ code: 'duplicate_target', operationIndex, message: `Structural change for component "${operationId}" cannot be combined with another operation on that component.` });
       }
       return;
     }
@@ -156,7 +165,20 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
     }
     targets.add(target);
 
-    if (operation.type === 'renameOutput' || operation.type === 'moveOutput') {
+    if (operation.type === 'restoreOutput') {
+      if (model.outputs.some((candidate) => candidate.id === operation.outputId)) {
+        issues.push({ code: 'output_already_exists', operationIndex, message: `Output "${operation.outputId}" already exists.` });
+      }
+      if ([...proposedOutputNames].some(([outputId, name]) => outputId !== operation.outputId && name === operation.output.name.toLowerCase())) {
+        issues.push({ code: 'duplicate_name', operationIndex, message: `Output name "${operation.output.name}" is already in use.` });
+      }
+      if (!Number.isInteger(operation.index) || operation.index < 0 || operation.index > model.outputs.length) {
+        issues.push({ code: 'invalid_index', operationIndex, message: `Output position must be between 0 and ${model.outputs.length}.` });
+      }
+      return;
+    }
+
+    if (operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput') {
       const output = model.outputs.find((candidate) => candidate.id === operation.outputId);
       if (!output) {
         issues.push({ code: 'output_not_found', operationIndex, message: `Output "${operation.outputId}" was not found.` });
@@ -168,6 +190,13 @@ function validateRequest(model: Model, request: MutationRequest, tests: ModelTes
           issues.push({ code: 'invalid_name', operationIndex, message: 'Output name cannot be blank.' });
         } else if ([...proposedOutputNames].some(([outputId, proposedName]) => outputId !== output.id && proposedName === name.toLowerCase())) {
           issues.push({ code: 'duplicate_name', operationIndex, message: `Output name "${name}" is already in use.` });
+        }
+      } else if (operation.type === 'removeOutput') {
+        if (contractReferencesName(model, output.name)) {
+          issues.push({ code: 'output_has_contract_refs', operationIndex, message: `Output "${output.name}" cannot be removed while the model contract references it.` });
+        }
+        if (tests.some((test) => testReferencesOutput(test, output))) {
+          issues.push({ code: 'output_has_test_refs', operationIndex, message: `Output "${output.name}" cannot be removed while model tests reference it.` });
         }
       } else if (!Number.isInteger(operation.toIndex) || operation.toIndex < 0 || operation.toIndex >= model.outputs.length) {
         issues.push({ code: 'invalid_index', operationIndex, message: `Output position must be between 0 and ${model.outputs.length - 1}.` });
@@ -257,8 +286,10 @@ function validateValue(parameter: Parameter, value: unknown, operationIndex: num
 
 function findImpact(model: Model, request: MutationRequest): { components: string[]; outputs: string[] } {
   const queue = request.operations.filter((operation) => operation.type !== 'moveParameter' && operation.type !== 'moveOutput').map((operation) => {
-    if (operation.type === 'renameOutput') {
-      const output = model.outputs.find((candidate) => candidate.id === operation.outputId)!;
+    if (operation.type === 'renameOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput') {
+      const output = operation.type === 'restoreOutput'
+        ? operation.output
+        : model.outputs.find((candidate) => candidate.id === operation.outputId)!;
       return `${output.sourceCell.sheet}!${output.sourceCell.ref}`;
     }
     const parameter = operation.type === 'restoreParameter'
@@ -324,6 +355,7 @@ function replaceName(value: string, previousName: string, nextName: string, prot
 function contractReferencesName(model: Model, name: string): boolean {
   if (!model.contract) return false;
   if (model.contract.declaredInputs.some((input) => input.name === name)) return true;
+  if (model.contract.declaredOutputs.some((output) => output.name === name)) return true;
   const expressions = [
     ...model.contract.invariants.map((invariant) => invariant.expression),
     ...model.contract.rules.map((rule) => rule.expression),
@@ -341,6 +373,15 @@ function testReferencesParameter(test: ModelTestDefinition, parameter: Parameter
     || assertion.boundaryParams?.some((boundary) => boundary.parameterId === parameter.id) === true;
 }
 
+function testReferencesOutput(test: ModelTestDefinition, output: Model['outputs'][number]): boolean {
+  const assertion = test.assertion;
+  return assertion.left === output.name
+    || assertion.right === output.name
+    || assertion.consistencyPair?.includes(output.name) === true;
+}
+
 function operationTargetId(operation: MutationRequest['operations'][number]): string {
-  return operation.type === 'renameOutput' || operation.type === 'moveOutput' ? operation.outputId : operation.parameterId;
+  return operation.type === 'renameOutput' || operation.type === 'moveOutput' || operation.type === 'removeOutput' || operation.type === 'restoreOutput'
+    ? operation.outputId
+    : operation.parameterId;
 }

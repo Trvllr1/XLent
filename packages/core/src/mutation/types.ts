@@ -1,4 +1,4 @@
-import type { DebugFinding, Model, ModelDiff, ModelTestDefinition, ModelTestResult, Parameter } from '../types.js';
+import type { DebugFinding, Model, ModelDiff, ModelTestDefinition, ModelTestResult, Output, Parameter } from '../types.js';
 
 export interface MutationActor {
   id: string;
@@ -29,6 +29,18 @@ export interface MoveOutputOperation {
   toIndex: number;
 }
 
+export interface RemoveOutputOperation {
+  type: 'removeOutput';
+  outputId: string;
+}
+
+export interface RestoreOutputOperation {
+  type: 'restoreOutput';
+  outputId: string;
+  output: Output;
+  index: number;
+}
+
 export interface RemoveParameterOperation {
   type: 'removeParameter';
   parameterId: string;
@@ -48,7 +60,7 @@ export interface RestoreParameterOperation {
   graphIndex: number;
 }
 
-export type MutationOperation = SetParameterValueOperation | RenameParameterOperation | RenameOutputOperation | MoveOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
+export type MutationOperation = SetParameterValueOperation | RenameParameterOperation | RenameOutputOperation | MoveOutputOperation | RemoveOutputOperation | RestoreOutputOperation | RemoveParameterOperation | MoveParameterOperation | RestoreParameterOperation;
 
 export interface MutationRequest {
   actor: MutationActor;
@@ -69,7 +81,7 @@ export interface MutationUndoRequest {
 }
 
 export interface MutationValidationIssue {
-  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'output_not_found' | 'parameter_already_exists' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs';
+  code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'output_not_found' | 'parameter_already_exists' | 'output_already_exists' | 'invalid_type' | 'outside_allowed_range' | 'invalid_name' | 'duplicate_name' | 'invalid_index' | 'parameter_has_consumers' | 'parameter_has_contract_refs' | 'parameter_has_test_refs' | 'output_has_contract_refs' | 'output_has_test_refs';
   operationIndex?: number;
   message: string;
 }

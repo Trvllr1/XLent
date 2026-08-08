@@ -639,6 +639,62 @@ describe('Models API', () => {
     expect(undone.model.graph).toEqual(model.graph);
   });
 
+  it('POST /models/:id/mutations/commit — removes an output declaration and restores it through undo', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const removedOutput = model.outputs.find((output: any) => output.name === 'Combined input');
+    const removedIndex = model.outputs.findIndex((output: any) => output.id === removedOutput.id);
+    const originalOrder = model.outputs.map((output: any) => output.id);
+    const snapshotResponse = await app.request(`/snapshots/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Before output removal' }),
+    });
+    const baselineSnapshot = await snapshotResponse.json();
+    const mutationRequest = {
+      actor: { id: 'user-output-remove', type: 'human' },
+      rationale: 'Retire an output from the public model surface',
+      operations: [{ type: 'removeOutput', outputId: removedOutput.id }],
+    };
+    const previewResponse = await app.request(`/models/${modelId}/mutations/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutationRequest),
+    });
+    expect(previewResponse.status).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.diff.entries).toEqual([expect.objectContaining({ path: 'outputs.Combined input', changeType: 'removed' })]);
+    expect(preview.proposedModel.outputs.some((output: any) => output.id === removedOutput.id)).toBe(false);
+    expect(preview.proposedModel.calculations).toEqual(model.calculations);
+    expect(preview.proposedModel.graph).toEqual(model.graph);
+
+    const commitResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutationRequest, baseVersion: model.version, previewId: preview.previewId }),
+    });
+    expect(commitResponse.status).toBe(201);
+    const committed = await commitResponse.json();
+    expect(committed.model.outputs.some((output: any) => output.id === removedOutput.id)).toBe(false);
+    expect(committed.model.graph).toEqual(model.graph);
+
+    const undoResponse = await app.request(`/models/${modelId}/mutations/undo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'Restore the retired output declaration',
+        baseVersion: committed.model.version,
+        targetSnapshotId: baselineSnapshot.id,
+      }),
+    });
+    expect(undoResponse.status).toBe(201);
+    const undone = await undoResponse.json();
+    expect(undone.model.outputs.map((output: any) => output.id)).toEqual(originalOrder);
+    expect(undone.model.outputs[removedIndex]).toEqual(removedOutput);
+    expect(undone.model.graph).toEqual(model.graph);
+  });
+
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {
     const res = await app.request(`/models/${modelId}/deliverable`);
     expect(res.status).toBe(200);
