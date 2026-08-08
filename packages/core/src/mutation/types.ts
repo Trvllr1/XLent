@@ -1,4 +1,4 @@
-import type { Model, ModelDiff } from '../types.js';
+import type { DebugFinding, Model, ModelDiff, ModelTestResult } from '../types.js';
 
 export interface MutationActor {
   id: string;
@@ -19,6 +19,10 @@ export interface MutationRequest {
   operations: MutationOperation[];
 }
 
+export interface MutationCommitRequest extends MutationRequest {
+  baseVersion: number;
+}
+
 export interface MutationValidationIssue {
   code: 'empty_batch' | 'duplicate_target' | 'parameter_not_found' | 'invalid_type' | 'outside_allowed_range';
   operationIndex?: number;
@@ -31,5 +35,18 @@ export interface MutationPreview {
   proposedModel?: Model;
   diff?: ModelDiff;
   affectedOutputs: string[];
+  testResults: ModelTestResult[];
+  allTestsPass: boolean;
+  contractFindings: DebugFinding[];
   validationIssues: MutationValidationIssue[];
+}
+
+export interface MutationCommitResult {
+  model: Model;
+  diff: ModelDiff;
+  affectedOutputs: string[];
+  tests: ModelTestResult[];
+  contractFindings: DebugFinding[];
+  snapshotId: string;
+  evidenceId: string;
 }

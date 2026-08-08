@@ -62,6 +62,9 @@ describe('previewMutation', () => {
     expect(preview.proposedModel?.outputs[0].value).toBe(50);
     expect(preview.proposedModel?.semver).toBe('1.1.0');
     expect(preview.affectedOutputs).toEqual(['double-revenue']);
+    expect(preview.testResults).toEqual([]);
+    expect(preview.allTestsPass).toBe(true);
+    expect(preview.contractFindings).toEqual([]);
     expect(preview.diff?.entries.map((entry) => entry.path)).toEqual([
       'parameters.Revenue.value',
       'outputs.Double Revenue.value',
@@ -81,6 +84,7 @@ describe('previewMutation', () => {
 
     expect(preview.valid).toBe(false);
     expect(preview.proposedModel).toBeUndefined();
+    expect(preview.allTestsPass).toBe(false);
     expect(preview.validationIssues).toEqual([expect.objectContaining({ code: 'outside_allowed_range' })]);
     expect(model.parameters[0].currentValue).toBe(10);
   });

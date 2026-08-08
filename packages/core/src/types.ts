@@ -391,11 +391,12 @@ export interface EvidenceRecord {
   scenario?: string;
   outputs: Record<string, unknown>;
   tests: ModelTestResult[];
+  contractFindings?: DebugFinding[];
   allTestsPass: boolean;
   checksum: string;
   reproducible: boolean;
   executedBy?: string;
-  purpose?: 'scenario_run' | 'publish_gate' | 'delivery' | 'manual';
+  purpose?: 'scenario_run' | 'publish_gate' | 'delivery' | 'manual' | 'mutation_commit';
 }
 
 // --- Model Package (E5) ---

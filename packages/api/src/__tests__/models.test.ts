@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 
 // Use in-memory SQLite for tests
@@ -141,6 +141,116 @@ describe('Models API', () => {
     const afterSnapshotsResponse = await app.request(`/snapshots/${modelId}`);
     const afterSnapshots = (await afterSnapshotsResponse.json()).snapshots;
     expect(afterSnapshots).toHaveLength(beforeSnapshots.length);
+  });
+
+  it('POST /models/:id/mutations/commit — creates one governed immutable version', async () => {
+    const beforeModelResponse = await app.request(`/models/${modelId}`);
+    const beforeModel = (await beforeModelResponse.json()).model;
+    const priceParam = beforeModel.parameters.find((parameter: any) => parameter.name === 'Price');
+    const beforeSnapshotsResponse = await app.request(`/snapshots/${modelId}`);
+    const beforeSnapshots = (await beforeSnapshotsResponse.json()).snapshots;
+    const mutation = {
+      actor: { id: 'agent-1', type: 'agent' },
+      rationale: 'Commit a governed price update',
+      operations: [{ type: 'setParameterValue', parameterId: priceParam.id, value: 200 }],
+      baseVersion: beforeModel.version,
+    };
+
+    const response = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutation),
+    });
+
+    expect(response.status).toBe(201);
+    const committed = await response.json();
+    expect(committed.model.version).toBe(beforeModel.version + 1);
+    expect(committed.model.semver).toBe('1.1.0');
+    expect(committed.model.assuranceLevel).toBe('UNASSESSED');
+    expect(committed.model.parameters.find((parameter: any) => parameter.id === priceParam.id).currentValue).toBe(200);
+    expect(committed.model.outputs.map((output: any) => output.value)).toContain(10000);
+    expect(committed.snapshotId).toBeTruthy();
+    expect(committed.evidenceId).toBeTruthy();
+
+    const snapshotsResponse = await app.request(`/snapshots/${modelId}`);
+    const snapshots = (await snapshotsResponse.json()).snapshots;
+    expect(snapshots).toHaveLength(beforeSnapshots.length + 1);
+    expect(snapshots.find((snapshot: any) => snapshot.id === committed.snapshotId)).toEqual(expect.objectContaining({
+      id: committed.snapshotId,
+      semver: '1.1.0',
+      message: mutation.rationale,
+    }));
+
+    const evidenceResponse = await app.request(`/tests/${modelId}/evidence/${committed.evidenceId}`);
+    const evidence = await evidenceResponse.json();
+    expect(evidence).toEqual(expect.objectContaining({
+      modelVersion: beforeModel.version + 1,
+      executedBy: 'agent:agent-1',
+      purpose: 'mutation_commit',
+      reproducible: true,
+    }));
+
+    const staleResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutation),
+    });
+    expect(staleResponse.status).toBe(409);
+
+    const tamperedResponse = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...mutation, baseVersion: committed.model.version, proposedModel: { version: 999 } }),
+    });
+    expect(tamperedResponse.status).toBe(400);
+
+    const snapshotsAfterStaleResponse = await app.request(`/snapshots/${modelId}`);
+    const snapshotsAfterStale = (await snapshotsAfterStaleResponse.json()).snapshots;
+    expect(snapshotsAfterStale).toHaveLength(beforeSnapshots.length + 1);
+  });
+
+  it('POST /models/:id/mutations/commit — blocks a mutation when model tests fail', async () => {
+    const modelResponse = await app.request(`/models/${modelId}`);
+    const model = (await modelResponse.json()).model;
+    const priceParam = model.parameters.find((parameter: any) => parameter.name === 'Price');
+    const totalOutput = model.outputs.find((output: any) => output.value === 10000);
+    const createTestResponse = await app.request(`/tests/${modelId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Total remains at approved value',
+        category: 'business',
+        assertion: { type: 'equals', left: totalOutput.id, right: 10000 },
+      }),
+    });
+    expect(createTestResponse.status).toBe(201);
+
+    const snapshotsBeforeResponse = await app.request(`/snapshots/${modelId}`);
+    const snapshotsBefore = (await snapshotsBeforeResponse.json()).snapshots;
+    const response = await app.request(`/models/${modelId}/mutations/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        actor: { id: 'user-1', type: 'human' },
+        rationale: 'This proposal should fail its business test',
+        operations: [{ type: 'setParameterValue', parameterId: priceParam.id, value: 300 }],
+        baseVersion: model.version,
+      }),
+    });
+
+    expect(response.status).toBe(422);
+    const rejected = await response.json();
+    expect(rejected.preview.allTestsPass).toBe(false);
+    expect(rejected.preview.testResults).toEqual([
+      expect.objectContaining({ name: 'Total remains at approved value', status: 'fail' }),
+    ]);
+
+    const modelAfterResponse = await app.request(`/models/${modelId}`);
+    const modelAfter = (await modelAfterResponse.json()).model;
+    expect(modelAfter).toEqual(model);
+    const snapshotsAfterResponse = await app.request(`/snapshots/${modelId}`);
+    const snapshotsAfter = (await snapshotsAfterResponse.json()).snapshots;
+    expect(snapshotsAfter).toHaveLength(snapshotsBefore.length);
   });
 
   it('GET /models/:id/deliverable — returns packaged deliverable', async () => {

@@ -24,6 +24,8 @@ export { buildModelPackage } from './package.js';
 export { previewMutation } from './mutation/index.js';
 export type {
 	MutationActor,
+	MutationCommitRequest,
+	MutationCommitResult,
 	MutationOperation,
 	MutationPreview,
 	MutationRequest,

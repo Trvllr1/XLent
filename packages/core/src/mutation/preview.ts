@@ -1,16 +1,26 @@
 import { bumpSemver, diffModels } from '../diff.js';
+import { reconcileContract } from '../contractReconcile.js';
 import type { ParsedWorkbook } from '../parser.js';
 import { ModelRuntime } from '../runtime.js';
-import type { Model, Parameter } from '../types.js';
+import { runModelTests } from '../testRunner.js';
+import type { Model, ModelTestDefinition, Parameter } from '../types.js';
 import type { MutationPreview, MutationRequest, MutationValidationIssue } from './types.js';
 
-export function previewMutation(model: Model, workbook: ParsedWorkbook, request: MutationRequest): MutationPreview {
+export function previewMutation(
+  model: Model,
+  workbook: ParsedWorkbook,
+  request: MutationRequest,
+  tests: ModelTestDefinition[] = [],
+): MutationPreview {
   const validationIssues = validateRequest(model, request);
   if (validationIssues.length > 0) {
     return {
       valid: false,
       baseVersion: model.version,
       affectedOutputs: [],
+      testResults: [],
+      allTestsPass: false,
+      contractFindings: [],
       validationIssues,
     };
   }
@@ -33,6 +43,10 @@ export function previewMutation(model: Model, workbook: ParsedWorkbook, request:
 
   const initialDiff = diffModels(model, proposedModel);
   proposedModel.semver = bumpSemver(model.semver, initialDiff.suggestedBump);
+  const testResults = runModelTests(proposedModel, workbook, tests);
+  const contractFindings = proposedModel.contract
+    ? reconcileContract(proposedModel, proposedModel.contract)
+    : [];
 
   return {
     valid: true,
@@ -40,6 +54,9 @@ export function previewMutation(model: Model, workbook: ParsedWorkbook, request:
     proposedModel,
     diff: diffModels(model, proposedModel),
     affectedOutputs: findAffectedOutputs(model, request),
+    testResults,
+    allTestsPass: testResults.every((result) => result.status === 'pass' || result.status === 'skip'),
+    contractFindings,
     validationIssues: [],
   };
 }

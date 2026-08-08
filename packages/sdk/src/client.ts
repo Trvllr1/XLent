@@ -2,7 +2,6 @@ import type {
   Model,
   ModelDiscovery,
   ModelPackage,
-  ModelTestDefinition,
   ModelTestResult,
   ModelDiff,
   EvidenceRecord,
@@ -13,6 +12,10 @@ import type {
   Snapshot,
   Parameter,
   Output,
+  MutationCommitRequest,
+  MutationCommitResult,
+  MutationPreview,
+  MutationRequest,
 } from '@xlent/core';
 
 export interface XLentClientOptions {
@@ -79,6 +82,15 @@ export class XLentClient {
 
   async runModel(modelId: string, overrides?: ScenarioOverride[]): Promise<{ results: Record<string, unknown> }> {
     return this.post(`/models/${modelId}/run`, { overrides });
+  }
+
+  // --- Governed Mutations ---
+  async previewMutation(modelId: string, request: MutationRequest): Promise<MutationPreview> {
+    return this.post(`/models/${modelId}/mutations/preview`, request);
+  }
+
+  async commitMutation(modelId: string, request: MutationCommitRequest): Promise<MutationCommitResult> {
+    return this.post(`/models/${modelId}/mutations/commit`, request);
   }
 
   async getPackage(modelId: string): Promise<ModelPackage> {

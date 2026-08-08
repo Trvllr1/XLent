@@ -84,15 +84,22 @@ export const metadataSchema = z.object({
   tags: z.array(z.string().min(1).max(60)).max(20).optional(),
 });
 
-export const mutationPreviewSchema = z.object({
+const mutationRequestFields = {
   actor: z.object({
     id: z.string().min(1).max(200),
     type: z.enum(['human', 'agent']),
-  }),
+  }).strict(),
   rationale: z.string().min(1).max(2000),
   operations: z.array(z.object({
     type: z.literal('setParameterValue'),
     parameterId: z.string().uuid(),
-    value: z.unknown(),
-  })).min(1).max(100),
-});
+    value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  }).strict()).min(1).max(100),
+};
+
+export const mutationPreviewSchema = z.object(mutationRequestFields).strict();
+
+export const mutationCommitSchema = z.object({
+  ...mutationRequestFields,
+  baseVersion: z.number().int().positive(),
+}).strict();

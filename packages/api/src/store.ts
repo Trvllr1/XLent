@@ -27,6 +27,8 @@ class ModelStore {
     // Upsert (not INSERT OR REPLACE) — REPLACE does DELETE+INSERT which fires ON DELETE CASCADE and wipes child rows
     insertModel: db.prepare(`INSERT INTO models (id, name, slug, semver, status, version, created_at, workbook_name, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET name=excluded.name, slug=excluded.slug, semver=excluded.semver, status=excluded.status, version=excluded.version, workbook_name=excluded.workbook_name, data=excluded.data`),
+    updateModelVersion: db.prepare(`UPDATE models SET name = ?, slug = ?, semver = ?, status = ?, version = ?, workbook_name = ?, data = ?
+      WHERE id = ? AND version = ?`),
     getModel: db.prepare('SELECT data FROM models WHERE id = ?'),
     getBySlug: db.prepare('SELECT data FROM models WHERE slug = ?'),
     listModels: db.prepare('SELECT data FROM models ORDER BY created_at DESC'),
@@ -40,6 +42,21 @@ class ModelStore {
 
   setModel(model: Model): void {
     this.stmts.insertModel.run(model.id, model.name, model.slug, model.semver, model.status, model.version, model.createdAt, model.workbookName, JSON.stringify(model));
+  }
+
+  setModelIfVersion(model: Model, expectedVersion: number): boolean {
+    const result = this.stmts.updateModelVersion.run(
+      model.name,
+      model.slug,
+      model.semver,
+      model.status,
+      model.version,
+      model.workbookName,
+      JSON.stringify(model),
+      model.id,
+      expectedVersion,
+    );
+    return result.changes === 1;
   }
 
   getModel(id: string): Model | undefined {
